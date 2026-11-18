@@ -4,6 +4,7 @@ import { useStore } from '../lib/store'
 import { applyTheme, loadThemeChoice, saveThemeChoice, THEMES, type ThemeChoice } from '../lib/themes'
 import type { Provider } from '../lib/types'
 import { PROVIDERS, ProviderIcon } from './Login'
+import { ProfileCard } from './ProfileCard'
 
 export function Settings() {
   const { backend } = useStore()
@@ -39,7 +40,8 @@ export function Settings() {
       <h1>Réglages</h1>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 18, alignItems: 'start' }}>
-        <section className="card appear" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <ProfileCard />
+        <section className="card appear appear-2" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
             <h2>Thème</h2>
             <p className="muted" style={{ margin: '2px 0 0', fontSize: 14 }}>Chaque membre choisit le sien.</p>
