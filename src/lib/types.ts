@@ -156,3 +156,14 @@ export interface DocumentItem {
   uploadedBy: string | null
   createdAt: string
 }
+
+/** Document texte écrit à plusieurs (contenu chargé à l'ouverture). */
+export interface Note {
+  id: string
+  title: string
+  preview: string
+  createdBy: string | null
+  updatedBy: string | null
+  createdAt: string
+  updatedAt: string
+}

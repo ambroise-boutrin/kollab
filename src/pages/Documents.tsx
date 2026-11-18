@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type DragEvent } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type DragEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
@@ -6,7 +7,10 @@ import { Modal } from '../components/Modal'
 import { PdfView } from '../components/PdfView'
 import { useToast } from '../components/Toast'
 import { useStore, useWorkspace } from '../lib/store'
-import type { DocumentItem } from '../lib/types'
+import type { DocumentItem, Note } from '../lib/types'
+
+// L'éditeur (TipTap + Yjs) n'est chargé qu'à l'ouverture d'un document.
+const NoteEditor = lazy(() => import('./NoteEditor'))
 
 const MAX = 25 * 1024 * 1024
 
@@ -82,6 +86,28 @@ export function Documents() {
   const depth = useRef(0)
 
   const q = query.trim().toLowerCase()
+  const [params, setParams] = useSearchParams()
+  const noteId = params.get('note')
+  const openNote = ws.notes.find((n) => n.id === noteId) ?? null
+  const setNote = (id: string | null) =>
+    setParams((p) => {
+      const next = new URLSearchParams(p)
+      if (id) next.set('note', id)
+      else next.delete('note')
+      return next
+    }, { replace: true })
+  const notes = ws.notes.filter((n) => !q || n.title.toLowerCase().includes(q) || n.preview.toLowerCase().includes(q))
+
+  async function newNote() {
+    try {
+      const n = await backend.createNote('Sans titre')
+      await reload()
+      setNote(n.id)
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Création impossible')
+    }
+  }
+
   const docs = ws.documents.filter((d) => (filter === 'all' || kindOf(d) === filter) && (!q || d.name.toLowerCase().includes(q)))
   const counts = Object.fromEntries(FILTERS.map((f) => [f.id, f.id === 'all' ? ws.documents.length : ws.documents.filter((d) => kindOf(d) === f.id).length]))
   const current = open ? docs.find((d) => d.id === open) ?? ws.documents.find((d) => d.id === open) ?? null : null
@@ -145,16 +171,37 @@ export function Documents() {
       <div className="page-head">
         <div>
           <h1>Documents</h1>
-          <p className="muted" style={{ margin: '2px 0 0' }}>{ws.documents.length} fichier{ws.documents.length > 1 ? 's' : ''} partagé{ws.documents.length > 1 ? 's' : ''} avec l'équipe</p>
+          <p className="muted" style={{ margin: '2px 0 0' }}>{ws.notes.length} document{ws.notes.length > 1 ? 's' : ''} · {ws.documents.length} fichier{ws.documents.length > 1 ? 's' : ''}</p>
         </div>
         {canWrite && (
-          <button className="btn" onClick={() => input.current?.click()}>
-            <Icon name="upload" size={18} /> Ajouter
-          </button>
+          <div className="actions">
+            <button className="btn soft" onClick={() => input.current?.click()}>
+              <Icon name="upload" size={18} /> Fichier
+            </button>
+            <button className="btn" onClick={() => void newNote()}>
+              <Icon name="plus" size={18} /> Nouveau document
+            </button>
+          </div>
         )}
         <input ref={input} type="file" multiple hidden onChange={(e) => { if (e.target.files) void upload(e.target.files); e.target.value = '' }} />
       </div>
 
+      <section className="notes-section">
+        <h2>Écrits ensemble</h2>
+        <div className="notes-grid">
+          {canWrite && (
+            <button className="note-card note-new" onClick={() => void newNote()}>
+              <span className="invite-plus"><Icon name="plus" size={24} /></span>
+              <strong>Nouveau document</strong>
+              <span>Compte rendu, spec, idées… à plusieurs en direct</span>
+            </button>
+          )}
+          {notes.map((n) => <NoteCard key={n.id} note={n} onOpen={() => setNote(n.id)} />)}
+          {!canWrite && notes.length === 0 && <p className="hint">Aucun document pour le moment.</p>}
+        </div>
+      </section>
+
+      <h2 className="files-title">Fichiers</h2>
       <div className="docs-tools">
         <div className="chips" role="radiogroup" aria-label="Type de fichier">
           {FILTERS.filter((f) => f.id === 'all' || counts[f.id]).map((f) => (
@@ -182,7 +229,7 @@ export function Documents() {
             <span className="kind-image">JPG</span>
             <span className="kind-text">MD</span>
           </span>
-          <strong>Dépose ici le cahier des charges, les maquettes, les comptes rendus…</strong>
+          <strong>Dépose ici le cahier des charges, les maquettes, les PDF…</strong>
           <span className="muted">{canWrite ? 'Glisse des fichiers sur la page ou clique pour choisir. 25 Mo maximum.' : 'Aucun document pour le moment.'}</span>
         </button>
       ) : docs.length === 0 ? (
@@ -220,6 +267,12 @@ export function Documents() {
         />
       )}
 
+      {openNote && (
+        <Suspense fallback={null}>
+          <NoteEditor key={openNote.id} note={openNote} onClose={() => setNote(null)} />
+        </Suspense>
+      )}
+
       {renaming && (
         <RenameDialog
           doc={renaming}
@@ -233,6 +286,26 @@ export function Documents() {
         />
       )}
     </div>
+  )
+}
+
+function NoteCard({ note, onOpen }: { note: Note; onOpen: () => void }) {
+  const ws = useWorkspace()
+  const who = ws.members.find((m) => m.id === (note.updatedBy ?? note.createdBy))
+  const lines = note.preview.split('\n').filter(Boolean).slice(0, 4)
+  return (
+    <button className="note-card appear" onClick={onOpen}>
+      <span className="note-paper">
+        {lines.length ? lines.map((l, i) => <span key={i}>{l}</span>) : <span className="muted">Vide pour l'instant</span>}
+      </span>
+      <span className="doc-info">
+        <strong title={note.title}>{note.title}</strong>
+        <span className="doc-meta">
+          {who && <Avatar member={who} size={18} />}
+          <span className="muted">Modifié {ago(note.updatedAt)}</span>
+        </span>
+      </span>
+    </button>
   )
 }
 

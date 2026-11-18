@@ -347,8 +347,8 @@ export function ProjectSettings() {
                   <div className="trash-list">
                     {trash?.map((t) => (
                       <div key={t.id} className="trash-row">
-                        <span className="repo-ico"><Icon name={t.kind === 'task' ? 'board' : t.kind === 'document' ? 'doc' : 'link'} size={16} /></span>
-                        <span className="pop-grow"><strong>{t.title}</strong><span className="muted">{t.kind === 'task' ? 'Tâche' : t.kind === 'document' ? 'Document' : 'Lien'} · supprimé {ago(t.deletedAt)}</span></span>
+                        <span className="repo-ico"><Icon name={t.kind === 'task' ? 'board' : t.kind === 'document' || t.kind === 'note' ? 'doc' : 'link'} size={16} /></span>
+                        <span className="pop-grow"><strong>{t.title}</strong><span className="muted">{t.kind === 'task' ? 'Tâche' : t.kind === 'document' ? 'Fichier' : t.kind === 'note' ? 'Document' : 'Lien'} · supprimé {ago(t.deletedAt)}</span></span>
                         {canWrite && <button className="btn soft small" onClick={() => void attempt(() => backend.restoreItem(t.kind, t.id), 'Restauré').then(loadTrash)}>Restaurer</button>}
                       </div>
                     ))}
