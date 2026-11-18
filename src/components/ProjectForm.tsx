@@ -2,6 +2,46 @@ import { useState, type FormEvent } from 'react'
 import { normalizeRepo, PRESETS, type Preset } from '../lib/presets'
 import { useStore } from '../lib/store'
 
+const KIND_COLOR = { feature: 'var(--accent)', bug: 'var(--danger)', research: 'var(--ok)' } as const
+
+/** Vignette : un mini tableau aux couleurs du modèle. */
+function PresetThumb({ preset }: { preset: Preset }) {
+  const tasks = preset.setup.tasks ?? []
+  return (
+    <span className="preset-thumb" aria-hidden="true">
+      <span className="thumb-win">
+        <span className="thumb-cols">
+          <span className="thumb-col">
+            {tasks.slice(0, 3).map((t, i) => <i key={i} style={{ borderLeftColor: KIND_COLOR[t.kind] }} />)}
+            {!tasks.length && <i className="ghost" />}
+          </span>
+          <span className="thumb-col">{tasks.length > 3 && <i style={{ borderLeftColor: KIND_COLOR[tasks[3].kind] }} />}</span>
+          <span className="thumb-col" />
+        </span>
+        <span className="thumb-chans">{(preset.setup.channels ?? []).slice(0, 3).map((c) => <b key={c}>#{c}</b>)}</span>
+      </span>
+    </span>
+  )
+}
+
+/** Ce que le modèle crée : salons et premières tâches. */
+function PresetPreview({ preset }: { preset: Preset }) {
+  const tasks = preset.setup.tasks ?? []
+  return (
+    <aside className="preset-preview" style={{ ['--preset' as string]: preset.color }} aria-live="polite">
+      <span className="preview-title">{preset.name}</span>
+      <span className="preview-label">Salons</span>
+      <span className="preview-chans">{(preset.setup.channels ?? []).map((c) => <b key={c}>#{c}</b>)}</span>
+      <span className="preview-label">{tasks.length ? `${tasks.length} premières tâches` : 'Aucune tâche'}</span>
+      <ul className="preview-tasks">
+        {tasks.map((t) => (
+          <li key={t.title}><i style={{ background: KIND_COLOR[t.kind] }} />{t.title}{t.points ? <small>{t.points} pts</small> : null}</li>
+        ))}
+      </ul>
+    </aside>
+  )
+}
+
 export type ProjectOutcome = { id: string; how: 'created' | 'joined' }
 
 /** Créer un projet à partir d'un modèle, ou en rejoindre un avec un code. */
@@ -10,6 +50,7 @@ export function ProjectForm({ onDone, initialCode = '' }: { onDone: (r: ProjectO
   const [tab, setTab] = useState<'create' | 'join'>(initialCode ? 'join' : 'create')
   const [name, setName] = useState('')
   const [preset, setPreset] = useState<Preset['id']>('scrum')
+  const chosen = PRESETS.find((p) => p.id === preset) ?? PRESETS[0]
   const [repo, setRepo] = useState('')
   const [code, setCode] = useState(initialCode)
   const [error, setError] = useState<string | null>(null)
@@ -31,7 +72,6 @@ export function ProjectForm({ onDone, initialCode = '' }: { onDone: (r: ProjectO
     e.preventDefault()
     const repoUrl = normalizeRepo(repo)
     if (repo.trim() && !repoUrl) return setError('Dépôt GitHub : écris « compte/projet » ou colle son adresse')
-    const chosen = PRESETS.find((p) => p.id === preset)!
     void run(async () => ({ id: await backend.createGroup(name.trim() || 'Mon projet', { ...chosen.setup, repoUrl }), how: 'created' }))
   }
 
@@ -55,17 +95,17 @@ export function ProjectForm({ onDone, initialCode = '' }: { onDone: (r: ProjectO
           </label>
           <div className="field">
             Modèle
-            <div className="presets" role="radiogroup" aria-label="Modèle de projet">
-              {PRESETS.map((p) => (
-                <button type="button" key={p.id} role="radio" aria-checked={preset === p.id} className="preset" onClick={() => setPreset(p.id)}>
-                  <span className="preset-dot" style={{ background: p.color }} />
-                  <strong>{p.name}</strong>
-                  <span className="muted">{p.help}</span>
-                  <span className="preset-meta">
-                    {(p.setup.channels ?? []).map((c) => `#${c}`).join('  ')}
-                  </span>
-                </button>
-              ))}
+            <div className="presets-wrap">
+              <div className="presets" role="radiogroup" aria-label="Modèle de projet">
+                {PRESETS.map((p) => (
+                  <button type="button" key={p.id} role="radio" aria-checked={preset === p.id} className="preset" style={{ ['--preset' as string]: p.color }} onClick={() => setPreset(p.id)}>
+                    <PresetThumb preset={p} />
+                    <strong>{p.name}</strong>
+                    <span className="muted">{p.help}</span>
+                  </button>
+                ))}
+              </div>
+              <PresetPreview preset={chosen} />
             </div>
           </div>
           <label className="field">
