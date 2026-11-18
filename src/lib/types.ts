@@ -22,8 +22,22 @@ export interface Member {
   name: string
   color: string
   role: Role
+  /** Rôle dans l'équipe, ex. « Développeuse front ». */
+  title: string
+  status: PresenceStatus
+  avatarUrl: string | null
   online?: boolean
 }
+
+export type PresenceStatus = 'available' | 'busy' | 'away'
+
+export const PRESENCE: Record<PresenceStatus, { label: string; color: string }> = {
+  available: { label: 'Disponible', color: '#3FA36B' },
+  busy: { label: 'Occupé', color: '#D9822B' },
+  away: { label: 'Absent', color: '#8A90A2' },
+}
+
+export type ProfilePatch = Partial<Pick<Member, 'name' | 'color' | 'title' | 'status'>>
 
 export interface Task {
   id: string
@@ -58,6 +72,21 @@ export interface LinkItem {
 }
 
 export type Provider = 'github' | 'google' | 'discord' | 'email'
+
+export const ROLES: Record<Role, { label: string; help: string }> = {
+  admin: { label: 'Admin', help: 'Gère le groupe, les invitations, les droits et Discord.' },
+  member: { label: 'Membre', help: 'Crée et modifie les tâches, écrit dans le chat.' },
+  guest: { label: 'Invité', help: 'Voit tout, mais ne peut rien modifier ni écrire.' },
+}
+
+export interface Invite {
+  id: string
+  code: string
+  role: Role
+  expiresAt: string
+  maxUses: number | null
+  uses: number
+}
 
 export interface Group {
   id: string

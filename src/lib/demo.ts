@@ -1,5 +1,5 @@
 import { newId, type Backend, type LiveHandlers, type User, type Workspace } from './backend'
-import type { LinkItem, Member, Message, Provider, Task } from './types'
+import type { Invite, LinkItem, Member, Message, Provider, Task } from './types'
 
 /**
  * Mode démo : tout est stocké dans le navigateur. Plusieurs onglets ouverts
@@ -10,17 +10,18 @@ const KEY = 'kollab-demo-v1'
 const bus = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('kollab-demo') : null
 
 interface DemoState {
+  invites?: Invite[]
   user: User | null
   providers: Provider[]
   workspace: Workspace | null
   messages: Message[]
 }
 
-const ME: Member = { id: 'me', name: 'Moi', color: '#5546E0', role: 'admin' }
+const ME: Member = { id: 'me', name: 'Moi', color: '#5546E0', role: 'admin', title: 'Product Owner', status: 'available', avatarUrl: null }
 const TEAM: Member[] = [
-  { id: 'lm', name: 'Léa', color: '#2E7D4F', role: 'member' },
-  { id: 'sk', name: 'Sami', color: '#2F6FD0', role: 'member' },
-  { id: 'yo', name: 'Yohann', color: '#B5462E', role: 'guest' },
+  { id: 'lm', name: 'Léa', color: '#2E7D4F', role: 'member', title: 'Développeuse front', status: 'available', avatarUrl: null },
+  { id: 'sk', name: 'Sami', color: '#2F6FD0', role: 'member', title: 'Développeur back', status: 'busy', avatarUrl: null },
+  { id: 'yo', name: 'Yohann', color: '#B5462E', role: 'guest', title: 'Client', status: 'away', avatarUrl: null },
 ]
 
 function seed(user: User): Workspace {
@@ -82,6 +83,7 @@ type BusEvent =
   | { kind: 'taskDeleted'; id: string }
   | { kind: 'message'; message: Message }
   | { kind: 'auth' }
+  | { kind: 'profile' }
 
 function emit(event: BusEvent) {
   bus?.postMessage(event)
@@ -89,7 +91,7 @@ function emit(event: BusEvent) {
 
 const authListeners = new Set<(u: User | null) => void>()
 bus?.addEventListener('message', (e: MessageEvent<BusEvent>) => {
-  if (e.data.kind === 'auth') authListeners.forEach((cb) => cb(read().user))
+  if (e.data.kind === 'auth' || e.data.kind === 'profile') authListeners.forEach((cb) => cb(read().user))
 })
 
 function update(fn: (s: DemoState) => void): DemoState {
@@ -129,6 +131,38 @@ export const demoBackend: Backend = {
     })
     authListeners.forEach((cb) => cb(null))
     emit({ kind: 'auth' })
+  },
+
+  async updateProfile(patch) {
+    update((s) => {
+      const me = s.workspace?.members.find((m) => m.id === 'me')
+      if (me) Object.assign(me, patch)
+      if (s.user && patch.name) s.user.name = patch.name
+    })
+    emit({ kind: 'profile' })
+  },
+
+  async uploadAvatar(file) {
+    const url = await new Promise<string>((resolve, reject) => {
+      const r = new FileReader()
+      r.onload = () => resolve(String(r.result))
+      r.onerror = () => reject(new Error('Image illisible'))
+      r.readAsDataURL(file)
+    })
+    update((s) => {
+      const me = s.workspace?.members.find((m) => m.id === 'me')
+      if (me) me.avatarUrl = url
+    })
+    emit({ kind: 'profile' })
+    return url
+  },
+
+  async removeAvatar() {
+    update((s) => {
+      const me = s.workspace?.members.find((m) => m.id === 'me')
+      if (me) me.avatarUrl = null
+    })
+    emit({ kind: 'profile' })
   },
 
   async linkedProviders() {
@@ -179,6 +213,41 @@ export const demoBackend: Backend = {
     // Faux membres en ligne, pour voir la présence s'animer.
     h.onPresence(['me', 'lm', 'sk'])
     return () => bus?.removeEventListener('message', onBus)
+  },
+
+  async listInvites() {
+    return read().invites ?? []
+  },
+
+  async createInvite(role, { days, maxUses }) {
+    const invite: Invite = {
+      id: newId(),
+      code: Math.random().toString(16).slice(2, 14).toUpperCase(),
+      role,
+      expiresAt: new Date(Date.now() + days * 86400000).toISOString(),
+      maxUses,
+      uses: 0,
+    }
+    update((s) => {
+      s.invites = [...(s.invites ?? []), invite]
+    })
+    return invite
+  },
+
+  async revokeInvite(id) {
+    update((s) => {
+      s.invites = (s.invites ?? []).filter((i) => i.id !== id)
+    })
+  },
+
+  async setMemberRole(memberId, role) {
+    update((s) => {
+      const m = s.workspace?.members.find((x) => x.id === memberId)
+      if (!m) return
+      const admins = s.workspace!.members.filter((x) => x.role === 'admin' && x.id !== memberId)
+      if (role !== 'admin' && admins.length === 0) throw new Error('Le groupe doit garder au moins un admin')
+      m.role = role
+    })
   },
 
   async saveTask(task) {

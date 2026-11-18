@@ -5,6 +5,8 @@ import { Splash } from './components/Splash'
 import { ToastProvider } from './components/Toast'
 import { StoreProvider } from './lib/store'
 import { applyTheme, loadThemeChoice } from './lib/themes'
+import '@fontsource-variable/inter'
+import '@fontsource-variable/plus-jakarta-sans'
 import './styles.css'
 
 applyTheme(loadThemeChoice())

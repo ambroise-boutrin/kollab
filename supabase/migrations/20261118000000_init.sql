@@ -2,7 +2,6 @@
 -- Chaque table est protégée par RLS : on ne voit que les données de ses groupes,
 -- et les invités (role = 'guest') sont en lecture seule.
 
-create extension if not exists pgcrypto;
 
 -- Profils -------------------------------------------------------------------
 create table public.profiles (
@@ -38,7 +37,7 @@ create trigger on_auth_user_created
 create table public.groups (
   id uuid primary key default gen_random_uuid(),
   name text not null check (char_length(name) between 1 and 80),
-  invite_code text not null unique default upper(substr(encode(gen_random_bytes(6), 'hex'), 1, 10)),
+  invite_code text not null unique default upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 10)),
   discord_webhook_set boolean not null default false,
   created_by uuid references auth.users (id) on delete set null,
   created_at timestamptz not null default now()

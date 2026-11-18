@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient, type User as SbUser } from '@supabase/supabase-js'
 import type { Backend, User, Workspace } from './backend'
-import type { LinkItem, Member, Message, Provider, Role, Task } from './types'
+import type { Invite, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
 
 interface TaskRow {
   id: string
@@ -92,6 +92,29 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       await sb.auth.signOut()
     },
 
+    async updateProfile(patch) {
+      const { data } = await sb.auth.getUser()
+      if (!data.user) return
+      must(await sb.from('profiles').update(patch).eq('id', data.user.id))
+    },
+
+    async uploadAvatar(file) {
+      const { data } = await sb.auth.getUser()
+      if (!data.user) throw new Error('Non connecté')
+      // Un nom unique à chaque envoi évite que l'ancienne photo reste en cache.
+      const path = `${data.user.id}/${Date.now()}.webp`
+      must(await sb.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: true }))
+      const url = sb.storage.from('avatars').getPublicUrl(path).data.publicUrl
+      must(await sb.from('profiles').update({ avatar_url: url }).eq('id', data.user.id))
+      return url
+    },
+
+    async removeAvatar() {
+      const { data } = await sb.auth.getUser()
+      if (!data.user) return
+      must(await sb.from('profiles').update({ avatar_url: null }).eq('id', data.user.id))
+    },
+
     async linkedProviders() {
       const { data } = await sb.auth.getUserIdentities()
       return (data?.identities ?? []).map((i) => i.provider as Provider)
@@ -120,13 +143,17 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
 
       const [group, members, tasks, channels, links] = await Promise.all([
         sb.from('groups').select('id, name, invite_code, discord_webhook_set').eq('id', groupId).single(),
-        sb.from('group_members').select('user_id, role, profiles(name, color)').eq('group_id', groupId),
+        sb.from('group_members').select('user_id, role, profiles(name, color, title, status, avatar_url)').eq('group_id', groupId),
         sb.from('tasks').select('*').eq('group_id', groupId).order('position'),
         sb.from('channels').select('id, name').eq('group_id', groupId).order('created_at'),
         sb.from('links').select('id, title, url').eq('group_id', groupId).order('created_at'),
       ])
       const g = must(group)
-      type MemberRow = { user_id: string; role: Role; profiles: { name: string; color: string } | null }
+      type MemberRow = {
+        user_id: string
+        role: Role
+        profiles: { name: string; color: string; title: string; status: PresenceStatus; avatar_url: string | null } | null
+      }
       return {
         group: { id: g.id, name: g.name, inviteCode: g.invite_code, discordWebhookSet: g.discord_webhook_set },
         members: (must(members) as unknown as MemberRow[]).map(
@@ -135,6 +162,9 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
             name: m.profiles?.name ?? 'Membre',
             color: m.profiles?.color ?? '#5546E0',
             role: m.role,
+            title: m.profiles?.title ?? '',
+            status: m.profiles?.status ?? 'available',
+            avatarUrl: m.profiles?.avatar_url ?? null,
           }),
         ),
         tasks: (must(tasks) as TaskRow[]).map(toTask),
@@ -174,6 +204,31 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       return () => {
         void sb.removeChannel(ch)
       }
+    },
+
+    async listInvites() {
+      type Row = { id: string; code: string; role: Role; expires_at: string; max_uses: number | null; uses: number }
+      const rows = must(await sb.from('invitations').select('*').eq('group_id', groupId).gt('expires_at', new Date().toISOString()).order('created_at'))
+      return (rows as Row[]).map((r): Invite => ({ id: r.id, code: r.code, role: r.role, expiresAt: r.expires_at, maxUses: r.max_uses, uses: r.uses }))
+    },
+
+    async createInvite(role, { days, maxUses }) {
+      const r = must(
+        await sb
+          .from('invitations')
+          .insert({ group_id: groupId, role, max_uses: maxUses, expires_at: new Date(Date.now() + days * 86400000).toISOString() })
+          .select()
+          .single(),
+      ) as { id: string; code: string; role: Role; expires_at: string; max_uses: number | null; uses: number }
+      return { id: r.id, code: r.code, role: r.role, expiresAt: r.expires_at, maxUses: r.max_uses, uses: r.uses }
+    },
+
+    async revokeInvite(id) {
+      must(await sb.from('invitations').delete().eq('id', id))
+    },
+
+    async setMemberRole(memberId, role) {
+      must(await sb.rpc('set_member_role', { gid: groupId, member: memberId, new_role: role }))
     },
 
     async saveTask(task) {

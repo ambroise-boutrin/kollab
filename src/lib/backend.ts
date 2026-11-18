@@ -1,4 +1,4 @@
-import type { Channel, Group, LinkItem, Member, Message, Provider, Task } from './types'
+import type { Channel, Group, Invite, LinkItem, Member, Message, ProfilePatch, Provider, Role, Task } from './types'
 
 export interface User {
   id: string
@@ -39,6 +39,11 @@ export interface Backend {
   signIn(provider: Provider, email?: string): Promise<{ emailSent?: boolean }>
   signOut(): Promise<void>
 
+  updateProfile(patch: ProfilePatch): Promise<void>
+  /** Envoie une photo de profil (déjà redimensionnée) et renvoie son adresse. */
+  uploadAvatar(file: Blob): Promise<string>
+  removeAvatar(): Promise<void>
+
   linkedProviders(): Promise<Provider[]>
   link(provider: Provider): Promise<void>
   unlink(provider: Provider): Promise<void>
@@ -48,6 +53,11 @@ export interface Backend {
   createGroup(name: string): Promise<void>
   joinGroup(inviteCode: string): Promise<void>
   live(groupId: string, handlers: LiveHandlers): () => void
+
+  listInvites(): Promise<Invite[]>
+  createInvite(role: Role, opts: { days: number; maxUses: number | null }): Promise<Invite>
+  revokeInvite(id: string): Promise<void>
+  setMemberRole(memberId: string, role: Role): Promise<void>
 
   saveTask(task: Task): Promise<Task>
   deleteTask(id: string): Promise<void>
