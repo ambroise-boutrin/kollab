@@ -1,3 +1,4 @@
+import { APP_BASE } from './lib/base'
 import { useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout'
@@ -29,7 +30,7 @@ export function App() {
     )
   if (!workspace) return <Welcome />
   return (
-    <BrowserRouter basename="/app">
+    <BrowserRouter basename={APP_BASE || '/'}>
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<Home />} />
