@@ -1,0 +1,17 @@
+{
+  "site": "Kollab",
+  "pages": {
+    "/": { "title": "Kollab : gestion de projet et revues de code pour équipes de dev", "description": "Tableau Scrum, chat d'équipe et relecture des PR GitHub au même endroit. Gratuit, sur le web, le téléphone et l'ordinateur." },
+    "/fonctionnalites": { "title": "Fonctionnalités · Kollab", "description": "Kanban, attribution des tâches, chat avec mentions, intégrations GitHub, Discord et Google, et la feuille de route de Kollab." },
+    "/pour-qui": { "title": "Pour qui · Kollab", "description": "Projets étudiants, petites équipes de dev, associations tech : comment Kollab aide chaque équipe à livrer à plusieurs." },
+    "/comparatif": { "title": "Kollab face à Trello, Jira et Notion · Kollab", "description": "Un seul outil à la place de Trello, Jira, Notion et Discord : le comparatif fonction par fonction." },
+    "/tarifs": { "title": "Tarifs · Kollab", "description": "Kollab est gratuit pendant la bêta, pour toute l'équipe et toutes les fonctions." },
+    "/telecharger": { "title": "Télécharger · Kollab", "description": "Kollab dans le navigateur, sur iPhone et Android, et bientôt sur Windows, macOS et Linux." },
+    "/nouveautes": { "title": "Nouveautés · Kollab", "description": "L'historique des versions de Kollab et ce qui a changé." },
+    "/faq": { "title": "Questions fréquentes · Kollab", "description": "Prix, installation, taille des groupes, données : les réponses aux questions sur Kollab." },
+    "/mentions-legales": { "title": "Mentions légales · Kollab", "description": "Éditeur, hébergeurs et propriété intellectuelle du site Kollab." },
+    "/cgu": { "title": "Conditions générales d'utilisation · Kollab", "description": "Les conditions d'utilisation du service Kollab." },
+    "/confidentialite": { "title": "Politique de confidentialité · Kollab", "description": "Comment Kollab traite tes données personnelles (RGPD)." },
+    "/cookies": { "title": "Cookies et stockage local · Kollab", "description": "Kollab n'utilise que le stockage strictement nécessaire, sans traceur." }
+  }
+}
