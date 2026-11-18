@@ -9,6 +9,7 @@ import { Icon, type IconName } from './Icon'
 import { LogoMark } from './Logo'
 import { NewProjectDialog } from './NewProjectDialog'
 import { Popover } from './Popover'
+import { NotificationBell } from './Notifications'
 
 const NAV: { to: string; label: string; icon: IconName }[] = [
   { to: '/', label: 'Accueil', icon: 'home' },
@@ -184,7 +185,7 @@ export function Layout() {
   const [creating, setCreating] = useState(false)
   const openNew = useCallback(() => setCreating(true), [])
   const onHome = useLocation().pathname === '/'
-  const myOpen = workspace?.tasks.filter((t) => t.assigneeId === (user?.id ?? 'me') && t.status !== 'done').length ?? 0
+  const myOpen = workspace?.tasks.filter((t) => t.assigneeIds.includes(user?.id ?? 'me') && t.status !== 'done').length ?? 0
 
   return (
     <div className="shell">
@@ -211,6 +212,7 @@ export function Layout() {
             <ProjectSwitcher onNew={() => setCreating(true)} compact />
           </div>
           <MembersStack />
+          <NotificationBell />
           <div className="topbar-mobile">
             <ProfileMenu compact />
           </div>

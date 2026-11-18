@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { checkRuns, getPull, listPulls, parsePrUrl, projectRepo, summarize, type Pull } from '../lib/github'
+import { checkRuns, getPull, ghToken, listPulls, parsePrUrl, projectRepo, summarize, type Pull } from '../lib/github'
 import { useStore } from '../lib/store'
 import { useAsync } from '../lib/useAsync'
 import { Icon } from './Icon'
@@ -16,8 +16,8 @@ export function prState(p: Pull): { label: string; cls: string } {
 /** La PR liée à une tâche, avec son vrai état et ses checks. */
 export function PrStatus({ url, onMerged }: { url: string; onMerged?: () => void }) {
   const ref = parsePrUrl(url)
-  const pr = useAsync(ref ? () => getPull(ref, ref.number) : null, [url])
-  const checks = useAsync(pr.data ? () => checkRuns(ref!, pr.data!.sha) : null, [pr.data?.sha])
+  const pr = useAsync(ref ? () => getPull(ref, ref.number) : null, [url], ghToken() ? 60000 : 0)
+  const checks = useAsync(pr.data ? () => checkRuns(ref!, pr.data!.sha) : null, [pr.data?.sha], ghToken() ? 60000 : 0)
   const merged = !!pr.data?.merged
   useEffect(() => {
     if (merged) onMerged?.()

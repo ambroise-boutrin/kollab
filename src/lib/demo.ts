@@ -1,5 +1,5 @@
 import { newId, type Backend, type GroupSetup, type LiveHandlers, type User, type Workspace } from './backend'
-import type { Invite, LinkItem, Member, Message, Provider, Task } from './types'
+import type { AppNotification, Invite, LinkItem, Member, Message, Provider, Task } from './types'
 
 /**
  * Mode démo : tout est stocké dans le navigateur. Plusieurs onglets ouverts
@@ -17,6 +17,7 @@ interface DemoState {
   messages: Message[]
   /** Les autres projets de l'utilisateur ; `workspace` est le projet ouvert. */
   others?: { workspace: Workspace; messages: Message[] }[]
+  notifications?: AppNotification[]
 }
 
 const ME: Member = { id: 'me', name: 'Moi', color: '#5546E0', role: 'admin', title: 'Product Owner', status: 'available', avatarUrl: null }
@@ -28,20 +29,20 @@ const TEAM: Member[] = [
 
 function seed(user: User): Workspace {
   const now = new Date().toISOString()
-  const t = (title: string, status: Task['status'], kind: Task['kind'], points: number, assigneeId: string | null, position: number): Task => ({
-    id: newId(), title, description: '', status, kind, points, assigneeId, prUrl: null, position, createdAt: now,
+  const t = (title: string, status: Task['status'], kind: Task['kind'], points: number, assignees: string[], position: number): Task => ({
+    id: newId(), title, description: '', status, kind, points, assigneeIds: assignees, prUrl: null, position, createdAt: now,
   })
   return {
     group: { id: 'demo', name: 'Mon équipe', inviteCode: 'KOLLAB-DEMO', discordWebhookSet: false },
     members: [{ ...ME, name: user.name }, ...TEAM],
     tasks: [
-      t('Page de connexion GitHub', 'todo', 'feature', 5, null, 0),
-      t('Table des groupes', 'todo', 'feature', 3, 'sk', 1),
-      t('Le menu se ferme mal sur iPhone', 'todo', 'bug', 2, null, 2),
-      t('Tableau kanban glisser-déposer', 'doing', 'feature', 8, 'lm', 0),
-      t('Invitations par lien', 'doing', 'feature', 5, 'me', 1),
-      t('Visionneuse PDF', 'review', 'feature', 5, 'lm', 0),
-      t('Choisir le stack', 'done', 'research', 2, 'me', 0),
+      t('Page de connexion GitHub', 'todo', 'feature', 5, [], 0),
+      t('Table des groupes', 'todo', 'feature', 3, ['sk'], 1),
+      t('Le menu se ferme mal sur iPhone', 'todo', 'bug', 2, [], 2),
+      t('Tableau kanban glisser-déposer', 'doing', 'feature', 8, ['lm', 'me'], 0),
+      t('Invitations par lien', 'doing', 'feature', 5, ['me'], 1),
+      t('Visionneuse PDF', 'review', 'feature', 5, ['lm', 'me'], 0),
+      t('Choisir le stack', 'done', 'research', 2, ['me'], 0),
     ],
     channels: [
       { id: 'general', name: 'général' },
@@ -65,7 +66,17 @@ function seedMessages(): Message[] {
 function read(): DemoState {
   try {
     const raw = localStorage.getItem(KEY)
-    if (raw) return JSON.parse(raw) as DemoState
+    if (raw) {
+      const s = JSON.parse(raw) as DemoState
+      // Anciennes données : une seule personne par tâche.
+      for (const w of [s.workspace, ...(s.others ?? []).map((o) => o.workspace)]) {
+        for (const t of w?.tasks ?? []) {
+          const old = t as Task & { assigneeId?: string | null }
+          if (!old.assigneeIds) old.assigneeIds = old.assigneeId ? [old.assigneeId] : []
+        }
+      }
+      return s
+    }
   } catch {
     /* stockage indisponible : on repart de zéro */
   }
@@ -86,6 +97,8 @@ type BusEvent =
   | { kind: 'message'; message: Message }
   | { kind: 'auth' }
   | { kind: 'profile' }
+  | { kind: 'refresh' }
+  | { kind: 'notification'; notification: AppNotification }
 
 function emit(event: BusEvent) {
   bus?.postMessage(event)
@@ -113,7 +126,12 @@ export function startDemoSession() {
   const user: User = { id: 'me', name: 'Moi', email: null }
   const workspace = seed(user)
   workspace.group.name = 'Équipe Kollab'
-  write({ ...s, user, providers: ['email'], workspace, messages: seedMessages() })
+  const at = (min: number) => new Date(Date.now() - min * 60000).toISOString()
+  const notifications: AppNotification[] = [
+    { id: newId(), kind: 'mention', title: 'Léa Martin t\'a mentionné dans #général', body: 'Salut ! La visionneuse PDF est prête, @Moi tu peux relire ?', link: '/chat?salon=general', groupId: 'demo', actorId: 'lm', data: {}, readAt: null, createdAt: at(42) },
+    { id: newId(), kind: 'assigned', title: 'Visionneuse PDF', body: 'Léa Martin t\'a attribué cette tâche', link: `/tableau?tache=${workspace.tasks.find((t) => t.title === 'Visionneuse PDF')?.id}`, groupId: 'demo', actorId: 'lm', data: {}, readAt: null, createdAt: at(50) },
+  ]
+  write({ ...s, user, providers: ['email'], workspace, messages: seedMessages(), notifications })
 }
 
 export const demoBackend: Backend = {
@@ -268,7 +286,7 @@ export const demoBackend: Backend = {
         w.members = w.members.filter((m) => m.id === 'me')
         w.channels = (setup.channels?.length ? setup.channels : ['général']).map((n, i) => ({ id: i === 0 ? 'general' : newId(), name: n }))
         const now = new Date().toISOString()
-        w.tasks = (setup.tasks ?? []).map((t, i) => ({ ...t, id: newId(), description: '', assigneeId: null, prUrl: null, position: i, createdAt: now }))
+        w.tasks = (setup.tasks ?? []).map((t, i) => ({ ...t, id: newId(), description: '', assigneeIds: [], prUrl: null, position: i, createdAt: now }))
         w.links = setup.repoUrl ? [{ id: newId(), title: 'Dépôt GitHub', url: setup.repoUrl }] : []
       }
       s.workspace = w
@@ -315,11 +333,39 @@ export const demoBackend: Backend = {
       if (ev.kind === 'task') h.onTask(ev.task)
       else if (ev.kind === 'taskDeleted') h.onTaskDeleted(ev.id)
       else if (ev.kind === 'message') h.onMessage(ev.message)
+      else if (ev.kind === 'refresh') h.onRefresh()
     }
     bus?.addEventListener('message', onBus)
     // Faux membres en ligne, pour voir la présence s'animer.
     h.onPresence(['me', 'lm', 'sk'])
     return () => bus?.removeEventListener('message', onBus)
+  },
+
+  async listNotifications() {
+    return read().notifications ?? []
+  },
+
+  async markNotificationsRead(ids) {
+    const at = new Date().toISOString()
+    update((s) => {
+      for (const n of s.notifications ?? []) if (ids.includes(n.id) && !n.readAt) n.readAt = at
+    })
+  },
+
+  async deleteNotification(id) {
+    update((s) => {
+      s.notifications = (s.notifications ?? []).filter((n) => n.id !== id)
+    })
+  },
+
+  watchNotifications(onNew) {
+    const onBus = (e: MessageEvent<BusEvent>) => e.data.kind === 'notification' && onNew(e.data.notification)
+    bus?.addEventListener('message', onBus)
+    return () => bus?.removeEventListener('message', onBus)
+  },
+
+  async inviteByEmail() {
+    return false
   },
 
   async listInvites() {
@@ -393,6 +439,7 @@ export const demoBackend: Backend = {
     update((s) => {
       s.workspace?.links.push(link)
     })
+    emit({ kind: 'refresh' })
     return link
   },
 
@@ -400,6 +447,7 @@ export const demoBackend: Backend = {
     update((s) => {
       if (s.workspace) s.workspace.links = s.workspace.links.filter((l) => l.id !== id)
     })
+    emit({ kind: 'refresh' })
   },
 
   async setDiscordWebhook(url) {

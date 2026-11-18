@@ -1,9 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { newId, type Backend, type GroupSummary, type User, type Workspace } from './backend'
-import { APP_BASE } from './base'
+import { APP_BASE, IS_TAURI } from './base'
 import { demoBackend, startDemoSession } from './demo'
 import { createSupabaseBackend } from './supabaseBackend'
-import type { Message, Task } from './types'
+import type { AppNotification, Message, Task } from './types'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
@@ -59,6 +59,24 @@ interface Store {
   createTask(partial: Pick<Task, 'title' | 'status'> & Partial<Task>): Promise<Task>
   deleteTask(id: string): Promise<void>
   memberName(id: string | null): string
+  /** Notifications (attribution, mention, invitation), récentes d'abord. */
+  notifications: AppNotification[]
+  unread: number
+  markAllRead(): Promise<void>
+  removeNotification(id: string): Promise<void>
+}
+
+/** Pastille sur l'icône de l'app (ordinateur et app installée). */
+function setAppBadge(count: number) {
+  if (IS_TAURI) {
+    void import('@tauri-apps/api/window')
+      .then(({ getCurrentWindow }) => getCurrentWindow().setBadgeCount(count || undefined))
+      .catch(() => {})
+    return
+  }
+  const nav = navigator as Navigator & { setAppBadge?: (n?: number) => Promise<void>; clearAppBadge?: () => Promise<void> }
+  if (count) void nav.setAppBadge?.(count).catch(() => {})
+  else void nav.clearAppBadge?.().catch(() => {})
 }
 
 const Ctx = createContext<Store | null>(null)
@@ -88,6 +106,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [groups, setGroups] = useState<GroupSummary[]>([])
   const [online, setOnline] = useState<string[]>([])
   const [incoming, setIncoming] = useState<Message | null>(null)
+  const [notifications, setNotifications] = useState<AppNotification[]>([])
 
   const reload = useCallback(async () => {
     try {
@@ -127,8 +146,55 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       onTaskDeleted: (id) => setWorkspace((w) => (w ? { ...w, tasks: w.tasks.filter((t) => t.id !== id) } : w)),
       onMessage: setIncoming,
       onPresence: setOnline,
+      onRefresh: () => void reload(),
     })
-  }, [groupId])
+  }, [groupId, reload])
+
+  // Au retour sur l'onglet (ou réveil de l'ordinateur), on rattrape ce qui a pu être manqué.
+  useEffect(() => {
+    if (!user) return
+    let last = Date.now()
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible' || Date.now() - last < 15000) return
+      last = Date.now()
+      void reload()
+      void backend.listNotifications().then(setNotifications).catch(() => {})
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [user, reload])
+
+  const userId = user?.id
+  useEffect(() => {
+    if (!userId) {
+      setNotifications([])
+      return
+    }
+    void backend.listNotifications().then(setNotifications).catch(() => {})
+    return backend.watchNotifications((n) => {
+      setNotifications((list) => (list.some((x) => x.id === n.id) ? list : [n, ...list]))
+      // Une invitation ou un nouveau membre peut changer la liste des projets.
+      if (n.kind === 'invited' || n.kind === 'joined') void reload()
+    })
+  }, [userId, reload])
+
+  const unread = notifications.filter((n) => !n.readAt).length
+  useEffect(() => {
+    setAppBadge(unread)
+  }, [unread])
+
+  const markAllRead = useCallback(async () => {
+    const ids = notifications.filter((n) => !n.readAt).map((n) => n.id)
+    if (!ids.length) return
+    const at = new Date().toISOString()
+    setNotifications((list) => list.map((n) => (ids.includes(n.id) ? { ...n, readAt: at } : n)))
+    await backend.markNotificationsRead(ids)
+  }, [notifications])
+
+  const removeNotification = useCallback(async (id: string) => {
+    setNotifications((list) => list.filter((n) => n.id !== id))
+    await backend.deleteNotification(id)
+  }, [])
 
   const switchGroup = useCallback(
     async (id: string) => {
@@ -153,7 +219,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         description: '',
         kind: 'feature',
         points: null,
-        assigneeId: null,
+        assigneeIds: [],
         prUrl: null,
         position: sameColumn.length ? Math.max(...sameColumn.map((t) => t.position)) + 1 : 0,
         createdAt: new Date().toISOString(),
@@ -177,8 +243,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
 
   const value = useMemo<Store>(
-    () => ({ backend, user, ready, loadError, workspace, groups, switchGroup, online, incoming, reload, saveTask, createTask, deleteTask, memberName }),
-    [user, ready, loadError, workspace, groups, switchGroup, online, incoming, reload, saveTask, createTask, deleteTask, memberName],
+    () => ({ backend, user, ready, loadError, workspace, groups, switchGroup, online, incoming, reload, saveTask, createTask, deleteTask, memberName, notifications, unread, markAllRead, removeNotification }),
+    [user, ready, loadError, workspace, groups, switchGroup, online, incoming, reload, saveTask, createTask, deleteTask, memberName, notifications, unread, markAllRead, removeNotification],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

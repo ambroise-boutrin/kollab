@@ -13,6 +13,9 @@ import { openExternal } from '../lib/links'
 import { useStore, useWorkspace } from '../lib/store'
 import { useAsync } from '../lib/useAsync'
 
+/** Avec GitHub connecté, la page se tient à jour toute seule (30 s). Sans, on garde le quota public. */
+const LIVE = ghToken() ? 30000 : 0
+
 type Tab = 'fichiers' | 'discussion' | 'tests'
 
 function ago(iso: string) {
@@ -38,7 +41,7 @@ export function Reviews() {
   const repo = projectRepo(ws)
   const [params, setParams] = useSearchParams()
   const [state, setState] = useState<'open' | 'closed'>('open')
-  const pulls = useAsync(repo ? () => listPulls(repo, state) : null, [repo?.owner, repo?.repo, state])
+  const pulls = useAsync(repo ? () => listPulls(repo, state) : null, [repo?.owner, repo?.repo, state], LIVE)
   const selected = Number(params.get('pr')) || pulls.data?.[0]?.number || null
   const pr = pulls.data?.find((p) => p.number === selected) ?? null
 
@@ -104,10 +107,10 @@ function PrDetail({ repo, pr, onReload }: { repo: Repo; pr: Pull; onReload: () =
   const toast = useToast()
   const [tab, setTab] = useState<Tab>('fichiers')
   const files = useAsync(() => pullFiles(repo, pr.number), [pr.number])
-  const rc = useAsync(() => reviewComments(repo, pr.number), [pr.number])
-  const ic = useAsync(() => issueComments(repo, pr.number), [pr.number])
-  const checks = useAsync(() => checkRuns(repo, pr.sha), [pr.sha])
-  const runs = useAsync(() => workflowRuns(repo, pr.sha), [pr.sha])
+  const rc = useAsync(() => reviewComments(repo, pr.number), [pr.number], LIVE)
+  const ic = useAsync(() => issueComments(repo, pr.number), [pr.number], LIVE)
+  const checks = useAsync(() => checkRuns(repo, pr.sha), [pr.sha], LIVE)
+  const runs = useAsync(() => workflowRuns(repo, pr.sha), [pr.sha], LIVE)
   const sum = checks.data ? summarize(checks.data) : null
   const st = prState(pr)
   const adds = files.data?.reduce((n, f) => n + f.additions, 0) ?? 0

@@ -616,3 +616,28 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; justif
   .pr-side { position: static; max-height: 320px; }
   .dl-comment { margin-left: 12px; }
 }
+
+/* Plusieurs personnes par tâche */
+.avatar-group { display: inline-flex; align-items: center; margin-left: auto; }
+.avatar-group > .avatar { box-shadow: 0 0 0 2px var(--surface); }
+.avatar-group > .avatar + .avatar { margin-left: -6px; }
+.member-pick .check-box { width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid var(--line); display: grid; place-items: center; color: #fff; flex: none; transition: background-color .15s ease, border-color .15s ease; }
+.member-pick .check-box.on { background: var(--accent); border-color: var(--accent); }
+.tabs-seg.compact { padding: 3px; }
+.tabs-seg.compact button { padding: 6px 12px; font-size: 13px; }
+
+/* Notifications */
+.notif-btn { position: relative; }
+.notif-count { position: absolute; top: 2px; right: 0; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--danger); color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; box-shadow: 0 0 0 2px var(--bg); }
+.notif-pop .pop { width: min(360px, calc(100vw - 32px)); right: 0; left: auto; }
+.notif { border-radius: 10px; }
+.notif.unread { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.notif-main { display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left; padding: 9px 10px; background: none; border: 0; color: inherit; font: inherit; cursor: pointer; border-radius: 10px; }
+.notif-main:hover { background: var(--subtle); }
+.notif-main .pop-grow { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.notif-main .pop-grow strong { font-weight: 600; font-size: 14px; white-space: normal; }
+.notif-main .pop-grow .muted { white-space: normal; }
+.notif-main .pop-grow .muted { font-size: 13px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.notif-main small { flex: none; font-size: 12px; }
+.notif-icon { width: 30px; height: 30px; border-radius: 50%; background: var(--subtle); color: var(--accent); display: grid; place-items: center; flex: none; }
+.notif-actions { display: flex; gap: 6px; padding: 0 10px 10px 50px; }

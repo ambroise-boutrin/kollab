@@ -11,7 +11,8 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core'
 import { useEffect, useState } from 'react'
-import { Avatar } from '../components/Avatar'
+import { useSearchParams } from 'react-router-dom'
+import { AvatarGroup } from '../components/Avatar'
 import { useToast } from '../components/Toast'
 import { useStore, useWorkspace } from '../lib/store'
 import { KINDS, STATUSES, type Task, type TaskStatus } from '../lib/types'
@@ -20,7 +21,7 @@ import { TaskDrawer } from './TaskDrawer'
 function TaskCard({ task, onOpen, overlay = false }: { task: Task; onOpen?: () => void; overlay?: boolean }) {
   const { workspace, online } = useStore()
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id, disabled: overlay })
-  const assignee = workspace?.members.find((m) => m.id === task.assigneeId)
+  const people = workspace?.members.filter((m) => task.assigneeIds.includes(m.id)) ?? []
   return (
     <button
       ref={overlay ? undefined : setNodeRef}
@@ -35,7 +36,7 @@ function TaskCard({ task, onOpen, overlay = false }: { task: Task; onOpen?: () =
       <span className="task-meta">
         {task.points != null && <span>{task.points} pts</span>}
         {task.prUrl && <span>PR #{task.prUrl.split('/').pop()}</span>}
-        <Avatar member={assignee} size={24} online={!!assignee && online.includes(assignee.id)} />
+        <AvatarGroup members={people} size={24} online={online} />
       </span>
     </button>
   )
@@ -59,10 +60,28 @@ function Column({ status, label, tasks, onOpen, onAdd }: { status: TaskStatus; l
 }
 
 export function Board() {
-  const { tasks } = useWorkspace()
-  const { saveTask, createTask, backend } = useStore()
+  const { tasks: all } = useWorkspace()
+  const { saveTask, createTask, backend, user } = useStore()
   const toast = useToast()
-  const [openId, setOpenId] = useState<string | null>(null)
+  const [params, setParams] = useSearchParams()
+  const mine = params.get('moi') === '1'
+  const me = user?.id ?? 'me'
+  const tasks = mine ? all.filter((t) => t.assigneeIds.includes(me)) : all
+  const openId = params.get('tache')
+  const setOpenId = (id: string | null) =>
+    setParams((p) => {
+      const next = new URLSearchParams(p)
+      if (id) next.set('tache', id)
+      else next.delete('tache')
+      return next
+    }, { replace: true })
+  const setMine = (on: boolean) =>
+    setParams((p) => {
+      const next = new URLSearchParams(p)
+      if (on) next.set('moi', '1')
+      else next.delete('moi')
+      return next
+    }, { replace: true })
   const [dragId, setDragId] = useState<string | null>(null)
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -71,7 +90,7 @@ export function Board() {
 
   const byStatus = (s: TaskStatus) => tasks.filter((t) => t.status === s).sort((a, b) => a.position - b.position)
   const dragged = tasks.find((t) => t.id === dragId)
-  const open = tasks.find((t) => t.id === openId)
+  const open = all.find((t) => t.id === openId)
 
   function onDragStart(e: DragStartEvent) {
     setDragId(String(e.active.id))
@@ -91,7 +110,7 @@ export function Board() {
   }
 
   async function add(status: TaskStatus) {
-    const t = await createTask({ title: 'Nouvelle tâche', status })
+    const t = await createTask({ title: 'Nouvelle tâche', status, ...(mine ? { assigneeIds: [me] } : {}) })
     setOpenId(t.id)
   }
 
@@ -106,6 +125,10 @@ export function Board() {
       <div className="page-head">
         <h1>Tableau</h1>
         <div className="actions">
+          <div className="tabs-seg compact" role="tablist" aria-label="Filtrer">
+            <button role="tab" aria-selected={!mine} onClick={() => setMine(false)}>Toutes</button>
+            <button role="tab" aria-selected={mine} onClick={() => setMine(true)}>Mes tâches · {all.filter((t) => t.assigneeIds.includes(me) && t.status !== 'done').length}</button>
+          </div>
           <button className="btn" data-tour="new-task" onClick={() => void add('todo')}>Nouvelle tâche</button>
         </div>
       </div>
