@@ -1,5 +1,20 @@
 [
   {
+    "version": "0.5.0",
+    "date": "2026-11-18",
+    "title": "Toute l'équipe au même endroit",
+    "items": [
+      "Sprints : backlog, burndown et vélocité",
+      "Poker planning en direct",
+      "Documents : PDF et images, avec aperçu",
+      "Écrire à plusieurs dans le même document",
+      "Vocal, visio et partage d'écran",
+      "Recherche partout avec Ctrl+K",
+      "Chat à côté de n'importe quelle page, accueil à organiser",
+      "Notifications sur téléphone"
+    ]
+  },
+  {
     "version": "0.4.0",
     "date": "2026-11-18",
     "title": "Plus vivant",
