@@ -1,5 +1,6 @@
 import { App } from './App'
 import { Splash } from './components/Splash'
+import { UpdateDialog } from './components/UpdateDialog'
 import { ToastProvider } from './components/Toast'
 import { StoreProvider } from './lib/store'
 
@@ -10,6 +11,7 @@ export default function AppRoot({ installed }: { installed: boolean }) {
       <ToastProvider>
         {installed && <Splash />}
         <App />
+        <UpdateDialog />
       </ToastProvider>
     </StoreProvider>
   )

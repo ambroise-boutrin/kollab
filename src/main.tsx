@@ -1,6 +1,7 @@
 import { StrictMode, Suspense, lazy } from 'react'
 import { createRoot } from 'react-dom/client'
 import { IS_TAURI } from './lib/base'
+import { startUpdates } from './lib/updates'
 import { applyTheme, loadThemeChoice } from './lib/themes'
 import '@fontsource-variable/inter'
 import '@fontsource-variable/plus-jakarta-sans'
@@ -34,10 +35,8 @@ if (showApp) {
   window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme(loadThemeChoice()))
 }
 
-// Hors ligne pour la version web. L'appli bureau embarque déjà tous ses fichiers.
-if (!IS_TAURI && 'serviceWorker' in navigator) {
-  void import('virtual:pwa-register').then(({ registerSW }) => registerSW({ immediate: true }))
-}
+// Mises à jour : updater Tauri sur le bureau, service worker (hors ligne compris) sur le web.
+startUpdates()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

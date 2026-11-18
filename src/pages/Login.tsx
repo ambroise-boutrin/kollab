@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { LogoMark } from '../components/Logo'
+import { LEGAL_PATHS } from '../lib/legal'
+import { openExternal, SITE_URL } from '../lib/links'
 import { useStore } from '../lib/store'
 import type { Provider } from '../lib/types'
 
@@ -41,6 +43,11 @@ const HEADINGS: Record<Mode, { title: string; sub: string }> = {
   magic: { title: 'Bon retour', sub: 'Connecte-toi pour retrouver ton groupe.' },
 }
 
+function LegalLink({ path, children }: { path: string; children: string }) {
+  if (!SITE_URL) return <>{children}</>
+  return <button type="button" className="link-btn" style={{ fontWeight: 500 }} onClick={() => void openExternal(SITE_URL + path)}>{children}</button>
+}
+
 export function Login() {
   const { backend } = useStore()
   const [mode, setMode] = useState<Mode>('signin')
@@ -50,6 +57,7 @@ export function Login() {
   const [sent, setSent] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [accepted, setAccepted] = useState(false)
 
   async function run(action: () => Promise<string | void>) {
     setError(null)
@@ -119,6 +127,9 @@ export function Login() {
                   </button>
                 ))}
               </div>
+              <p className="muted" style={{ margin: '-4px 0 0', fontSize: 13, textAlign: 'center' }}>
+                En continuant, tu acceptes les <LegalLink path={LEGAL_PATHS.cgu}>CGU</LegalLink> et la <LegalLink path={LEGAL_PATHS.confidentialite}>politique de confidentialité</LegalLink>.
+              </p>
               <div className="or">ou par email</div>
               <div className="seg" role="group" aria-label="Façon de se connecter" style={{ alignSelf: 'center' }}>
                 <button type="button" aria-pressed={mode === 'signin'} onClick={() => switchTo('signin')}>Mot de passe</button>
@@ -163,7 +174,13 @@ export function Login() {
                   />
                 </div>
               )}
-              <button className="btn provider" disabled={busy}>{submitLabel}</button>
+              {mode === 'signup' && (
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 14 }}>
+                  <input type="checkbox" required checked={accepted} onChange={(e) => setAccepted(e.target.checked)} style={{ width: 18, height: 18, marginTop: 3, flex: 'none', accentColor: 'var(--accent)' }} />
+                  <span>J'accepte les <LegalLink path={LEGAL_PATHS.cgu}>CGU</LegalLink> et la <LegalLink path={LEGAL_PATHS.confidentialite}>politique de confidentialité</LegalLink>.</span>
+                </label>
+              )}
+              <button className="btn provider" disabled={busy || (mode === 'signup' && !accepted)}>{submitLabel}</button>
               {mode === 'magic' && <span className="muted" style={{ fontSize: 13, textAlign: 'center' }}>Pas de mot de passe : un lien magique arrive par email.</span>}
             </form>
           )}

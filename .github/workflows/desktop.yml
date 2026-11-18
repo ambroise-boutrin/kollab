@@ -1,10 +1,11 @@
 name: Appli bureau
 
-# Une étiquette vX.Y.Z publie une release avec les installeurs Windows, macOS et Linux.
+# Un push sur main (ou release) avec un nouveau numéro de version dans src-tauri/tauri.conf.json
+# publie la release vX.Y.Z avec les installeurs Windows, macOS et Linux.
 # Sur une PR qui touche l'appli bureau, on vérifie seulement que tout compile.
 on:
   push:
-    tags: ['v*']
+    branches: [main, release]
   pull_request:
     paths: ['src-tauri/**', '.github/workflows/desktop.yml', 'package.json']
   workflow_dispatch:
@@ -13,7 +14,25 @@ permissions:
   contents: write
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.check.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          v=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          if [ "${{ github.event_name }}" = pull_request ]; then echo publish=false >> "$GITHUB_OUTPUT"
+          elif gh release view "v$v" -R "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "La version $v est déjà publiée : rien à faire."; echo publish=skip >> "$GITHUB_OUTPUT"
+          else echo publish=true >> "$GITHUB_OUTPUT"; fi
+
   build:
+    needs: version
+    if: needs.version.outputs.publish != 'skip'
     strategy:
       fail-fast: false
       matrix:
@@ -49,16 +68,41 @@ jobs:
 
       - run: npm ci
 
+      # Notes de version tirées de src/changelog.json (la même liste que dans Réglages › À propos).
+      - name: Notes de version
+        id: notes
+        shell: bash
+        run: |
+          {
+            echo 'body<<EOF'
+            node -e "const [r]=require('./src/changelog.json'); console.log(r.title + '\n'); r.items.forEach(i=>console.log('- ' + i))"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      # Sans clé de signature (PR venant d'un fork), on compile sans les fichiers de mise à jour.
+      - name: Options de compilation
+        id: opts
+        shell: bash
+        env:
+          HAS_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+        run: |
+          if [ "$HAS_KEY" = true ]; then echo 'extra=' >> "$GITHUB_OUTPUT"
+          else echo 'extra=--config {"bundle":{"createUpdaterArtifacts":false}}' >> "$GITHUB_OUTPUT"; fi
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Adresse et clé publique du projet Supabase (faites pour être visibles côté client).
           VITE_SUPABASE_URL: https://wwotsleenolxjduzxvzk.supabase.co
           VITE_SUPABASE_ANON_KEY: sb_publishable_aQpShvIsm1OZeH6En83LMw_bL1T4Kai
+          # Signe les mises à jour pour que l'appli n'installe que les versions publiées ici.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
-          releaseName: Kollab ${{ github.ref_name }}
-          releaseBody: Télécharge l'installeur de ton système ci-dessous (Windows, macOS ou Linux).
+          tagName: ${{ needs.version.outputs.publish == 'true' && 'v__VERSION__' || '' }}
+          releaseName: Kollab __VERSION__
+          releaseCommitish: ${{ github.sha }}
+          releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: false
           prerelease: false
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }} ${{ steps.opts.outputs.extra }}

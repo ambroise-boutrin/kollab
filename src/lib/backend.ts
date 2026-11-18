@@ -46,6 +46,8 @@ export interface Backend {
   sendPasswordReset(email: string): Promise<void>
   /** Change le mot de passe de l'utilisateur connecté (ou en crée un). */
   setPassword(password: string): Promise<void>
+  /** Supprime définitivement le compte et ses données personnelles. */
+  deleteAccount(): Promise<void>
 
   updateProfile(patch: ProfilePatch): Promise<void>
   /** Envoie une photo de profil (déjà redimensionnée) et renvoie son adresse. */

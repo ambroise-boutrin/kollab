@@ -31,13 +31,33 @@
     "targets": "all",
     "category": "Productivity",
     "shortDescription": "Gestion de projet pour équipes de dev",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
     "macOS": {
       "signingIdentity": "-",
       "minimumSystemVersion": "11.0"
     },
     "windows": {
-      "webviewInstallMode": { "type": "downloadBootstrapper" }
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      }
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU1QjFDNzNEMzdBNjYwREYKUldUZllLWTNQY2V4VlJnemRTZEExNGF3V1ZRTUI1ZlVwUUlzM2YxVVZWY2pzdU44Skh2YnhWSUIK",
+      "endpoints": [
+        "https://github.com/ambroise-boutrin/kollab/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }

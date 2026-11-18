@@ -1,14 +1,18 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
+import pkg from './package.json' with { type: 'json' }
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
+  // Le serveur de dev de Tauri attend ce port précis.
+  server: { port: 5173, strictPort: true },
   plugins: [
     react(),
     VitePWA({
       // Enregistré à la main dans main.tsx, pour ne pas le faire dans l'appli bureau.
       injectRegister: false,
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['logo.svg'],
       // Polices et icônes en cache : chargement instantané et hors ligne.
       workbox: { globPatterns: ['**/*.{js,css,html,svg,png,woff2}'] },

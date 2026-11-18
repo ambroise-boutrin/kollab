@@ -10,6 +10,9 @@ const PATHS = {
   trash: 'M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13',
   send: 'M4 12 20 4l-6 16-3-7z',
   logout: 'M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10',
+  check: 'M5 12.5 10 17l9-10',
+  download: 'M12 4v11M7 10l5 5 5-5M5 20h14',
+  sparkle: 'M12 3v4M12 17v4M3 12h4M17 12h4M6.5 6.5l2.5 2.5M15 15l2.5 2.5M17.5 6.5 15 9M9 15l-2.5 2.5',
 } as const
 
 export type IconName = keyof typeof PATHS

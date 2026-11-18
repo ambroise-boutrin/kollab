@@ -156,6 +156,12 @@ export const demoBackend: Backend = {
     if (password.length < 8) throw new Error('Le mot de passe doit faire au moins 8 caractères')
   },
 
+  async deleteAccount() {
+    write({ user: null, providers: [], workspace: null, messages: [] })
+    authListeners.forEach((cb) => cb(null))
+    emit({ kind: 'auth' })
+  },
+
   async updateProfile(patch) {
     update((s) => {
       const me = s.workspace?.members.find((m) => m.id === 'me')
