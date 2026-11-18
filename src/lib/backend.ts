@@ -1,4 +1,4 @@
-import type { AppNotification, Channel, DocumentItem, Sprint, ReactionChange, Group, Invite, LinkItem, Member, Message, ProfilePatch, Provider, Role, Task } from './types'
+import type { AppNotification, Channel, DocumentItem, Note, Sprint, ReactionChange, Group, Invite, LinkItem, Member, Message, ProfilePatch, Provider, Role, Task } from './types'
 
 export interface User {
   id: string
@@ -7,7 +7,7 @@ export interface User {
 }
 
 export interface TrashItem {
-  kind: 'task' | 'link' | 'document'
+  kind: 'task' | 'link' | 'document' | 'note'
   id: string
   title: string
   deletedAt: string
@@ -34,6 +34,8 @@ export interface Workspace {
   documents: DocumentItem[]
   /** Sprints du projet (vide si la base ne les connaît pas encore). */
   sprints: Sprint[]
+  /** Documents texte (sans leur contenu). */
+  notes: Note[]
 }
 
 /** Un projet (groupe) dont l'utilisateur est membre, pour le sélecteur. */
@@ -148,6 +150,13 @@ export interface Backend {
   removeLink(id: string): Promise<void>
 
   createSprint(sprint: Omit<Sprint, 'id' | 'closedAt'>): Promise<Sprint>
+
+  createNote(title: string): Promise<Note>
+  /** Contenu Yjs du document, encodé en base64 ('' si vide). */
+  loadNote(id: string): Promise<string>
+  saveNote(id: string, patch: { ystate?: string; preview?: string; title?: string }): Promise<void>
+  /** Met le document à la corbeille. */
+  removeNote(id: string): Promise<void>
   /**
    * Salle en direct du projet (poker planning…) : messages diffusés à tous et liste des présents.
    * Rien n'est enregistré en base.

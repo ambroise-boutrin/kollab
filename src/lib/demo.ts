@@ -1,5 +1,5 @@
 import { newId, type Backend, type RoomEvent, type TrashItem, type GroupSetup, type LiveHandlers, type User, type Workspace } from './backend'
-import type { AppNotification, DocumentItem, Sprint, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task } from './types'
+import type { AppNotification, DocumentItem, Note, Sprint, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task } from './types'
 
 /**
  * Mode démo : tout est stocké dans le navigateur. Plusieurs onglets ouverts
@@ -21,6 +21,9 @@ interface DemoState {
   trash?: TrashItem[]
   trashedTasks?: Task[]
   trashedDocs?: DocumentItem[]
+  trashedNotes?: Note[]
+  /** Contenu des documents texte (base64 Yjs). */
+  noteStates?: Record<string, string>
 }
 
 /** Fichiers envoyés en démo : gardés en mémoire le temps de la session. */
@@ -56,6 +59,9 @@ function seed(user: User): Workspace {
   })
   return {
     sprints,
+    notes: [
+      { id: newId(), title: 'Compte rendu du daily', preview: 'Daily du matin\nLéa : tableau kanban terminé, passe aux invitations.\nSami : table des groupes, finie ce soir.\nMoi : relecture de la visionneuse PDF.\nBlocage : aucun.', createdBy: 'lm', updatedBy: 'sk', createdAt: new Date(Date.now() - 5 * 3600e3).toISOString(), updatedAt: new Date(Date.now() - 40 * 60e3).toISOString() },
+    ],
     group: { id: 'demo', name: 'Mon équipe', inviteCode: 'KOLLAB-DEMO', discordWebhookSet: false },
     members: [{ ...ME, name: user.name }, ...TEAM],
     tasks: [
@@ -119,6 +125,7 @@ function read(): DemoState {
         }
         if (w && !w.documents) w.documents = []
         if (w && !w.sprints) w.sprints = []
+        if (w && !w.notes) w.notes = []
       }
       return s
     }
@@ -337,6 +344,7 @@ export const demoBackend: Backend = {
         w.links = setup.repoUrl ? [{ id: newId(), title: 'Dépôt GitHub', url: setup.repoUrl }] : []
         w.documents = []
         w.sprints = []
+        w.notes = []
       }
       s.workspace = w
       s.messages = preset ? [] : seedMessages()
@@ -554,6 +562,9 @@ export const demoBackend: Backend = {
       const doc = (s.trashedDocs ?? []).find((d) => d.id === id)
       if (doc && s.workspace) s.workspace.documents.unshift(doc)
       s.trashedDocs = (s.trashedDocs ?? []).filter((d) => d.id !== id)
+      const note = (s.trashedNotes ?? []).find((n) => n.id === id)
+      if (note && s.workspace) s.workspace.notes.unshift(note)
+      s.trashedNotes = (s.trashedNotes ?? []).filter((n) => n.id !== id)
     })
     emit({ kind: 'refresh' })
   },
@@ -633,6 +644,43 @@ export const demoBackend: Backend = {
         bc?.close()
       },
     }
+  },
+
+  async createNote(title) {
+    const now = new Date().toISOString()
+    const note: Note = { id: newId(), title: title.trim() || 'Sans titre', preview: '', createdBy: 'me', updatedBy: 'me', createdAt: now, updatedAt: now }
+    update((s) => {
+      s.workspace?.notes.unshift(note)
+    })
+    emit({ kind: 'refresh' })
+    return note
+  },
+
+  async loadNote(id) {
+    return read().noteStates?.[id] ?? ''
+  },
+
+  async saveNote(id, patch) {
+    update((s) => {
+      const n = s.workspace?.notes.find((x) => x.id === id)
+      if (!n) return
+      if (patch.ystate !== undefined) s.noteStates = { ...(s.noteStates ?? {}), [id]: patch.ystate }
+      if (patch.preview !== undefined) n.preview = patch.preview.slice(0, 2000)
+      if (patch.title !== undefined) n.title = patch.title.trim() || 'Sans titre'
+      n.updatedAt = new Date().toISOString()
+      n.updatedBy = 'me'
+    })
+  },
+
+  async removeNote(id) {
+    update((s) => {
+      const n = s.workspace?.notes.find((x) => x.id === id)
+      if (!n || !s.workspace) return
+      s.workspace.notes = s.workspace.notes.filter((x) => x.id !== id)
+      s.trashedNotes = [...(s.trashedNotes ?? []), n]
+      s.trash = [{ kind: 'note', id, title: n.title, deletedAt: new Date().toISOString(), deletedBy: 'me' }, ...(s.trash ?? [])]
+    })
+    emit({ kind: 'refresh' })
   },
 
   async createSprint(sp) {
