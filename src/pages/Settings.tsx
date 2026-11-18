@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { SectionsPage } from '../components/SectionsPage'
 import { useToast } from '../components/Toast'
 import { useStore } from '../lib/store'
 import { applyTheme, loadThemeChoice, saveThemeChoice, THEMES, type ThemeChoice } from '../lib/themes'
@@ -52,15 +53,48 @@ export function Settings() {
   }
 
   return (
-    <div className="page" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <h1>Réglages</h1>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 18, alignItems: 'start' }}>
-        <ProfileCard />
+    <SectionsPage
+      title="Réglages du compte"
+      sections={[
+        { id: 'profil', label: 'Profil', icon: 'user', render: () => <ProfileCard /> },
+        {
+          id: 'comptes',
+          label: 'Comptes liés',
+          icon: 'link',
+          render: () => (
+            <>
+        <section className="card appear appear-2" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <h2>Comptes liés</h2>
+            <p className="muted" style={{ margin: '2px 0 0', fontSize: 14 }}>Connecte-toi avec n'importe lequel.</p>
+          </div>
+          {PROVIDERS.map((p) => {
+            const on = linked.includes(p.id)
+            return (
+              <div className="account" key={p.id}>
+                <span className="logo-box" style={{ background: p.bg }}><ProviderIcon path={p.icon} /></span>
+                <span style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <strong style={{ fontWeight: 600 }}>{p.label}</strong>
+                  <span className="muted" style={{ fontSize: 13 }}>{on ? 'Relié' : 'Non relié'}</span>
+                </span>
+                <button className={`btn small${on ? ' soft' : ''}`} onClick={() => void toggle(p.id)}>{on ? 'Délier' : 'Relier'}</button>
+              </div>
+            )
+          })}
+        </section>
+            </>
+          ),
+        },
+        {
+          id: 'apparence',
+          label: 'Apparence',
+          icon: 'palette',
+          render: () => (
+            <>
         <section className="card appear appear-2" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
             <h2>Thème</h2>
-            <p className="muted" style={{ margin: '2px 0 0', fontSize: 14 }}>Chaque membre choisit le sien.</p>
+            <p className="muted" style={{ margin: '2px 0 0', fontSize: 14 }}>Visible par toi seul.</p>
           </div>
           <div className="themes">
             {THEMES.map((t) => (
@@ -88,32 +122,18 @@ export function Settings() {
             Couleur principale personnalisée
             {choice.accent && <button className="btn soft small" onClick={() => setChoice({ ...choice, accent: null })}>Réinitialiser</button>}
           </label>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button className="btn">Principal</button>
-            <button className="btn ok">Approuver</button>
-            <button className="btn danger">Refuser</button>
-            <button className="btn soft">Secondaire</button>
-          </div>
         </section>
-
-        <section className="card appear appear-2" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div>
-            <h2>Comptes liés</h2>
-            <p className="muted" style={{ margin: '2px 0 0', fontSize: 14 }}>Relie plusieurs comptes au même profil pour te connecter avec n'importe lequel.</p>
-          </div>
-          {PROVIDERS.map((p) => {
-            const on = linked.includes(p.id)
-            return (
-              <div className="account" key={p.id}>
-                <span className="logo-box" style={{ background: p.bg }}><ProviderIcon path={p.icon} /></span>
-                <span style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                  <strong style={{ fontWeight: 600 }}>{p.label}</strong>
-                  <span className="muted" style={{ fontSize: 13 }}>{on ? 'Relié' : 'Non relié'}</span>
-                </span>
-                <button className={`btn small${on ? ' soft' : ''}`} onClick={() => void toggle(p.id)}>{on ? 'Délier' : 'Relier'}</button>
-              </div>
-            )
-          })}
+            </>
+          ),
+        },
+        {
+          id: 'securite',
+          label: 'Sécurité',
+          icon: 'shield',
+          render: () => (
+            <>
+        <section className="card">
+          <h2>Mot de passe</h2>
           <div className="account">
             <span className="logo-box" style={{ background: 'var(--accent)' }}>@</span>
             <span style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -133,10 +153,12 @@ export function Settings() {
             </form>
           )}
         </section>
-
-        <AboutCard />
-        <DangerCard />
-      </div>
-    </div>
+              <DangerCard />
+            </>
+          ),
+        },
+        { id: 'a-propos', label: 'À propos', icon: 'info', render: () => <AboutCard /> },
+      ]}
+    />
   )
 }

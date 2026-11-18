@@ -60,16 +60,19 @@ function findTarget(name: string): HTMLElement | null {
 
 type Box = { top: number; left: number; width: number; height: number }
 
-export function DemoTour() {
-  const [open, setOpen] = useState(() => !readDone())
+export type TourStep = Step
+
+/**
+ * Visite à projecteur réutilisable : `steps` décrit les étapes, `finish` les
+ * boutons de la dernière étape (reçoit la fonction de fermeture).
+ */
+export function SpotlightTour({ steps: STEPS, onClose, finish }: { steps: Step[]; onClose: () => void; finish: (close: () => void) => React.ReactNode }) {
+  const open = true
   const [i, setI] = useState(0)
   const [box, setBox] = useState<Box | null>(null)
   const step = STEPS[i]
 
-  const close = useCallback(() => {
-    markDone()
-    setOpen(false)
-  }, [])
+  const close = useCallback(() => onClose(), [onClose])
 
   // Va sur la bonne page, attend que la zone existe, puis la cadre.
   useLayoutEffect(() => {
@@ -119,14 +122,6 @@ export function DemoTour() {
     return () => window.removeEventListener('keydown', onKey)
   }, [open, close])
 
-  if (!open) {
-    return (
-      <button className="tour-restart" onClick={() => { setI(0); setOpen(true) }}>
-        Revoir la visite
-      </button>
-    )
-  }
-
   const last = i === STEPS.length - 1
   const vw = window.innerWidth
   const vh = window.innerHeight
@@ -164,15 +159,45 @@ export function DemoTour() {
           {!last && <button className="tour-skip" onClick={close}>Passer</button>}
           {i > 0 && <button className="btn soft small" onClick={() => setI(i - 1)}>Précédent</button>}
           {last ? (
-            <>
-              <button className="btn soft small" onClick={close}>Explorer</button>
-              <button className="btn small" onClick={() => { markDone(); leaveDemo() }}>Créer mon compte</button>
-            </>
+            finish(close)
           ) : (
             <button className="btn small" onClick={() => setI(i + 1)} autoFocus>Suivant</button>
           )}
         </div>
       </div>
     </div>
+  )
+}
+
+/** Visite de la démo sans inscription, avec un bouton pour la revoir. */
+export function DemoTour() {
+  const [open, setOpen] = useState(() => !readDone())
+  const close = useCallback(() => {
+    markDone()
+    setOpen(false)
+  }, [])
+  useEffect(() => {
+    const again = () => setOpen(true)
+    window.addEventListener('kollab:tour', again)
+    return () => window.removeEventListener('kollab:tour', again)
+  }, [])
+  if (!open) {
+    return (
+      <button className="tour-restart" onClick={() => setOpen(true)}>
+        Revoir la visite
+      </button>
+    )
+  }
+  return (
+    <SpotlightTour
+      steps={STEPS}
+      onClose={close}
+      finish={(done) => (
+        <>
+          <button className="btn soft small" onClick={done}>Explorer</button>
+          <button className="btn small" onClick={() => { markDone(); leaveDemo() }}>Créer mon compte</button>
+        </>
+      )}
+    />
   )
 }

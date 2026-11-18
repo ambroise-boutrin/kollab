@@ -6,12 +6,14 @@ import { useStore } from './lib/store'
 import { Board } from './pages/Board'
 import { Chat } from './pages/Chat'
 import { Group } from './pages/Group'
+import { Intro } from './pages/Intro'
+import { ProjectSettings } from './pages/ProjectSettings'
+import { readIntro } from './lib/intro'
 import { Home } from './pages/Home'
 import { LoadError } from './pages/LoadError'
 import { Login } from './pages/Login'
 import { NewPassword } from './pages/NewPassword'
 import { Settings } from './pages/Settings'
-import { Welcome } from './pages/Welcome'
 
 export function App() {
   const { ready, user, workspace, loadError } = useStore()
@@ -30,7 +32,7 @@ export function App() {
         }}
       />
     )
-  if (!workspace) return <Welcome />
+  if (!workspace || readIntro(user.id)) return <Intro />
   return (
     <BrowserRouter basename={APP_BASE || '/'}>
       <Routes>
@@ -38,7 +40,9 @@ export function App() {
           <Route index element={<Home />} />
           <Route path="tableau" element={<Board />} />
           <Route path="chat" element={<Chat />} />
-          <Route path="groupe" element={<Group />} />
+          <Route path="equipe" element={<Group />} />
+          <Route path="groupe" element={<Navigate to="/equipe" replace />} />
+          <Route path="projet" element={<ProjectSettings />} />
           <Route path="reglages" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

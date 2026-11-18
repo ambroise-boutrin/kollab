@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.2.0",
+    "date": "2026-11-18",
+    "title": "Plusieurs projets",
+    "items": [
+      "Plusieurs projets par compte, avec un sélecteur en haut à gauche",
+      "Modèles à la création : Scrum, Kanban simple, Projet étudiant",
+      "Introduction au premier lancement et visite guidée",
+      "Menu du profil, réglages du compte et réglages du projet",
+      "Membres connectés en haut à droite",
+      "Menu Kollab en français sur Mac",
+      "Design plus sobre"
+    ]
+  },
+  {
     "version": "0.1.0",
     "date": "2026-11-18",
     "title": "Première version",

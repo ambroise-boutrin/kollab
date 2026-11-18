@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { newId, type Backend, type User, type Workspace } from './backend'
+import { newId, type Backend, type GroupSummary, type User, type Workspace } from './backend'
 import { APP_BASE } from './base'
 import { demoBackend, startDemoSession } from './demo'
 import { createSupabaseBackend } from './supabaseBackend'
@@ -47,6 +47,10 @@ interface Store {
   /** Erreur au chargement du groupe (réseau, serveur) : on l'affiche au lieu de rester bloqué. */
   loadError: string | null
   workspace: Workspace | null
+  /** Tous les projets de l'utilisateur, pour le sélecteur. */
+  groups: GroupSummary[]
+  /** Ouvre un autre projet (mémorisé pour la prochaine visite). */
+  switchGroup(id: string): Promise<void>
   online: string[]
   /** Dernier message reçu, pour que le chat l'ajoute s'il est dans le bon salon. */
   incoming: Message | null
@@ -59,11 +63,29 @@ interface Store {
 
 const Ctx = createContext<Store | null>(null)
 
+const CURRENT_KEY = 'kollab-projet'
+export function rememberGroup(id: string | null) {
+  try {
+    if (id) localStorage.setItem(CURRENT_KEY, id)
+    else localStorage.removeItem(CURRENT_KEY)
+  } catch {
+    /* sans stockage, on rouvre le premier projet */
+  }
+}
+function rememberedGroup(): string | null {
+  try {
+    return localStorage.getItem(CURRENT_KEY)
+  } catch {
+    return null
+  }
+}
+
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [ready, setReady] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
+  const [groups, setGroups] = useState<GroupSummary[]>([])
   const [online, setOnline] = useState<string[]>([])
   const [incoming, setIncoming] = useState<Message | null>(null)
 
@@ -71,7 +93,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       const u = await backend.currentUser()
       setUser(u)
-      setWorkspace(u ? await backend.loadWorkspace() : null)
+      if (u) {
+        const [w, list] = await Promise.all([backend.loadWorkspace(rememberedGroup()), backend.listGroups()])
+        setWorkspace(w)
+        setGroups(list)
+      } else {
+        setWorkspace(null)
+        setGroups([])
+      }
       setLoadError(null)
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Chargement impossible')
@@ -100,6 +129,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       onPresence: setOnline,
     })
   }, [groupId])
+
+  const switchGroup = useCallback(
+    async (id: string) => {
+      rememberGroup(id)
+      setOnline([])
+      await reload()
+    },
+    [reload],
+  )
 
   const saveTask = useCallback(async (task: Task) => {
     // Mise à jour optimiste : l'écran réagit tout de suite.
@@ -139,8 +177,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
 
   const value = useMemo<Store>(
-    () => ({ backend, user, ready, loadError, workspace, online, incoming, reload, saveTask, createTask, deleteTask, memberName }),
-    [user, ready, loadError, workspace, online, incoming, reload, saveTask, createTask, deleteTask, memberName],
+    () => ({ backend, user, ready, loadError, workspace, groups, switchGroup, online, incoming, reload, saveTask, createTask, deleteTask, memberName }),
+    [user, ready, loadError, workspace, groups, switchGroup, online, incoming, reload, saveTask, createTask, deleteTask, memberName],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
