@@ -1,5 +1,5 @@
 import { newId, type Backend, type TrashItem, type GroupSetup, type LiveHandlers, type User, type Workspace } from './backend'
-import type { AppNotification, DocumentItem, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task } from './types'
+import type { AppNotification, DocumentItem, Sprint, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task } from './types'
 
 /**
  * Mode démo : tout est stocké dans le navigateur. Plusieurs onglets ouverts
@@ -33,14 +33,29 @@ const TEAM: Member[] = [
   { id: 'yo', name: 'Yohann Petit', color: '#B5462E', role: 'guest', title: 'Client', status: 'away', avatarUrl: null },
 ]
 
+const DAY = 86400e3
+const isoDay = (offset: number) => new Date(Date.now() + offset * DAY).toISOString().slice(0, 10)
+
 function seed(user: User): Workspace {
   let age = 0
-  const t = (title: string, status: Task['status'], kind: Task['kind'], points: number, assignees: string[], position: number): Task => ({
+  const s2 = newId()
+  const s3 = newId()
+  const s4 = newId()
+  const sprints: Sprint[] = [
+    { id: s2, name: 'Sprint 2', goal: 'Connexion et projets', startsOn: isoDay(-20), endsOn: isoDay(-7), status: 'done', closedAt: new Date(Date.now() - 7 * DAY).toISOString() },
+    { id: s3, name: 'Sprint 3', goal: 'Tableau, invitations et documents', startsOn: isoDay(-6), endsOn: isoDay(7), status: 'active', closedAt: null },
+    { id: s4, name: 'Sprint 4', goal: 'Poker planning et visio', startsOn: isoDay(8), endsOn: isoDay(21), status: 'planned', closedAt: null },
+  ]
+  /** sprint : 2, 3 ou null (backlog) ; doneDay : jour de fin, compté depuis aujourd'hui. */
+  const t = (title: string, status: Task['status'], kind: Task['kind'], points: number, assignees: string[], position: number, sprint: 2 | 3 | null = 3, doneDay?: number): Task => ({
     id: newId(), title, description: '', status, kind, points, assigneeIds: assignees, prUrl: null, position,
     // Créées au fil des derniers jours, pour un fil d'activité réaliste.
     createdAt: new Date(Date.now() - (age += 95) * 60000 * 7).toISOString(),
+    sprintId: sprint === 2 ? s2 : sprint === 3 ? s3 : null,
+    doneAt: status === 'done' ? new Date(Date.now() + (doneDay ?? -1) * DAY).toISOString() : null,
   })
   return {
+    sprints,
     group: { id: 'demo', name: 'Mon équipe', inviteCode: 'KOLLAB-DEMO', discordWebhookSet: false },
     members: [{ ...ME, name: user.name }, ...TEAM],
     tasks: [
@@ -50,7 +65,15 @@ function seed(user: User): Workspace {
       t('Tableau kanban glisser-déposer', 'doing', 'feature', 8, ['lm', 'me'], 0),
       t('Invitations par lien', 'doing', 'feature', 5, ['me'], 1),
       t('Visionneuse PDF', 'review', 'feature', 5, ['lm', 'me'], 0),
-      t('Choisir le stack', 'done', 'research', 2, ['me'], 0),
+      t('Choisir le stack', 'done', 'research', 2, ['me'], 0, 3, -5),
+      t('Schéma de la base', 'done', 'feature', 5, ['sk'], 1, 3, -3),
+      t('Connexion Google', 'done', 'feature', 3, ['lm'], 2, 3, -2),
+      t('Notifications sur téléphone', 'todo', 'feature', 8, [], 3, null),
+      t('Mode hors ligne', 'todo', 'research', 5, [], 4, null),
+      t('Export PDF du sprint', 'todo', 'feature', 3, [], 5, null),
+      t('Connexion GitHub', 'done', 'feature', 5, ['me'], 3, 2, -15),
+      t('Création de projet', 'done', 'feature', 8, ['sk', 'lm'], 4, 2, -11),
+      t('Thèmes de couleur', 'done', 'feature', 3, ['lm'], 5, 2, -8),
     ],
     channels: [
       { id: 'general', name: 'général' },
@@ -95,6 +118,7 @@ function read(): DemoState {
           if (!old.assigneeIds) old.assigneeIds = old.assigneeId ? [old.assigneeId] : []
         }
         if (w && !w.documents) w.documents = []
+        if (w && !w.sprints) w.sprints = []
       }
       return s
     }
@@ -312,6 +336,7 @@ export const demoBackend: Backend = {
         w.tasks = (setup.tasks ?? []).map((t, i) => ({ ...t, id: newId(), description: '', assigneeIds: [], prUrl: null, position: i, createdAt: now }))
         w.links = setup.repoUrl ? [{ id: newId(), title: 'Dépôt GitHub', url: setup.repoUrl }] : []
         w.documents = []
+        w.sprints = []
       }
       s.workspace = w
       s.messages = preset ? [] : seedMessages()
@@ -580,6 +605,23 @@ export const demoBackend: Backend = {
       s.workspace.documents = s.workspace.documents.filter((x) => x.id !== id)
       s.trashedDocs = [...(s.trashedDocs ?? []), d]
       s.trash = [{ kind: 'document', id, title: d.name, deletedAt: new Date().toISOString(), deletedBy: 'me' }, ...(s.trash ?? [])]
+    })
+    emit({ kind: 'refresh' })
+  },
+
+  async createSprint(sp) {
+    const sprint: Sprint = { ...sp, id: newId(), closedAt: null }
+    update((s) => {
+      s.workspace?.sprints.push(sprint)
+    })
+    emit({ kind: 'refresh' })
+    return sprint
+  },
+
+  async updateSprint(id, patch) {
+    update((s) => {
+      const sp = s.workspace?.sprints.find((x) => x.id === id)
+      if (sp) Object.assign(sp, patch)
     })
     emit({ kind: 'refresh' })
   },

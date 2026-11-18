@@ -12,12 +12,13 @@ import { Popover } from './Popover'
 import { NotificationBell } from './Notifications'
 import { InviteDialog } from './InviteDialog'
 
-const NAV: { to: string; label: string; icon: IconName }[] = [
+const NAV: { to: string; label: string; icon: IconName; more?: boolean }[] = [
   { to: '/', label: 'Accueil', icon: 'home' },
   { to: '/tableau', label: 'Tableau', icon: 'board' },
-  { to: '/revues', label: 'Revues', icon: 'pr' },
+  { to: '/sprints', label: 'Sprints', icon: 'sprint', more: true },
+  { to: '/revues', label: 'Revues', icon: 'pr', more: true },
   { to: '/chat', label: 'Chat', icon: 'chat' },
-  { to: '/documents', label: 'Documents', icon: 'doc' },
+  { to: '/documents', label: 'Documents', icon: 'doc', more: true },
   { to: '/equipe', label: 'Équipe', icon: 'group' },
 ]
 
@@ -195,7 +196,8 @@ export function Layout() {
     return () => window.removeEventListener('kollab:invite', on)
   }, [])
   const openNew = useCallback(() => setCreating(true), [])
-  const onHome = useLocation().pathname === '/'
+  const { pathname } = useLocation()
+  const onHome = pathname === '/'
   const myOpen = workspace?.tasks.filter((t) => t.assigneeIds.includes(user?.id ?? 'me') && t.status !== 'done').length ?? 0
 
   return (
@@ -242,12 +244,33 @@ export function Layout() {
       </main>
 
       <nav className="tabbar" aria-label="Navigation" data-tour="nav">
-        {NAV.map((n) => (
+        {NAV.filter((n) => !n.more).map((n) => (
           <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => (isActive ? 'active' : '')}>
             <Icon name={n.icon} size={22} />
             {n.label}
           </NavLink>
         ))}
+        <Popover
+          label="Plus"
+          className="tab-more"
+          button={({ open, toggle }) => (
+            <button className={`tab-more-btn${NAV.some((n) => n.more && pathname.startsWith(n.to)) ? ' active' : ''}`} aria-expanded={open} onClick={toggle}>
+              <Icon name="grid" size={22} />
+              Plus
+            </button>
+          )}
+        >
+          {(close) => (
+            <div className="tab-more-grid">
+              {NAV.filter((n) => n.more).map((n) => (
+                <NavLink key={n.to} to={n.to} onClick={close} className={({ isActive }) => `tab-more-item${isActive ? ' active' : ''}`}>
+                  <span><Icon name={n.icon} size={22} /></span>
+                  {n.label}
+                </NavLink>
+              ))}
+            </div>
+          )}
+        </Popover>
       </nav>
 
       {creating && <NewProjectDialog onClose={() => setCreating(false)} />}

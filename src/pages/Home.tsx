@@ -7,6 +7,7 @@ import { NotificationBell } from '../components/Notifications'
 import { openInvite } from './Group'
 import { PrStatus } from '../components/PrLink'
 import { Avatar } from '../components/Avatar'
+import { boardTasks } from '../lib/sprints'
 import { useStore, useWorkspace } from '../lib/store'
 import { KINDS, STATUSES, type Task, type TaskStatus } from '../lib/types'
 
@@ -31,13 +32,14 @@ export function Home() {
   const me = ws.members.find((m) => m.id === user?.id) ?? ws.members[0]
   const firstName = me?.name.split(/\s+/)[0] ?? ''
 
-  const total = ws.tasks.reduce((n, t) => n + (t.points ?? 0), 0)
-  const done = ws.tasks.filter((t) => t.status === 'done').reduce((n, t) => n + (t.points ?? 0), 0)
+  const sprintTasks = boardTasks(ws)
+  const total = sprintTasks.reduce((n, t) => n + (t.points ?? 0), 0)
+  const done = sprintTasks.filter((t) => t.status === 'done').reduce((n, t) => n + (t.points ?? 0), 0)
   const pct = total ? Math.round((done / total) * 100) : 0
   const open = ws.tasks.filter((t) => t.status !== 'done').length
 
   const q = query.trim().toLowerCase()
-  const shown = useMemo(() => (q ? ws.tasks.filter((t) => t.title.toLowerCase().includes(q)) : ws.tasks), [ws.tasks, q])
+  const shown = useMemo(() => (q ? ws.tasks.filter((t) => t.title.toLowerCase().includes(q)) : sprintTasks), [ws.tasks, sprintTasks, q])
   const toReview = ws.tasks.filter((t) => t.status === 'review')
   const mine = ws.tasks
     .filter((t) => me && t.assigneeIds.includes(me.id) && t.status !== 'done')
