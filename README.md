@@ -44,3 +44,9 @@ Quand le numéro de version est nouveau, GitHub Actions compile les installeurs 
 Les mises à jour sont signées. Le dépôt a besoin de deux secrets GitHub : `TAURI_SIGNING_PRIVATE_KEY` et `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Sans eux, les installeurs sont compilés mais l'appli ne peut pas se mettre à jour toute seule.
 
 Pour voir la fenêtre de mise à jour sans publier : ouvre l'app avec `?apercu-mise-a-jour` à la fin de l'adresse.
+
+## Emails
+
+- **Activation, mot de passe oublié, lien magique** : modèles dans `supabase/templates/`. À coller dans Supabase › Authentication › Emails › Templates (sujets : « Active ton compte Kollab », « Nouveau mot de passe Kollab », « Ton lien de connexion Kollab »).
+- **Bienvenue** : fonction `welcome-email`, envoyée une fois après l'activation, via Resend. Secrets de fonction : `RESEND_API_KEY`, `MAIL_FROM` et `APP_URL`.
+- Pour la production, configure aussi le SMTP de Resend dans Supabase › Authentication › SMTP : l'envoi par défaut de Supabase est limité à quelques emails par heure.

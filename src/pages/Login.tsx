@@ -40,7 +40,7 @@ const HEADINGS: Record<Mode, { title: string; sub: string }> = {
   signin: { title: 'Bon retour', sub: 'Connecte-toi pour retrouver ton groupe.' },
   signup: { title: 'Crée ton compte', sub: 'Une minute, et ton équipe a son espace de travail.' },
   forgot: { title: 'Mot de passe oublié', sub: 'Indique ton email : on t’envoie un lien pour en choisir un nouveau.' },
-  magic: { title: 'Bon retour', sub: 'Connecte-toi pour retrouver ton groupe.' },
+  magic: { title: 'Lien de connexion', sub: 'Pas de mot de passe : on t’envoie un lien qui te connecte en un clic.' },
 }
 
 const PERKS = [
@@ -161,7 +161,7 @@ export function Login() {
           </div>
         )}
         <div className="login-shot">
-          <img src="/vitrine/tableau-attribution.png" alt="" width={1360} height={860} />
+          <img src={signup ? "/vitrine/tableau-attribution.png" : "/vitrine/chat.png"} alt="" width={1360} height={860} />
         </div>
       </section>
 
@@ -191,32 +191,6 @@ export function Login() {
             </div>
           ) : (
             <>
-              {mode !== 'forgot' && (
-                <>
-                  <div className={signup ? 'login-providers row' : 'login-providers'}>
-                    {PROVIDERS.map((p) => (
-                      <button key={p.id} type="button" className="btn provider" style={{ background: p.bg }} disabled={busy} aria-label={`${signup ? 'S’inscrire' : 'Continuer'} avec ${p.label}`} onClick={() => void run(async () => void (await backend.signIn(p.id)))}>
-                        <ProviderIcon path={p.icon} />
-                        <span>{signup ? p.label : `Continuer avec ${p.label}`}</span>
-                      </button>
-                    ))}
-                  </div>
-                  {!signup && (
-                    <p className="muted" style={{ margin: '-4px 0 0', fontSize: 13, textAlign: 'center' }}>
-                      En continuant, tu acceptes les <LegalLink path={LEGAL_PATHS.cgu}>CGU</LegalLink> et la <LegalLink path={LEGAL_PATHS.confidentialite}>politique de confidentialité</LegalLink>.
-                    </p>
-                  )}
-                  <div className="or">{signup ? 'ou avec ton email' : 'ou par email'}</div>
-                </>
-              )}
-
-              {(mode === 'signin' || mode === 'magic') && (
-                <div className="seg" role="group" aria-label="Façon de se connecter" style={{ alignSelf: 'center' }}>
-                  <button type="button" aria-pressed={mode === 'signin'} onClick={() => switchTo('signin')}>Mot de passe</button>
-                  <button type="button" aria-pressed={mode === 'magic'} onClick={() => switchTo('magic')}>Lien magique</button>
-                </div>
-              )}
-
               <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {signup && (
                   <div className="grid-2">
@@ -272,8 +246,33 @@ export function Login() {
                   </label>
                 )}
                 <button className="btn provider" disabled={!canSubmit}>{busy ? 'Un instant…' : submitLabel}</button>
-                {mode === 'magic' && <span className="muted" style={{ fontSize: 13, textAlign: 'center' }}>Pas de mot de passe : un lien magique arrive par email.</span>}
               </form>
+
+              {mode === 'signin' && (
+                <button type="button" className="link-btn login-alt" onClick={() => switchTo('magic')}>Recevoir plutôt un lien de connexion par email</button>
+              )}
+              {mode === 'magic' && (
+                <button type="button" className="link-btn login-alt" onClick={() => switchTo('signin')}>Utiliser mon mot de passe</button>
+              )}
+
+              {mode !== 'forgot' && (
+                <>
+                  <div className="or">{signup ? 'ou s’inscrire avec' : 'ou continuer avec'}</div>
+                  <div className="login-providers">
+                    {PROVIDERS.map((p) => (
+                      <button key={p.id} type="button" className="btn provider" style={{ background: p.bg }} disabled={busy} aria-label={`${signup ? 'S’inscrire' : 'Continuer'} avec ${p.label}`} onClick={() => void run(async () => void (await backend.signIn(p.id)))}>
+                        <ProviderIcon path={p.icon} />
+                        <span>{p.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {!signup && (
+                    <p className="muted" style={{ margin: 0, fontSize: 12.5, textAlign: 'center' }}>
+                      En continuant, tu acceptes les <LegalLink path={LEGAL_PATHS.cgu}>CGU</LegalLink> et la <LegalLink path={LEGAL_PATHS.confidentialite}>politique de confidentialité</LegalLink>.
+                    </p>
+                  )}
+                </>
+              )}
 
               {signup && (
                 <ol className="login-steps" aria-label="Les étapes">

@@ -79,6 +79,10 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       const { data } = sb.auth.onAuthStateChange((event, session) => {
         // L'écran de connexion vaut acceptation des CGU : on enregistre la version acceptée.
         const u = session?.user
+        // Email de bienvenue, une seule fois après l'activation (la fonction vérifie elle-même).
+        if (event === 'SIGNED_IN' && u?.email_confirmed_at && !u.app_metadata?.welcomed) {
+          setTimeout(() => void sb.functions.invoke('welcome-email').catch(() => {}), 0)
+        }
         if (event === 'SIGNED_IN' && u && u.user_metadata?.cgu_version !== CGU_VERSION) {
           setTimeout(() => void sb.auth.updateUser({ data: { cgu_version: CGU_VERSION, cgu_accepted_at: new Date().toISOString() } }), 0)
         }

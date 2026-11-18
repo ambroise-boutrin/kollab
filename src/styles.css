@@ -219,9 +219,9 @@ textarea.input { resize: vertical; min-height: 90px; }
 .login-tabs { display: flex; width: 100%; }
 .login-tabs button { flex: 1; justify-content: center; }
 .login-brand { display: none; align-items: center; gap: 10px; font-family: var(--display); font-weight: 800; font-size: 20px; }
-.login-providers { display: flex; flex-direction: column; gap: 10px; }
-.login-providers.row { flex-direction: row; }
-.login-providers.row .provider { flex: 1; min-width: 0; padding: 0 10px; font-size: 14px; }
+.login-providers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.login-providers .provider { min-height: 48px; padding: 0 10px; font-size: 14px; border-radius: 14px; }
+.login-alt { align-self: center; font-size: 14px; font-weight: 500; margin-top: -4px; }
 .field-help { font-size: 13px; color: var(--muted); font-weight: 400; }
 .input-wrap { position: relative; }
 .input-wrap .input { padding-right: 48px; }
@@ -248,8 +248,8 @@ textarea.input { resize: vertical; min-height: 90px; }
   .login-brand { display: flex; }
   .login-form h1 { font-size: 28px; }
 }
-@media (max-width: 420px) {
-  .login-providers.row { flex-direction: column; }
+@media (max-width: 380px) {
+  .login-providers { grid-template-columns: 1fr; }
 }
 .provider { width: 100%; min-height: 52px; border-radius: 16px; font-size: 15px; }
 .link-btn { border: 0; background: none; padding: 0; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
