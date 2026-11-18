@@ -14,6 +14,7 @@ import { InviteDialog } from './InviteDialog'
 import { CommandPalette, openSearch } from './CommandPalette'
 import { VoiceProvider } from '../lib/voice'
 import { VoiceBar } from './VoiceBar'
+import { Dock, DockToggle } from './Dock'
 
 const NAV: { to: string; label: string; icon: IconName; more?: boolean }[] = [
   { to: '/', label: 'Accueil', icon: 'home' },
@@ -237,6 +238,7 @@ export function Layout() {
           </div>
           <MembersStack />
           <button className="icon-btn topbar-search" aria-label="Rechercher" onClick={openSearch}><Icon name="search" size={20} /></button>
+          <DockToggle />
           <NotificationBell />
           <div className="topbar-mobile">
             <ProfileMenu compact />
@@ -254,6 +256,7 @@ export function Layout() {
         )}
         <Outlet />
       </main>
+      <Dock />
       <CommandPalette />
       <VoiceBar />
 
