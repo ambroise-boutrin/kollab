@@ -1,3 +1,4 @@
+import { APP_BASE } from '../lib/base'
 import { useState, type FormEvent } from 'react'
 import { LogoMark } from '../components/Logo'
 import { useStore } from '../lib/store'
@@ -14,7 +15,7 @@ export function Welcome() {
     setError(null)
     try {
       await fn()
-      window.history.replaceState(null, '', '/')
+      window.history.replaceState(null, '', `${APP_BASE}/`)
       await reload()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Action impossible')
