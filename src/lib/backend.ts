@@ -18,9 +18,12 @@ export interface RoomHandlers {
   onEvent(e: RoomEvent): void
   onPeers(ids: string[]): void
 }
+/** listen : on reçoit tout sans apparaître dans la liste des présents. */
 export type RoomEvent = { type: string; from: string; [k: string]: unknown }
 export interface Room {
   send(e: Omit<RoomEvent, 'from'>): void
+  /** Apparaître (ou non) dans la liste des présents. */
+  setPresent(on: boolean): void
   leave(): void
 }
 
@@ -161,7 +164,7 @@ export interface Backend {
    * Salle en direct du projet (poker planning…) : messages diffusés à tous et liste des présents.
    * Rien n'est enregistré en base.
    */
-  joinRoom(room: string, handlers: RoomHandlers): Room
+  joinRoom(room: string, handlers: RoomHandlers, opts?: { listen?: boolean }): Room
   updateSprint(id: string, patch: Partial<Omit<Sprint, 'id'>>): Promise<void>
 
   /** Envoie un fichier dans l'espace documents du projet. */

@@ -12,6 +12,8 @@ import { Popover } from './Popover'
 import { NotificationBell } from './Notifications'
 import { InviteDialog } from './InviteDialog'
 import { CommandPalette, openSearch } from './CommandPalette'
+import { VoiceProvider } from '../lib/voice'
+import { VoiceBar } from './VoiceBar'
 
 const NAV: { to: string; label: string; icon: IconName; more?: boolean }[] = [
   { to: '/', label: 'Accueil', icon: 'home' },
@@ -204,6 +206,7 @@ export function Layout() {
   const myOpen = workspace?.tasks.filter((t) => t.assigneeIds.includes(user?.id ?? 'me') && t.status !== 'done').length ?? 0
 
   return (
+    <VoiceProvider>
     <div className="shell">
       <nav className="sidebar" aria-label="Navigation principale">
         <div className="brand"><LogoMark size={24} /> Kollab</div>
@@ -252,6 +255,7 @@ export function Layout() {
         <Outlet />
       </main>
       <CommandPalette />
+      <VoiceBar />
 
       <nav className="tabbar" aria-label="Navigation" data-tour="nav">
         {NAV.filter((n) => !n.more).map((n) => (
@@ -288,5 +292,6 @@ export function Layout() {
       {!DEMO_SESSION && <AppTour />}
       <DesktopMenu onNewProject={openNew} />
     </div>
+    </VoiceProvider>
   )
 }
