@@ -443,3 +443,82 @@
   .k-marquee-track { animation: none; }
   .k-tablist button.run .k-tab-bar { animation: none; width: 100%; }
 }
+
+/* Téléphone et tablette : menu plein écran, zones tactiles de 44 px, tableaux lisibles ---------- */
+.k-menu-btn { display: none; }
+.k-menu[hidden] { display: none; }
+@media (max-width: 980px) {
+  .k-header-row { min-height: 60px; gap: 12px; }
+  .k-brand { min-height: 44px; }
+  .k-subnav, .k-subnav[aria-label] { display: none; }
+  .k-header-cta .k-login, .k-hide-md { display: none; }
+  .k-lang { display: inline-flex; align-items: center; min-height: 44px; padding: 0 6px; }
+  .k-menu-btn { display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border: 1px solid #C9C9D0; border-radius: 8px; background: #fff; color: var(--ink); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
+  .k-header.open .k-menu-btn { border-color: var(--ink); }
+  .k-menu { position: fixed; top: 60px; left: 0; right: 0; bottom: 0; z-index: 40; background: #fff; overflow-y: auto; overscroll-behavior: contain; padding: 12px 16px calc(32px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; animation: appear .2s var(--ease) both; }
+  .k-menu-links { display: flex; flex-direction: column; }
+  .k-menu-links a { display: flex; align-items: center; min-height: 60px; border-bottom: 1px solid var(--line); color: var(--ink); text-decoration: none; font-family: var(--display); font-weight: 500; font-size: 28px; letter-spacing: -0.025em; }
+  .k-menu-links a[aria-current='page'] { color: var(--indigo); }
+  .k-menu-cta { display: grid; gap: 10px; margin-top: auto; padding-top: 32px; }
+  .k-menu-cta .k-btn { width: 100%; }
+
+  /* Zones tactiles */
+  .k-arrow { display: inline-flex; align-items: center; min-height: 44px; }
+  .k-round { width: 44px; height: 44px; }
+  .k-marquee-btn { width: 44px; height: 44px; right: 8px; font-size: 11px; }
+  .k-marquee { padding-right: 60px; }
+  .k-footer nav { gap: 0; }
+  .k-footer nav a { display: flex; align-items: center; min-height: 40px; }
+  .k-footer h4 { margin-bottom: 4px; }
+  .s-legal-tabs a { display: inline-flex; align-items: center; min-height: 44px; }
+  .k-faq summary { padding-top: 18px; padding-bottom: 18px; }
+  .k-tablist button { min-height: 48px; }
+  .k-os li > * { min-height: 64px; }
+}
+@media (max-width: 600px) {
+  .k-header-cta { gap: 6px; }
+  .k-header-cta .k-btn { min-height: 40px; }
+  .k-section { padding-top: 72px; }
+  .k-head { margin-bottom: 28px; }
+  .k-head-title { font-size: 24px; }
+  .k-hero-sub { font-size: 17px; }
+  .k-pagehead { padding-top: 48px; }
+  .k-pagehead + .k-section { padding-top: 48px; }
+  .k-quote { font-size: 30px; }
+  .k-tabmedia { min-height: 0; border-radius: 12px; }
+  .k-canvas { border-radius: 12px; }
+  .k-bar { min-height: 72px; font-size: 22px; border-radius: 12px; }
+  .k-final { padding-bottom: 72px; }
+  .k-footer { padding-top: 48px; padding-bottom: calc(32px + env(safe-area-inset-bottom)); }
+  .k-footer-grid { grid-template-columns: 1fr 1fr; gap: 28px 16px; }
+  .k-footer-grid > div:first-child { grid-column: 1 / -1; }
+
+  /* Tarifs : le prix reste sur une ligne */
+  .k-price-tag { flex-wrap: wrap; gap: 4px 12px; }
+  .k-price-tag b { white-space: nowrap; }
+  .k-price-main .k-btn { width: 100%; }
+
+  /* Comparatif : chaque fonction sur sa ligne, puis les cinq outils côte à côte, sans défilement horizontal */
+  .k-compare { overflow: visible; border-radius: 16px; }
+  .k-compare table { min-width: 0; display: block; }
+  .k-compare thead, .k-compare tbody { display: block; }
+  .k-compare thead tr, .k-compare tbody tr { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .k-compare thead th:first-child { display: none; }
+  .k-compare thead th { font-size: 12px; padding: 12px 2px; }
+  .k-compare thead th:nth-child(2) { border-top-left-radius: 16px; }
+  .k-compare tbody th { grid-column: 1 / -1; padding: 14px 14px 2px; border-bottom: 0; font-size: 15px; }
+  .k-compare tbody td { padding: 6px 2px 14px; }
+  .k-compare tbody tr { border-bottom: 1px solid var(--line); }
+  .k-compare tbody tr:last-child { border-bottom: 0; }
+  .k-compare th, .k-compare td { border-bottom: 0; }
+  .k-mk.soon, .k-mk.part { font-size: 10px; letter-spacing: .04em; }
+
+  /* Téléchargement et étapes */
+  .k-download { padding: 24px 20px; border-radius: 16px; }
+  .k-os-name { font-size: 22px; }
+  .k-waitlist { border-radius: 16px; padding: 24px 20px; }
+  .k-waitlist-form .k-btn { width: 100%; }
+  .k-case-media { padding: 22px; }
+  .k-aud-card, .k-road, .k-integ li { border-radius: 16px; padding: 22px; }
+  .k-block { padding: 22px; }
+}

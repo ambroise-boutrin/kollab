@@ -137,11 +137,21 @@ function LangSwitch({ current }: { current: PageKey | null }) {
 }
 
 function Header({ current }: { current: PageKey | null }) {
+  const [open, setOpen] = useState(false)
+  // Menu plein écran sur téléphone : bloque le défilement derrière, se ferme avec Échap.
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', onKey) }
+  }, [open])
   const links = NAV.map((k) => (
     <a key={k} href={to(k)} aria-current={current === k ? 'page' : undefined}>{t.nav[k as keyof typeof t.nav]}</a>
   ))
   return (
-    <header className="k-header">
+    <header className={`k-header${open ? ' open' : ''}`}>
       <div className="k-wrap k-header-row">
         <a href={to('home')} className="k-brand" aria-label={t.header.home}>
           <LogoMark size={26} />
@@ -151,11 +161,27 @@ function Header({ current }: { current: PageKey | null }) {
         <div className="k-header-cta">
           <LangSwitch current={current} />
           <a className="k-link k-login" href={APP_URL}>{t.header.login}</a>
-          <a className="k-btn k-btn-line k-hide-sm" href={DEMO_URL}>{t.final.demo}</a>
+          <a className="k-btn k-btn-line k-hide-md" href={DEMO_URL}>{t.final.demo}</a>
           <a className="k-btn k-btn-ink" href={APP_URL}>{t.header.try}<span className="k-hide-sm">{t.header.trySuffix}</span></a>
+          <button className="k-menu-btn" aria-expanded={open} aria-controls="k-menu" onClick={() => setOpen(!open)}>
+            {open ? t.header.close : t.header.menu}
+          </button>
         </div>
       </div>
-      <nav className="k-subnav" aria-label="Pages">{links}</nav>
+      <div className="k-menu" id="k-menu" hidden={!open}>
+        <nav className="k-menu-links" aria-label="Pages">
+          {[...NAV, 'compare' as PageKey, 'news' as PageKey, 'faq' as PageKey].map((k) => (
+            <a key={k} href={to(k)} aria-current={current === k ? 'page' : undefined}>
+              {k === 'news' ? t.footer.news : k === 'faq' ? t.footer.faq : t.nav[k as keyof typeof t.nav]}
+            </a>
+          ))}
+        </nav>
+        <div className="k-menu-cta">
+          <a className="k-btn k-btn-ink k-btn-lg" href={APP_URL}>{t.final.try}</a>
+          <a className="k-btn k-btn-line k-btn-lg" href={DEMO_URL}>{t.final.demo}</a>
+          <a className="k-btn k-btn-line k-btn-lg" href={APP_URL}>{t.header.login}</a>
+        </div>
+      </div>
     </header>
   )
 }
