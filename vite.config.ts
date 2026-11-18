@@ -29,7 +29,12 @@ export default defineConfig({
       registerType: 'prompt',
       includeAssets: ['logo.svg'],
       // Polices et icônes en cache : chargement instantané et hors ligne.
-      workbox: { globPatterns: ['**/*.{js,css,html,svg,png,woff2}'], globIgnores: ['version.json'], cleanupOutdatedCaches: true },
+      workbox: { globPatterns: ['**/*.{js,css,html,svg,png,woff2}'], globIgnores: ['version.json'],
+        cleanupOutdatedCaches: true,
+        // Le cache hors ligne ne sert que l'appli : le site vitrine se charge toujours depuis le réseau, donc toujours à jour.
+        navigateFallbackAllowlist: [/^\/app(\/|$)/],
+        directoryIndex: '__aucun__',
+      },
       manifest: {
         name: 'Kollab',
         short_name: 'Kollab',
