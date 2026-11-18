@@ -1,10 +1,30 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { LogoMark } from '../components/Logo'
 import './site.css'
 
 /** Lien d'invitation au serveur Discord de Kollab. Laisser vide pour masquer le bouton. */
 const DISCORD_URL = ''
 const APP_URL = '/app/'
+/**
+ * Passe à true dès que la première release GitHub contient les installeurs Tauri.
+ * Les boutons pointent alors vers la dernière release.
+ */
+const DESKTOP_READY = false
+const RELEASES_URL = 'https://github.com/ambroise-boutrin/kollab/releases/latest'
+
+const DOWNLOADS = [
+  { os: 'windows', name: 'Windows', detail: 'Windows 10 et 11, installeur .exe', icon: 'M3 5.5 10 4.5v7H3zM11 4.4 21 3v8.5H11zM3 12.5h7v7l-7-1zM11 12.5h10V21l-10-1.4z' },
+  { os: 'mac', name: 'macOS', detail: 'Puces Apple et Intel, fichier .dmg', icon: 'M15.5 3c.2 1.3-.4 2.6-1.2 3.4-.8.9-2 1.5-3.1 1.4-.2-1.2.4-2.5 1.2-3.3.8-.9 2.1-1.5 3.1-1.5zM19 16.6c-.5 1.2-.8 1.7-1.5 2.8-1 1.5-2.3 3.3-4 3.3-1.5 0-1.9-1-3.9-1s-2.5 1-4 1c-1.7 0-2.9-1.6-3.9-3.1C-1 15.4.3 9.6 3.4 8.6c1.3-.4 2.7.5 3.6.5.9 0 2.3-.8 3.9-.6.7 0 2.6.3 3.8 2-3.3 1.9-2.8 6.6.3 6.1z' },
+  { os: 'linux', name: 'Linux', detail: 'AppImage et paquet .deb', icon: 'M12 3c-2.2 0-3.5 1.8-3.5 4.5 0 1.4.2 2.2-.6 3.6C6.6 13.2 5 15.4 5 17.5c0 1 .5 1.6 1.4 1.9L9 20.5c.9.4 2 .5 3 .5s2.1-.1 3-.5l2.6-1.1c.9-.3 1.4-.9 1.4-1.9 0-2.1-1.6-4.3-2.9-6.4-.8-1.4-.6-2.2-.6-3.6C15.5 4.8 14.2 3 12 3zM10.5 8h.01M13.5 8h.01M10.5 10.5c.9.6 2.1.6 3 0' },
+] as const
+
+function detectOs(): string {
+  const ua = navigator.userAgent
+  if (/Windows/i.test(ua)) return 'windows'
+  if (/Mac OS X|Macintosh/i.test(ua) && !/iPhone|iPad/i.test(ua)) return 'mac'
+  if (/Linux/i.test(ua) && !/Android/i.test(ua)) return 'linux'
+  return ''
+}
 const YEAR = new Date().getFullYear()
 
 type Feature = { title: string; text: string; icon: string; color: string; soon?: boolean }
@@ -120,6 +140,7 @@ function Section({ id, children, className = '' }: { id?: string; children: Reac
 
 export default function Site() {
   useReveal()
+  const [os] = useState(detectOs)
   useEffect(() => {
     document.title = 'Kollab : gestion de projet et revues de code pour équipes de dev'
   }, [])
@@ -136,6 +157,7 @@ export default function Site() {
             <a href="#fonctionnalites">Fonctionnalités</a>
             <a href="#equipe">En équipe</a>
             <a href="#partout">Partout</a>
+            <a href="#telecharger">Télécharger</a>
           </nav>
           <div className="s-header-cta">
             <a className="btn soft small" href={APP_URL}>Connexion</a>
@@ -208,17 +230,50 @@ export default function Site() {
             <div className="s-split-text reveal">
               <h2>Sur ordinateur comme sur téléphone</h2>
               <p>
-                Kollab marche dans le navigateur, s'installe sur le téléphone comme une vraie app, et bientôt sur ordinateur.
+                Kollab marche dans le navigateur, s'installe sur le téléphone comme une vraie app, et se télécharge sur ordinateur.
                 Tes tâches et tes messages te suivent partout.
               </p>
               <div className="s-platforms">
                 <span>Web</span>
                 <span>iPhone et Android</span>
-                <span>Windows, macOS, Linux <em>bientôt</em></span>
+                <a href="#telecharger">Windows, macOS, Linux</a>
               </div>
             </div>
             <div className="s-phone reveal">
               <img src="/vitrine/telephone-accueil.png" alt="L'accueil de Kollab sur téléphone" loading="lazy" decoding="async" />
+            </div>
+          </div>
+
+          <div id="telecharger" className="s-download">
+            <div className="s-head reveal">
+              <h2>Télécharger l'app de bureau</h2>
+              <p>
+                Kollab dans sa propre fenêtre, avec ses raccourcis et ses notifications.
+                {!DESKTOP_READY && ' Les installeurs arrivent bientôt : en attendant, Kollab marche déjà dans le navigateur.'}
+              </p>
+            </div>
+            <div className="s-dl-grid">
+              {DOWNLOADS.map((d) => {
+                const mine = d.os === os
+                const body = (
+                  <>
+                    <span className="s-dl-ico"><Svg d={d.icon} size={26} /></span>
+                    <span className="s-dl-text">
+                      <strong>
+                        {d.name}
+                        {mine && <span className="s-mine">Ton système</span>}
+                      </strong>
+                      <span>{d.detail}</span>
+                    </span>
+                    <span className={DESKTOP_READY ? 's-dl-go' : 's-soon'}>{DESKTOP_READY ? 'Télécharger' : 'Bientôt'}</span>
+                  </>
+                )
+                return DESKTOP_READY ? (
+                  <a key={d.os} className={`s-dl reveal${mine ? ' mine' : ''}`} href={RELEASES_URL} target="_blank" rel="noreferrer">{body}</a>
+                ) : (
+                  <div key={d.os} className={`s-dl reveal off${mine ? ' mine' : ''}`} aria-disabled="true">{body}</div>
+                )
+              })}
             </div>
           </div>
         </Section>
