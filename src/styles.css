@@ -701,3 +701,75 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; justif
 .branch-badge { font-size: 12px; font-weight: 600; color: var(--muted); }
 .tabs-seg.compact button { white-space: nowrap; }
 .tour-restart { z-index: 30; }
+
+/* Fenêtres (Modal) */
+.sheet-back { z-index: 80; }
+.modal.sheet { width: min(560px, 100%); display: flex; flex-direction: column; gap: 0; padding: 22px 24px 24px; }
+.modal.sheet.wide { width: min(820px, 100%); }
+.sheet-body { display: flex; flex-direction: column; gap: 18px; }
+.sheet-foot { display: flex; justify-content: flex-end; gap: 8px; padding-top: 18px; }
+@media (max-width: 760px) {
+  .sheet-back { padding: 0; place-items: end stretch; }
+  .modal.sheet { width: 100%; max-height: 92vh; border-radius: 22px 22px 0 0; padding: 18px 16px 24px; }
+}
+
+/* Invitation */
+.role-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.role-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px; border: 0; border-radius: 16px; background: var(--subtle); color: var(--text); font: inherit; text-align: left; cursor: pointer; transition: background-color .15s ease, box-shadow .15s ease, transform .1s ease; }
+.role-tile:hover { background: var(--line); }
+.role-tile:active { transform: scale(.98); }
+.role-tile small { font-size: 12px; color: var(--muted); line-height: 1.35; }
+.role-tile .role-ico { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: color-mix(in srgb, var(--tile) 16%, transparent); color: var(--tile); transition: background-color .15s ease, color .15s ease; }
+.role-tile[aria-checked='true'] { background: color-mix(in srgb, var(--tile) 10%, var(--surface)); box-shadow: inset 0 0 0 2px var(--tile); }
+.role-tile[aria-checked='true'] .role-ico { background: var(--tile); color: #fff; }
+.invite-link { display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 16px; background: var(--accent); color: #fff; }
+.invite-link-label { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; opacity: .85; }
+.invite-emails .invite-link-label, .invite-active summary { color: var(--muted); opacity: 1; }
+.invite-link-row { display: flex; gap: 8px; align-items: center; }
+.invite-link-row code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 11px 12px; border-radius: 12px; background: rgba(255,255,255,.16); font-size: 13px; color: #fff; }
+.invite-link .btn { background: #fff; color: var(--accent); display: inline-flex; align-items: center; gap: 6px; }
+.invite-link .btn.ok { background: var(--ok); color: #fff; }
+.invite-link-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.seg-mini { display: inline-flex; padding: 3px; border-radius: 999px; background: rgba(255,255,255,.16); }
+.seg-mini button { border: 0; background: transparent; color: #fff; font: inherit; font-size: 13px; font-weight: 600; padding: 5px 11px; border-radius: 999px; cursor: pointer; }
+.seg-mini button[aria-checked='true'] { background: #fff; color: var(--accent); }
+.link-btn { border: 0; background: transparent; color: inherit; font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.invite-emails { display: flex; flex-direction: column; gap: 8px; }
+.chips-input { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; min-height: 48px; border-radius: 14px; background: var(--subtle); cursor: text; }
+.chips-input:focus-within { box-shadow: inset 0 0 0 2px var(--accent); }
+.chips-input input { flex: 1; min-width: 160px; border: 0; background: transparent; font: inherit; color: var(--text); outline: none; padding: 4px; }
+.email-chip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 6px 5px 11px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 13px; font-weight: 600; animation: pop-in .15s ease both; }
+.email-chip button { border: 0; background: rgba(255,255,255,.2); color: #fff; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.invite-active summary { cursor: pointer; font-size: 13px; font-weight: 600; padding: 4px 0; }
+.invite-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+.invite-row .pop-grow strong { font-size: 14px; }
+.role-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+@media (max-width: 560px) { .role-tiles { grid-template-columns: 1fr; } .role-tile { flex-direction: row; align-items: center; } .role-tile small { display: none; } }
+
+/* Page Équipe */
+.team-page { display: flex; flex-direction: column; gap: 20px; }
+.team-page .page-head { justify-content: space-between; }
+.team-page .page-head .btn { display: inline-flex; align-items: center; gap: 6px; }
+.team-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.member-card { position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 46px 18px 18px; border-radius: 20px; background: var(--surface); box-shadow: 0 0 0 1px var(--line); }
+.member-band { position: absolute; inset: 0 0 auto 0; height: 72px; background: color-mix(in srgb, var(--member) 22%, var(--surface)); }
+.member-card > .avatar { position: relative; box-shadow: 0 0 0 4px var(--surface); }
+.member-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.member-id strong { font-size: 17px; font-weight: 700; font-family: var(--display); }
+.member-id .muted { font-size: 13px; }
+.member-presence { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.member-presence i { width: 8px; height: 8px; border-radius: 50%; }
+.member-stats { display: flex; gap: 14px; font-size: 13px; color: var(--muted); }
+.member-stats b { color: var(--text); font-size: 16px; margin-right: 2px; }
+.member-load { width: 100%; height: 6px; border-radius: 999px; background: var(--subtle); overflow: hidden; }
+.member-load span { display: block; height: 100%; border-radius: 999px; transition: width .5s var(--ease); }
+.member-now { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 6px 10px; border-radius: 10px; background: var(--subtle); max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.role-pill { display: inline-flex; align-items: center; gap: 4px; border: 0; border-radius: 999px; padding: 5px 10px 5px 12px; font: inherit; font-size: 13px; font-weight: 700; background: color-mix(in srgb, var(--tile) 14%, transparent); color: var(--tile); cursor: pointer; }
+.role-pill.static { padding: 5px 12px; cursor: default; }
+.role-pop .pop { min-width: 280px; }
+.invite-card { align-items: center; justify-content: center; text-align: center; padding: 28px 18px; border: 0; cursor: pointer; background: var(--accent); color: #fff; font: inherit; box-shadow: none; min-height: 220px; transition: transform .12s ease, filter .15s ease; }
+.invite-card:hover { filter: brightness(1.06); }
+.invite-card:active { transform: scale(.98); }
+.invite-card strong { font-family: var(--display); font-size: 18px; }
+.invite-card span:last-child { opacity: .85; font-size: 14px; }
+.invite-plus { width: 54px; height: 54px; border-radius: 16px; background: rgba(255,255,255,.18); display: grid; place-items: center; }
