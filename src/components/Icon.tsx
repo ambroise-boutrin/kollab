@@ -24,6 +24,7 @@ const PATHS = {
   external: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6',
   sprint: 'M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4M12 8v4l3 2',
   grid: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',
+  cards: 'M4 7l7-3 3 12-7 3zM14 4.5l6 2.5-3.5 11.5',
   folder: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
   door: 'M14 4H6v16h8M10 12h10M17 9l3 3-3 3',
   bell: 'M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0',

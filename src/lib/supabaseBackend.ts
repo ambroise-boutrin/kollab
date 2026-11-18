@@ -1,7 +1,7 @@
 import { setGhToken } from './github'
 import { APP_BASE } from './base'
 import { createClient, type SupabaseClient, type User as SbUser } from '@supabase/supabase-js'
-import type { Backend, User, Workspace } from './backend'
+import type { Backend, RoomEvent, User, Workspace } from './backend'
 import { CGU_VERSION } from './legal'
 import type { AppNotification, Channel, DocumentItem, Sprint, Invite, ReactionChange, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
 
@@ -547,6 +547,35 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     async removeDocument(id) {
       const { data: auth } = await sb.auth.getUser()
       must(await sb.from('documents').update({ deleted_at: new Date().toISOString(), deleted_by: auth.user?.id ?? null }).eq('id', id))
+    },
+
+    joinRoom(room, h) {
+      let me = ''
+      const ch = sb.channel(`room:${groupId}:${room}`, { config: { broadcast: { self: false }, presence: { key: crypto.randomUUID() } } })
+      const pending: Omit<RoomEvent, 'from'>[] = []
+      let ready = false
+      ch.on('broadcast', { event: 'room' }, ({ payload }) => h.onEvent(payload as RoomEvent))
+        .on('presence', { event: 'sync' }, () => {
+          const state = ch.presenceState<{ userId: string }>()
+          h.onPeers([...new Set(Object.values(state).flat().map((s) => s.userId))])
+        })
+        .subscribe(async (status) => {
+          if (status !== 'SUBSCRIBED') return
+          const { data } = await sb.auth.getUser()
+          me = data.user?.id ?? ''
+          if (me) await ch.track({ userId: me })
+          ready = true
+          for (const e of pending.splice(0)) void ch.send({ type: 'broadcast', event: 'room', payload: { ...e, from: me } })
+        })
+      return {
+        send(e) {
+          if (!ready) pending.push(e)
+          else void ch.send({ type: 'broadcast', event: 'room', payload: { ...e, from: me } })
+        },
+        leave() {
+          void sb.removeChannel(ch)
+        },
+      }
     },
 
     async createSprint(sp) {
