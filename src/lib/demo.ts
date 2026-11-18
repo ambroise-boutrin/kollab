@@ -1,4 +1,4 @@
-import { newId, type Backend, type GroupSetup, type LiveHandlers, type User, type Workspace } from './backend'
+import { newId, type Backend, type TrashItem, type GroupSetup, type LiveHandlers, type User, type Workspace } from './backend'
 import type { AppNotification, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task } from './types'
 
 /**
@@ -18,6 +18,8 @@ interface DemoState {
   /** Les autres projets de l'utilisateur ; `workspace` est le projet ouvert. */
   others?: { workspace: Workspace; messages: Message[] }[]
   notifications?: AppNotification[]
+  trash?: TrashItem[]
+  trashedTasks?: Task[]
 }
 
 const ME: Member = { id: 'me', name: 'Moi', color: '#5546E0', role: 'admin', title: 'Product Owner', status: 'available', avatarUrl: null }
@@ -428,6 +430,11 @@ export const demoBackend: Backend = {
 
   async deleteTask(id) {
     update((s) => {
+      const task = s.workspace?.tasks.find((t) => t.id === id)
+      if (task) {
+        s.trash = [{ kind: 'task', id, title: task.title, deletedAt: new Date().toISOString(), deletedBy: 'me' }, ...(s.trash ?? [])]
+        s.trashedTasks = [...(s.trashedTasks ?? []), task]
+      }
       if (s.workspace) s.workspace.tasks = s.workspace.tasks.filter((t) => t.id !== id)
     })
     emit({ kind: 'taskDeleted', id })
@@ -486,6 +493,36 @@ export const demoBackend: Backend = {
     })
     emit({ kind: 'reaction', change: { messageId, emoji, userId: 'me', on } })
   },
+
+  async createChannel(name) {
+    const channel = { id: newId(), name: name.trim().toLowerCase().replace(/^#/, '').replace(/\s+/g, '-').slice(0, 40) }
+    update((s) => {
+      s.workspace?.channels.push(channel)
+    })
+    emit({ kind: 'refresh' })
+    return channel
+  },
+
+  async listTrash() {
+    return read().trash ?? []
+  },
+
+  async restoreItem(_kind, id) {
+    update((s) => {
+      const item = (s.trash ?? []).find((t) => t.id === id)
+      s.trash = (s.trash ?? []).filter((t) => t.id !== id)
+      const task = (s.trashedTasks ?? []).find((t) => t.id === id)
+      if (item && task && s.workspace) s.workspace.tasks.push(task)
+      s.trashedTasks = (s.trashedTasks ?? []).filter((t) => t.id !== id)
+    })
+    emit({ kind: 'refresh' })
+  },
+
+  async listDeletedGroups() {
+    return []
+  },
+
+  async restoreGroup() {},
 
   async addLink(title, url) {
     const link: LinkItem = { id: newId(), title, url }
