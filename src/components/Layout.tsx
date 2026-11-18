@@ -11,6 +11,7 @@ import { NewProjectDialog } from './NewProjectDialog'
 import { Popover } from './Popover'
 import { NotificationBell } from './Notifications'
 import { InviteDialog } from './InviteDialog'
+import { CommandPalette, openSearch } from './CommandPalette'
 
 const NAV: { to: string; label: string; icon: IconName; more?: boolean }[] = [
   { to: '/', label: 'Accueil', icon: 'home' },
@@ -21,6 +22,8 @@ const NAV: { to: string; label: string; icon: IconName; more?: boolean }[] = [
   { to: '/documents', label: 'Documents', icon: 'doc', more: true },
   { to: '/equipe', label: 'Équipe', icon: 'group' },
 ]
+
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)
 
 const ROLE_LABEL = { admin: 'Admin', member: 'Membre', guest: 'Invité' } as const
 
@@ -205,6 +208,11 @@ export function Layout() {
       <nav className="sidebar" aria-label="Navigation principale">
         <div className="brand"><LogoMark size={24} /> Kollab</div>
         <ProjectSwitcher onNew={() => setCreating(true)} />
+        <button className="nav-search" onClick={openSearch}>
+          <Icon name="search" size={18} />
+          Rechercher
+          <kbd>{IS_MAC ? '⌘' : 'Ctrl'} K</kbd>
+        </button>
         <div className="nav-list" data-tour="nav">
           {NAV.map((n) => (
             <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => `nav${isActive ? ' active' : ''}`}>
@@ -225,6 +233,7 @@ export function Layout() {
             <ProjectSwitcher onNew={() => setCreating(true)} compact />
           </div>
           <MembersStack />
+          <button className="icon-btn topbar-search" aria-label="Rechercher" onClick={openSearch}><Icon name="search" size={20} /></button>
           <NotificationBell />
           <div className="topbar-mobile">
             <ProfileMenu compact />
@@ -242,6 +251,7 @@ export function Layout() {
         )}
         <Outlet />
       </main>
+      <CommandPalette />
 
       <nav className="tabbar" aria-label="Navigation" data-tour="nav">
         {NAV.filter((n) => !n.more).map((n) => (
