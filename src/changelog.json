@@ -1,0 +1,15 @@
+[
+  {
+    "version": "0.1.0",
+    "date": "2026-11-18",
+    "title": "Première version",
+    "items": [
+      "Tableau kanban avec glisser-déposer et attribution des tâches",
+      "Chat du groupe avec salons, mentions, liens de PR et /tache",
+      "Invitations avec droits (Admin, Membre, Invité)",
+      "Profil modifiable : photo, nom, rôle, statut et couleur",
+      "Connexion avec GitHub, Google, Discord ou un compte Kollab",
+      "Thèmes, notifications Discord et appli bureau Windows, Mac et Linux"
+    ]
+  }
+]

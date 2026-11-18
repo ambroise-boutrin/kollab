@@ -4,6 +4,8 @@ import { useStore } from '../lib/store'
 import { applyTheme, loadThemeChoice, saveThemeChoice, THEMES, type ThemeChoice } from '../lib/themes'
 import type { Provider } from '../lib/types'
 import { PROVIDERS, ProviderIcon } from './Login'
+import { AboutCard } from './AboutCard'
+import { DangerCard } from './DangerCard'
 import { ProfileCard } from './ProfileCard'
 
 export function Settings() {
@@ -131,6 +133,9 @@ export function Settings() {
             </form>
           )}
         </section>
+
+        <AboutCard />
+        <DangerCard />
       </div>
     </div>
   )

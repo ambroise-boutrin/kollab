@@ -28,3 +28,19 @@ Sans configuration, Kollab démarre en **mode démo** : les données restent dan
 - `supabase/` : schéma SQL avec RLS, et fonction `notify-discord`.
 
 La suite est dans [ROADMAP.md](ROADMAP.md).
+
+## Appli bureau (Windows, macOS, Linux)
+
+L'appli bureau est faite avec Tauri (`src-tauri/`). Pour la lancer en local : `npm run tauri dev` (Rust requis).
+
+### Publier une nouvelle version
+
+1. Ajoute la version en haut de `src/changelog.json` (elle sert aux notes de version et à Réglages › À propos).
+2. Mets le même numéro dans `package.json`, `src-tauri/tauri.conf.json` et `src-tauri/Cargo.toml`.
+3. Crée et pousse l'étiquette : `git tag v0.2.0 && git push origin v0.2.0`.
+
+GitHub Actions compile les installeurs et publie la release. Les applis déjà installées proposent la mise à jour d'elles-mêmes.
+
+Les mises à jour sont signées. Le dépôt a besoin de deux secrets GitHub : `TAURI_SIGNING_PRIVATE_KEY` et `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Sans eux, les installeurs sont compilés mais l'appli ne peut pas se mettre à jour toute seule.
+
+Pour voir la fenêtre de mise à jour sans publier : ouvre l'app avec `?apercu-mise-a-jour` à la fin de l'adresse.

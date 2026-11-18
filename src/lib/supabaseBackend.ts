@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient, type User as SbUser } from '@supabase/supabase-js'
 import type { Backend, User, Workspace } from './backend'
+import { CGU_VERSION } from './legal'
 import type { Invite, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
 
 interface TaskRow {
@@ -74,7 +75,14 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     },
 
     onAuthChange(cb) {
-      const { data } = sb.auth.onAuthStateChange((_e, session) => cb(toUser(session?.user)))
+      const { data } = sb.auth.onAuthStateChange((event, session) => {
+        // L'écran de connexion vaut acceptation des CGU : on enregistre la version acceptée.
+        const u = session?.user
+        if (event === 'SIGNED_IN' && u && u.user_metadata?.cgu_version !== CGU_VERSION) {
+          setTimeout(() => void sb.auth.updateUser({ data: { cgu_version: CGU_VERSION, cgu_accepted_at: new Date().toISOString() } }), 0)
+        }
+        cb(toUser(u))
+      })
       return () => data.subscription.unsubscribe()
     },
 
@@ -98,7 +106,8 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     },
 
     async signUp(email, password, name) {
-      const data = must(await sb.auth.signUp({ email, password, options: { data: { full_name: name }, emailRedirectTo: redirectTo } }))
+      const terms = { cgu_version: CGU_VERSION, cgu_accepted_at: new Date().toISOString() }
+      const data = must(await sb.auth.signUp({ email, password, options: { data: { full_name: name, ...terms }, emailRedirectTo: redirectTo } }))
       return { confirmEmail: !data.session }
     },
 
@@ -108,6 +117,12 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
 
     async setPassword(password) {
       must(await sb.auth.updateUser({ password }))
+    },
+
+    async deleteAccount() {
+      const { error } = await sb.functions.invoke('delete-account')
+      if (error) throw new Error('Suppression impossible pour le moment')
+      await sb.auth.signOut()
     },
 
     async updateProfile(patch) {
