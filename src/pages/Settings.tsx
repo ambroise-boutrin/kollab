@@ -2,25 +2,20 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { SectionsPage } from '../components/SectionsPage'
 import { useToast } from '../components/Toast'
 import { useStore } from '../lib/store'
-import { applyTheme, loadThemeChoice, saveThemeChoice, THEMES, type ThemeChoice } from '../lib/themes'
 import type { Provider } from '../lib/types'
 import { PROVIDERS, ProviderIcon } from './Login'
 import { AboutCard } from './AboutCard'
+import { AppearanceCard } from './AppearanceCard'
 import { DangerCard } from './DangerCard'
 import { ProfileCard } from './ProfileCard'
 
 export function Settings() {
   const { backend } = useStore()
   const toast = useToast()
-  const [choice, setChoice] = useState<ThemeChoice>(loadThemeChoice)
   const [linked, setLinked] = useState<Provider[]>([])
   const [password, setPassword] = useState('')
   const [editingPassword, setEditingPassword] = useState(false)
 
-  useEffect(() => {
-    applyTheme(choice)
-    saveThemeChoice(choice)
-  }, [choice])
 
   useEffect(() => {
     void backend.linkedProviders().then(setLinked)
@@ -91,38 +86,7 @@ export function Settings() {
           icon: 'palette',
           render: () => (
             <>
-        <section className="card appear appear-2" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div>
-            <h2>Thème</h2>
-            <p className="muted" style={{ margin: '2px 0 0', fontSize: 14 }}>Visible par toi seul.</p>
-          </div>
-          <div className="themes">
-            {THEMES.map((t) => (
-              <button
-                key={t.id}
-                className={`theme-btn${choice.id === t.id && !choice.followSystem ? ' selected' : ''}`}
-                aria-pressed={choice.id === t.id && !choice.followSystem}
-                onClick={() => setChoice({ ...choice, id: t.id, accent: null, followSystem: false })}
-              >
-                <span className="swatch" style={{ background: t.bg }}>
-                  <i style={{ background: t.accent }} />
-                  <i style={{ background: t.surface, boxShadow: `inset 0 0 0 1px ${t.line}` }} />
-                  <i style={{ background: t.ok }} />
-                </span>
-                {t.name}
-              </button>
-            ))}
-          </div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <input type="checkbox" checked={choice.followSystem} onChange={(e) => setChoice({ ...choice, followSystem: e.target.checked })} style={{ width: 18, height: 18, accentColor: 'var(--accent)' }} />
-            Passer en thème Nuit quand l'appareil est en mode sombre
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <input type="color" value={choice.accent ?? THEMES.find((t) => t.id === choice.id)?.accent ?? '#5546E0'} onChange={(e) => setChoice({ ...choice, accent: e.target.value })} style={{ width: 40, height: 40, border: 0, background: 'transparent', padding: 0 }} />
-            Couleur principale personnalisée
-            {choice.accent && <button className="btn soft small" onClick={() => setChoice({ ...choice, accent: null })}>Réinitialiser</button>}
-          </label>
-        </section>
+              <AppearanceCard />
             </>
           ),
         },

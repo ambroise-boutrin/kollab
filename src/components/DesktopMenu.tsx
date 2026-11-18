@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { IS_TAURI } from '../lib/base'
 import { SITE_URL, openExternal } from '../lib/links'
 import { useStore } from '../lib/store'
-import { applyTheme, loadThemeChoice, saveThemeChoice, THEMES } from '../lib/themes'
+import { allThemes, applyTheme, loadThemeChoice, saveThemeChoice } from '../lib/themes'
 import { checkNow } from '../lib/updates'
 
 const IS_MAC = /Mac/i.test(navigator.userAgent)
@@ -98,7 +98,7 @@ export function DesktopMenu({ onNewProject }: { onNewProject: () => void }) {
       const view = await Submenu.new({
         text: 'Affichage',
         items: [
-          ...(await Promise.all(THEMES.map((t) => item(`Thème ${t.name}`, setTheme(t.id))))),
+          ...(await Promise.all(allThemes().map((t) => item(`Thème ${t.name}`, setTheme(t.id))))),
           await sep(),
           await PredefinedMenuItem.new({ item: 'Fullscreen', text: 'Plein écran' }),
         ],

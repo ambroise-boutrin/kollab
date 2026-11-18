@@ -49,10 +49,84 @@ export function saveThemeChoice(choice: ThemeChoice) {
   }
 }
 
+/* --- Thèmes créés par l'utilisateur (gardés sur l'appareil) --- */
+
+const CUSTOM_KEY = 'kollab-themes-perso'
+
+function hex(c: string): [number, number, number] {
+  const v = c.replace('#', '')
+  const n = parseInt(v.length === 3 ? v.split('').map((x) => x + x).join('') : v, 16)
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+}
+/** Mélange deux couleurs : t = part de b (0 à 1). */
+export function mix(a: string, b: string, t: number): string {
+  const [r1, g1, b1] = hex(a)
+  const [r2, g2, b2] = hex(b)
+  const m = (x: number, y: number) => Math.round(x + (y - x) * t).toString(16).padStart(2, '0')
+  return `#${m(r1, r2)}${m(g1, g2)}${m(b1, b2)}`.toUpperCase()
+}
+export function isDark(c: string): boolean {
+  const [r, g, b] = hex(c)
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 128
+}
+
+/** Thème complet à partir de quatre couleurs ; les nuances intermédiaires sont calculées. */
+export function makeTheme(id: string, name: string, c: { bg: string; surface: string; text: string; accent: string }): Theme {
+  const dark = isDark(c.bg)
+  return {
+    id,
+    name,
+    dark,
+    bg: c.bg,
+    surface: c.surface,
+    subtle: mix(c.surface, c.text, dark ? 0.08 : 0.05),
+    line: mix(c.surface, c.text, dark ? 0.16 : 0.1),
+    text: c.text,
+    muted: mix(c.text, c.bg, 0.4),
+    accent: c.accent,
+    ok: dark ? '#2F8A57' : '#2E7D4F',
+    danger: dark ? '#C4553E' : '#B5462E',
+  }
+}
+
+export function customThemes(): Theme[] {
+  try {
+    return JSON.parse(localStorage.getItem(CUSTOM_KEY) ?? '[]') as Theme[]
+  } catch {
+    return []
+  }
+}
+export function saveCustomTheme(t: Theme) {
+  const list = customThemes().filter((x) => x.id !== t.id)
+  try {
+    localStorage.setItem(CUSTOM_KEY, JSON.stringify([...list, t]))
+  } catch {
+    /* ignoré */
+  }
+}
+export function deleteCustomTheme(id: string) {
+  try {
+    localStorage.setItem(CUSTOM_KEY, JSON.stringify(customThemes().filter((x) => x.id !== id)))
+  } catch {
+    /* ignoré */
+  }
+}
+export const allThemes = () => [...THEMES, ...customThemes()]
+
+/** Applique un thème tel quel (aperçu pendant l'édition). */
+export function applyThemeObject(t: Theme, accent: string | null = null) {
+  paint(t, accent)
+}
+
 export function applyTheme(choice: ThemeChoice) {
   const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches
   const id = choice.followSystem && prefersDark ? 'nuit' : choice.id
-  const t = THEMES.find((x) => x.id === id) ?? THEMES[0]
+  const t = allThemes().find((x) => x.id === id) ?? THEMES[0]
+  paint(t, choice.accent)
+}
+
+function paint(t: Theme, accent: string | null) {
+  const choice = { accent }
   const root = document.documentElement
   const set = (k: string, v: string) => root.style.setProperty(k, v)
   set('--bg', t.bg)

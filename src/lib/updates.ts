@@ -76,16 +76,33 @@ async function checkDesktop(): Promise<boolean> {
 
 let reloadWeb: ((reload?: boolean) => Promise<void>) | null = null
 let registration: ServiceWorkerRegistration | undefined
+const STARTED = Date.now()
 
-async function latestReleaseNotes(): Promise<{ version: string | null; items: string[] }> {
+/** Ce qui est en ligne : version, build et nouveautés (écrit par vite.config.ts). */
+async function onlineVersion(): Promise<{ version: string; build: string; release?: Release } | null> {
   try {
-    const r = await fetch('https://api.github.com/repos/ambroise-boutrin/kollab/releases/latest')
-    if (!r.ok) throw new Error()
-    const j = (await r.json()) as { tag_name?: string; body?: string }
-    return { version: j.tag_name?.replace(/^v/, '') ?? null, items: notesFromBody(j.body) }
+    const r = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' })
+    return r.ok ? await r.json() : null
   } catch {
-    return { version: null, items: [] }
+    return null
   }
+}
+
+/** Propose de recharger quand un nouveau build est en ligne. */
+async function offerWebUpdate() {
+  const online = await onlineVersion()
+  if (online && online.build === __BUILD_ID__) return
+  const release = online?.release
+  publish({
+    version: online?.version ?? null,
+    items: release && release.version !== APP_VERSION ? release.items : ['Améliorations et corrections'],
+    async install(onProgress) {
+      onProgress(1)
+      await new Promise((r) => setTimeout(r, 500))
+      if (reloadWeb && registration?.waiting) await reloadWeb(true)
+      else location.reload()
+    },
+  })
 }
 
 export function startUpdates() {
@@ -117,18 +134,15 @@ export function startUpdates() {
       immediate: true,
       onRegisteredSW(_url, r) {
         registration = r
-        if (r) setInterval(() => void r.update(), 3600 * 1000)
+        if (!r) return
+        // Vérifie souvent, et à chaque retour sur l'onglet.
+        setInterval(() => void r.update(), 10 * 60 * 1000)
+        document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && void r.update())
       },
-      async onNeedRefresh() {
-        const notes = await latestReleaseNotes()
-        publish({
-          ...notes,
-          async install(onProgress) {
-            onProgress(1)
-            await new Promise((r) => setTimeout(r, 700))
-            await reloadWeb?.(true)
-          },
-        })
+      onNeedRefresh() {
+        // Juste après un chargement (ou un rechargement), on applique sans rien demander.
+        if (Date.now() - STARTED < 8000) void reloadWeb?.(true)
+        else void offerWebUpdate()
       },
     })
   })
@@ -143,7 +157,13 @@ export async function checkNow(): Promise<boolean> {
   if (IS_DESKTOP) return checkDesktop()
   await registration?.update()
   await new Promise((r) => setTimeout(r, 1500))
-  return pending !== null
+  if (pending) return true
+  const online = await onlineVersion()
+  if (online && online.build !== __BUILD_ID__) {
+    await offerWebUpdate()
+    return true
+  }
+  return false
 }
 
 export function dismissUpdate() {
