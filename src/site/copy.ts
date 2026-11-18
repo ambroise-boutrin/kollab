@@ -36,7 +36,7 @@ type Cell = boolean | 'soon' | 'part'
 const fr = {
   nav: { features: 'Fonctionnalités', audience: 'Pour qui', compare: 'Comparatif', pricing: 'Tarifs', download: 'Télécharger', faq: 'FAQ' },
   langSwitch: { label: 'EN', title: 'Read this page in English' },
-  header: { home: 'Kollab, accueil', login: 'Connexion', try: 'Essayer', trySuffix: ' gratuitement' },
+  header: { home: 'Kollab, accueil', login: 'Connexion', try: 'Essayer', trySuffix: ' gratuitement', menu: 'Menu', close: 'Fermer' },
   footer: {
     tag: "Le code, les sprints et l'équipe au même endroit.",
     product: 'Produit',
@@ -259,7 +259,7 @@ export type Copy = typeof fr
 const en: Copy = {
   nav: { features: 'Features', audience: "Who it's for", compare: 'Compare', pricing: 'Pricing', download: 'Download', faq: 'FAQ' },
   langSwitch: { label: 'FR', title: 'Lire cette page en français' },
-  header: { home: 'Kollab, home', login: 'Log in', try: 'Try it', trySuffix: ' free' },
+  header: { home: 'Kollab, home', login: 'Log in', try: 'Try it', trySuffix: ' free', menu: 'Menu', close: 'Close' },
   footer: {
     tag: 'Code, sprints and your team in one place.',
     product: 'Product',
