@@ -128,3 +128,14 @@ export interface AppNotification {
   readAt: string | null
   createdAt: string
 }
+
+/** Fichier de l'espace documents (PDF, image, autre). */
+export interface DocumentItem {
+  id: string
+  name: string
+  mime: string
+  size: number
+  path: string
+  uploadedBy: string | null
+  createdAt: string
+}

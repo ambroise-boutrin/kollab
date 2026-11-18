@@ -6,6 +6,7 @@ import { useStore } from './lib/store'
 import { Board } from './pages/Board'
 import { Chat } from './pages/Chat'
 import { Group } from './pages/Group'
+import { Documents } from './pages/Documents'
 import { Intro } from './pages/Intro'
 import { ProjectSettings } from './pages/ProjectSettings'
 import { Reviews } from './pages/Reviews'
@@ -42,6 +43,7 @@ export function App() {
           <Route path="tableau" element={<Board />} />
           <Route path="chat" element={<Chat />} />
           <Route path="revues" element={<Reviews />} />
+          <Route path="documents" element={<Documents />} />
           <Route path="equipe" element={<Group />} />
           <Route path="groupe" element={<Navigate to="/equipe" replace />} />
           <Route path="projet" element={<ProjectSettings />} />
