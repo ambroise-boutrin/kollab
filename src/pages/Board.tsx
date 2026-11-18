@@ -25,6 +25,7 @@ function TaskCard({ task, onOpen, overlay = false }: { task: Task; onOpen?: () =
     <button
       ref={overlay ? undefined : setNodeRef}
       className={`task${isDragging ? ' dragging' : ''}${overlay ? ' overlay' : ''}`}
+      data-tour="task"
       onClick={onOpen}
       {...(overlay ? {} : attributes)}
       {...(overlay ? {} : listeners)}
@@ -43,7 +44,7 @@ function TaskCard({ task, onOpen, overlay = false }: { task: Task; onOpen?: () =
 function Column({ status, label, tasks, onOpen, onAdd }: { status: TaskStatus; label: string; tasks: Task[]; onOpen: (t: Task) => void; onAdd: () => void }) {
   const { setNodeRef, isOver } = useDroppable({ id: status })
   return (
-    <section ref={setNodeRef} className={`column${isOver ? ' over' : ''}`} aria-label={label}>
+    <section ref={setNodeRef} className={`column${isOver ? ' over' : ''}`} aria-label={label} data-tour="column">
       <div className="column-head">
         {label} <span className="count">{tasks.length}</span>
       </div>
@@ -99,7 +100,7 @@ export function Board() {
       <div className="page-head">
         <h1>Tableau</h1>
         <div className="actions">
-          <button className="btn" onClick={() => void add('todo')}>Nouvelle tâche</button>
+          <button className="btn" data-tour="new-task" onClick={() => void add('todo')}>Nouvelle tâche</button>
         </div>
       </div>
 
