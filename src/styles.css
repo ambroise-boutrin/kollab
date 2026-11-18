@@ -315,3 +315,7 @@ html.restarting body { opacity: 0; transition: opacity .6s cubic-bezier(.4, 0, .
 .release { padding: 12px 14px; border-radius: 16px; background: var(--subtle); display: flex; flex-direction: column; gap: 8px; }
 .release header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .release ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+
+/* Bandeau de la démo sans inscription */
+.demo-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 10px 12px 10px 16px; border-radius: 14px; background: color-mix(in srgb, var(--accent, #5546E0) 10%, var(--surface, #fff)); font-size: 14px; animation: page .25s ease both; }
+.demo-banner .btn { margin-left: auto; }

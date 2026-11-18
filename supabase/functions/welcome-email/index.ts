@@ -10,12 +10,15 @@ const cors = {
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 
-function welcomeHtml(firstName: string, appUrl: string) {
-  const step = (n: number, title: string, text: string) => `
+function welcomeHtml(firstName: string, appUrl: string, assets: string) {
+  const step = (n: number, bg: string, title: string, text: string) => `
 <tr><td style="padding:0 0 14px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
-<td valign="top" style="width:28px"><div style="width:28px;height:28px;border-radius:50%;background:#EEECFD;color:#5546E0;font:700 13px/28px Inter,Arial,sans-serif;text-align:center">${n}</div></td>
-<td style="padding-left:12px;font-size:15px;line-height:1.5;color:#4A4E63"><strong style="color:#14142B">${title}</strong><br>${text}</td>
+<td valign="top" style="width:36px"><div style="width:36px;height:36px;border-radius:12px;background:${bg};color:#14142B;font:800 15px/36px 'Plus Jakarta Sans',Arial,sans-serif;text-align:center">${n}</div></td>
+<td style="padding-left:14px;font-size:15px;line-height:1.5;color:#4A4E63"><strong style="color:#14142B">${title}</strong><br>${text}</td>
 </tr></table></td></tr>`
+  const tile = (bg: string, title: string, text: string) => `<td valign="top" style="width:33%;background:${bg};border-radius:16px;padding:14px 14px 16px">
+<div style="font:800 15px 'Plus Jakarta Sans',Arial,sans-serif;color:#14142B">${title}</div>
+<div style="margin-top:4px;font-size:13px;line-height:1.45;color:#4A4E63">${text}</div></td>`
   return `<!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bienvenue sur Kollab</title></head>
 <body style="margin:0;padding:0;background:#F5F6FA;font-family:Inter,'Segoe UI',Arial,sans-serif;color:#14142B">
@@ -23,21 +26,30 @@ function welcomeHtml(firstName: string, appUrl: string) {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F5F6FA"><tr><td align="center" style="padding:32px 16px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px">
 <tr><td style="padding:0 8px 20px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
-<td style="width:36px;height:36px;border-radius:11px;background:#5546E0;color:#fff;font:800 20px/36px 'Plus Jakarta Sans',Arial,sans-serif;text-align:center">K</td>
+<td style="width:36px"><img src="${assets}/logo.png" width="36" height="36" alt="" style="display:block;border:0"></td>
 <td style="padding-left:10px;font:800 20px 'Plus Jakarta Sans',Arial,sans-serif;color:#14142B;letter-spacing:-0.02em">Kollab</td>
 </tr></table></td></tr>
-<tr><td style="background:#5546E0;border-radius:24px 24px 0 0;padding:36px 32px 28px;color:#FFFFFF">
+<tr><td style="background:#5546E0;border-radius:24px 24px 0 0;padding:36px 32px 24px;color:#FFFFFF">
 <p style="margin:0 0 8px;font:600 14px Inter,Arial,sans-serif;color:#FFD23F">Ton compte est activé</p>
 <h1 style="margin:0;font:800 30px/1.12 'Plus Jakarta Sans',Arial,sans-serif;letter-spacing:-0.03em;color:#FFFFFF">Bienvenue sur Kollab${firstName ? `, ${esc(firstName)}` : ''} !</h1>
 </td></tr>
-<tr><td style="background:#FFFFFF;border-radius:0 0 24px 24px;padding:28px 32px 32px">
+<tr><td style="background:#5546E0;line-height:0;font-size:0"><img src="${assets}/hero.png" width="520" alt="Le tableau et le chat de Kollab" style="display:block;width:100%;max-width:520px;height:auto;border:0"></td></tr>
+<tr><td style="background:#FFFFFF;border-radius:0 0 24px 24px;padding:30px 32px 32px">
 <p style="margin:0 0 22px;font-size:16px;line-height:1.6;color:#4A4E63">Ton équipe, ton code et tes sprints sont maintenant au même endroit. Trois étapes pour bien démarrer :</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-${step(1, 'Crée ton groupe', 'ou rejoins celui d’un collègue avec son lien d’invitation.')}
-${step(2, 'Invite ton équipe', 'en choisissant les droits de chacun : admin, membre ou invité.')}
-${step(3, 'Ajoute tes premières tâches', 'sur le tableau, puis attribue-les.')}
+${step(1, '#FFD23F', 'Crée ton groupe', 'ou rejoins celui d’un collègue avec son lien d’invitation.')}
+${step(2, '#FF9F92', 'Invite ton équipe', 'en choisissant les droits de chacun : admin, membre ou invité.')}
+${step(3, '#7DDCB0', 'Ajoute tes premières tâches', 'sur le tableau, puis attribue-les.')}
 </table>
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:14px 0 6px"><tr>
+<p style="margin:26px 0 12px;font:700 13px Inter,Arial,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#8A90A2">Ce qui t’attend</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+${tile('#E7E3FF', 'Kanban', 'Glisse, attribue, estime.')}
+<td style="width:10px"></td>
+${tile('#FFF3C4', 'Chat', 'Salons, @mentions, PR.')}
+<td style="width:10px"></td>
+${tile('#D9F5E8', 'Partout', 'Web, bureau, téléphone.')}
+</tr></table>
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:26px 0 6px"><tr>
 <td style="border-radius:14px;background:#5546E0"><a href="${appUrl}" style="display:inline-block;padding:15px 28px;font:600 16px Inter,Arial,sans-serif;color:#FFFFFF;text-decoration:none;border-radius:14px">Ouvrir Kollab</a></td>
 </tr></table>
 <p style="margin:18px 0 0;font-size:14px;line-height:1.6;color:#8A90A2">Kollab existe aussi en appli pour Windows, Mac et Linux, et s’installe sur ton téléphone depuis le navigateur.</p>
@@ -65,6 +77,8 @@ Deno.serve(async (req) => {
   const fullName: string = meta.full_name ?? meta.name ?? meta.user_name ?? ''
   const firstName = fullName.trim().split(/\s+/)[0] ?? ''
   const appUrl = Deno.env.get('APP_URL') ?? 'https://kollab-tan-nu.vercel.app/app'
+  // Images de l'email (public/email/ du dépôt), servies par GitHub tant qu'il n'y a pas de domaine.
+  const assets = Deno.env.get('EMAIL_ASSETS_URL') ?? 'https://raw.githubusercontent.com/ambroise-boutrin/kollab/main/public/email'
 
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -73,7 +87,7 @@ Deno.serve(async (req) => {
       from: Deno.env.get('MAIL_FROM') ?? 'Kollab <onboarding@resend.dev>',
       to: [user.email],
       subject: `Bienvenue sur Kollab${firstName ? `, ${firstName}` : ''} !`,
-      html: welcomeHtml(firstName, appUrl),
+      html: welcomeHtml(firstName, appUrl, assets),
     }),
   })
   if (!res.ok) return new Response('mail error', { status: 502, headers: cors })
