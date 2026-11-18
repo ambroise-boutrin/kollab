@@ -1,8 +1,6 @@
 -- Création de projet préconfigurée : le modèle choisi fixe la liste des salons.
--- Sans liste, on garde les salons par défaut.
-drop function if exists public.create_group(text);
-
-create function public.create_group(group_name text, channel_names text[] default null)
+-- create_group(text) reste en place pour les anciennes versions de l'app.
+create function public.create_project(group_name text, channel_names text[] default null)
 returns uuid language plpgsql security definer set search_path = public as $$
 declare
   gid uuid;
@@ -20,8 +18,8 @@ begin
 end;
 $$;
 
-revoke execute on function public.create_group(text, text[]) from public, anon;
-grant execute on function public.create_group(text, text[]) to authenticated;
+revoke execute on function public.create_project(text, text[]) from public, anon;
+grant execute on function public.create_project(text, text[]) to authenticated;
 
 -- Un admin peut supprimer son projet (tâches, salons, messages partent en cascade).
 create policy "groupe supprimable par admin" on public.groups for delete using (public.is_admin(id));

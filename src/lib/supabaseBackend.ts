@@ -223,7 +223,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
 
     async createGroup(name, setup) {
       const gid = must(
-        await sb.rpc('create_group', { group_name: name, ...(setup?.channels?.length ? { channel_names: setup.channels } : {}) }),
+        await sb.rpc('create_project', { group_name: name, ...(setup?.channels?.length ? { channel_names: setup.channels } : {}) }),
       ) as string
       const tasks = (setup?.tasks ?? []).map((t, i) => ({ ...t, group_id: gid, description: '', position: i }))
       if (tasks.length) must(await sb.from('tasks').insert(tasks))

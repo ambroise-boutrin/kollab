@@ -58,7 +58,7 @@ export function LinksCard() {
   return (
     <section className="card appear appear-3 links-card">
       <div className="links-head">
-        <h2>Liens</h2>
+        <h2>Liens importants</h2>
         <button className="icon-btn" aria-label="Ajouter un lien" aria-expanded={adding} onClick={() => setAdding((a) => !a)}>
           <Icon name="plus" size={18} />
         </button>

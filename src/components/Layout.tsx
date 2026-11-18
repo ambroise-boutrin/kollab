@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { DEMO_SESSION, leaveDemo, useStore } from '../lib/store'
 import { PRESENCE, type Member } from '../lib/types'
 import { AppTour } from './AppTour'
@@ -83,7 +83,7 @@ function ProjectSwitcher({ onNew, compact = false }: { onNew: () => void; compac
 }
 
 /** En haut à droite : les membres, ceux en ligne d'abord. */
-function MembersStack() {
+export function MembersStack() {
   const { workspace, online } = useStore()
   const navigate = useNavigate()
   if (!workspace) return null
@@ -182,6 +182,7 @@ export function Layout() {
   const { workspace, user, backend } = useStore()
   const [creating, setCreating] = useState(false)
   const openNew = useCallback(() => setCreating(true), [])
+  const onHome = useLocation().pathname === '/'
   const myOpen = workspace?.tasks.filter((t) => t.assigneeId === (user?.id ?? 'me') && t.status !== 'done').length ?? 0
 
   return (
@@ -204,7 +205,7 @@ export function Layout() {
       </nav>
 
       <main className="main">
-        <header className="topbar">
+        <header className={onHome ? 'topbar on-home' : 'topbar'}>
           <div className="topbar-mobile">
             <ProjectSwitcher onNew={() => setCreating(true)} compact />
           </div>
