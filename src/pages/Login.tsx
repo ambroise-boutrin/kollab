@@ -38,9 +38,32 @@ type Mode = 'signin' | 'signup' | 'forgot' | 'magic'
 
 const HEADINGS: Record<Mode, { title: string; sub: string }> = {
   signin: { title: 'Bon retour', sub: 'Connecte-toi pour retrouver ton groupe.' },
-  signup: { title: 'Créer un compte', sub: 'Un compte Kollab, sans GitHub, Google ni Discord.' },
-  forgot: { title: 'Mot de passe oublié', sub: 'On t’envoie un lien pour en choisir un nouveau.' },
+  signup: { title: 'Crée ton compte', sub: 'Une minute, et ton équipe a son espace de travail.' },
+  forgot: { title: 'Mot de passe oublié', sub: 'Indique ton email : on t’envoie un lien pour en choisir un nouveau.' },
   magic: { title: 'Bon retour', sub: 'Connecte-toi pour retrouver ton groupe.' },
+}
+
+const PERKS = [
+  { title: 'Tableau et sprints', text: 'Kanban glisser-déposer, tâches attribuées, points.' },
+  { title: 'Chat du groupe', text: 'Salons, @mentions et liens de PR GitHub.' },
+  { title: 'Partout', text: 'Web, téléphone, et appli Windows, Mac et Linux.' },
+]
+
+const STEPS = ['Tu crées ton compte', 'Tu confirmes ton email', 'Tu crées ton groupe ou tu rejoins celui d’un collègue']
+
+/** Force du mot de passe, de 0 à 4, avec un conseil pour la suite. */
+function strength(pw: string): { score: number; label: string; hint: string } {
+  let score = 0
+  if (pw.length >= 8) score++
+  if (pw.length >= 12) score++
+  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++
+  if (/\d/.test(pw) && /[^A-Za-z0-9]/.test(pw)) score++
+  else if (/\d|[^A-Za-z0-9]/.test(pw)) score += 0.5
+  score = Math.min(4, Math.floor(score))
+  if (pw.length < 8) return { score: 0, label: 'Trop court', hint: `Encore ${8 - pw.length} caractère${8 - pw.length > 1 ? 's' : ''}` }
+  const labels = ['Faible', 'Faible', 'Correct', 'Bon', 'Excellent']
+  const hint = score >= 4 ? 'Parfait.' : pw.length < 12 ? 'Plus long, c’est plus sûr.' : 'Ajoute des majuscules, chiffres ou symboles.'
+  return { score, label: labels[score], hint }
 }
 
 function LegalLink({ path, children }: { path: string; children: string }) {
@@ -48,18 +71,33 @@ function LegalLink({ path, children }: { path: string; children: string }) {
   return <button type="button" className="link-btn" style={{ fontWeight: 500 }} onClick={() => void openExternal(SITE_URL + path)}>{children}</button>
 }
 
+function EyeIcon({ open }: { open: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+      {!open && <path d="M4 20 20 4" />}
+    </svg>
+  )
+}
+
 export function Login() {
   const { backend } = useStore()
   const [mode, setMode] = useState<Mode>('signin')
-  const [name, setName] = useState('')
+  const [first, setFirst] = useState('')
+  const [last, setLast] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [sent, setSent] = useState<string | null>(null)
+  const [showPw, setShowPw] = useState(false)
+  const [sent, setSent] = useState<{ title: string; text: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [accepted, setAccepted] = useState(false)
 
-  async function run(action: () => Promise<string | void>) {
+  const signup = mode === 'signup'
+  const pw = strength(password)
+
+  async function run(action: () => Promise<{ title: string; text: string } | void>) {
     setError(null)
     setBusy(true)
     try {
@@ -83,118 +121,175 @@ export function Login() {
     void run(async () => {
       if (mode === 'signin') return backend.signInWithPassword(email, password)
       if (mode === 'signup') {
-        const r = await backend.signUp(email, password, name.trim())
-        if (r.confirmEmail) return `On t’a envoyé un lien à ${email} pour confirmer ton compte.`
+        const name = `${first.trim()} ${last.trim()}`.trim()
+        const r = await backend.signUp(email, password, name)
+        if (r.confirmEmail) return { title: 'Active ton compte', text: `On t’a envoyé un email d’activation à ${email}. Clique sur le bouton qu’il contient pour terminer ton inscription.` }
         return
       }
       if (mode === 'forgot') {
         await backend.sendPasswordReset(email)
-        return `Si un compte existe pour ${email}, un lien pour changer le mot de passe vient de partir.`
+        return { title: 'Regarde ta boîte mail', text: `Si un compte existe pour ${email}, un lien pour changer le mot de passe vient de partir.` }
       }
       const r = await backend.signIn('email', email)
-      if (r.emailSent) return `On t’a envoyé un lien de connexion à ${email}.`
+      if (r.emailSent) return { title: 'Regarde ta boîte mail', text: `On t’a envoyé un lien de connexion à ${email}.` }
     })
   }
 
-  const usesPassword = mode === 'signin' || mode === 'signup'
   const submitLabel = { signin: 'Se connecter', signup: 'Créer mon compte', forgot: 'Envoyer le lien', magic: 'Recevoir un lien de connexion' }[mode]
+  const canSubmit = !busy && (!signup || (accepted && password.length >= 8 && first.trim() !== ''))
 
   return (
     <div className="login page">
       <section className="login-art" aria-hidden="true">
-        <div style={{ fontFamily: 'var(--display)', fontWeight: 800, fontSize: 22 }}>Kollab</div>
-        <div className="float"><LogoMark size={200} /></div>
-        <div style={{ maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <h2 style={{ fontSize: 28, lineHeight: 1.2, fontWeight: 700 }}>Ton équipe, ton code et tes sprints au même endroit.</h2>
-          <p className="muted" style={{ margin: 0 }}>Relis les PR, organise les sprints et discute avec ton groupe, sur ordinateur comme sur téléphone.</p>
+        <div className="login-art-brand"><LogoMark size={32} /> Kollab</div>
+        {signup ? (
+          <div className="login-art-copy">
+            <h2>Ton équipe, ton code et tes sprints au même endroit.</h2>
+            <ul className="login-perks">
+              {PERKS.map((p) => (
+                <li key={p.title}>
+                  <span className="login-perk-dot" />
+                  <span><strong>{p.title}</strong> {p.text}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <div className="login-art-copy">
+            <h2>Content de te revoir.</h2>
+            <p>Tes tâches, ton chat et les PR à relire t’attendent.</p>
+          </div>
+        )}
+        <div className="login-shot">
+          <img src="/vitrine/tableau-attribution.png" alt="" width={1360} height={860} />
         </div>
       </section>
 
       <section className="login-form">
         <div className="appear" key={mode}>
           <div className="login-brand" aria-hidden="true"><LogoMark size={36} /> Kollab</div>
+
+          {(mode === 'signin' || mode === 'signup' || mode === 'magic') && (
+            <div className="seg login-tabs" role="group" aria-label="Connexion ou inscription">
+              <button type="button" aria-pressed={!signup} onClick={() => switchTo('signin')}>Se connecter</button>
+              <button type="button" aria-pressed={signup} onClick={() => switchTo('signup')}>Créer un compte</button>
+            </div>
+          )}
+
           <div>
             <h1>{HEADINGS[mode].title}</h1>
             <p className="muted" style={{ margin: '4px 0 0' }}>{HEADINGS[mode].sub}</p>
           </div>
 
-          {(mode === 'signin' || mode === 'magic') && (
-            <>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {PROVIDERS.map((p) => (
-                  <button key={p.id} className="btn provider" style={{ background: p.bg }} disabled={busy} onClick={() => void run(async () => void (await backend.signIn(p.id)))}>
-                    <ProviderIcon path={p.icon} />
-                    Continuer avec {p.label}
-                  </button>
-                ))}
-              </div>
-              <p className="muted" style={{ margin: '-4px 0 0', fontSize: 13, textAlign: 'center' }}>
-                En continuant, tu acceptes les <LegalLink path={LEGAL_PATHS.cgu}>CGU</LegalLink> et la <LegalLink path={LEGAL_PATHS.confidentialite}>politique de confidentialité</LegalLink>.
-              </p>
-              <div className="or">ou par email</div>
-              <div className="seg" role="group" aria-label="Façon de se connecter" style={{ alignSelf: 'center' }}>
-                <button type="button" aria-pressed={mode === 'signin'} onClick={() => switchTo('signin')}>Mot de passe</button>
-                <button type="button" aria-pressed={mode === 'magic'} onClick={() => switchTo('magic')}>Lien magique</button>
-              </div>
-            </>
-          )}
-
           {sent ? (
-            <div className="card appear" style={{ textAlign: 'center' }}>
-              <strong>Regarde ta boîte mail</strong>
-              <p className="muted" style={{ margin: '4px 0 0' }}>{sent}</p>
+            <div className="card appear login-sent">
+              <span className="login-sent-icon">✉</span>
+              <strong style={{ fontSize: 18 }}>{sent.title}</strong>
+              <p className="muted" style={{ margin: 0 }}>{sent.text}</p>
+              <p className="muted" style={{ margin: 0, fontSize: 13 }}>Rien reçu ? Regarde dans les spams, ou réessaie dans une minute.</p>
+              <button type="button" className="btn soft" onClick={() => setSent(null)}>Changer d’adresse</button>
             </div>
           ) : (
-            <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {mode === 'signup' && (
-                <label className="field">
-                  Ton nom
-                  <input className="input" required maxLength={40} autoComplete="name" placeholder="ex. Léa" value={name} onChange={(e) => setName(e.target.value)} />
-                </label>
+            <>
+              {mode !== 'forgot' && (
+                <>
+                  <div className={signup ? 'login-providers row' : 'login-providers'}>
+                    {PROVIDERS.map((p) => (
+                      <button key={p.id} type="button" className="btn provider" style={{ background: p.bg }} disabled={busy} aria-label={`${signup ? 'S’inscrire' : 'Continuer'} avec ${p.label}`} onClick={() => void run(async () => void (await backend.signIn(p.id)))}>
+                        <ProviderIcon path={p.icon} />
+                        <span>{signup ? p.label : `Continuer avec ${p.label}`}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {!signup && (
+                    <p className="muted" style={{ margin: '-4px 0 0', fontSize: 13, textAlign: 'center' }}>
+                      En continuant, tu acceptes les <LegalLink path={LEGAL_PATHS.cgu}>CGU</LegalLink> et la <LegalLink path={LEGAL_PATHS.confidentialite}>politique de confidentialité</LegalLink>.
+                    </p>
+                  )}
+                  <div className="or">{signup ? 'ou avec ton email' : 'ou par email'}</div>
+                </>
               )}
-              <label className="field">
-                Adresse email
-                <input className="input" type="email" required autoComplete="email" placeholder="toi@exemple.fr" value={email} onChange={(e) => setEmail(e.target.value)} />
-              </label>
-              {usesPassword && (
-                <div className="field">
-                  <span style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <label htmlFor="password">Mot de passe</label>
-                    {mode === 'signin' && <button type="button" className="link-btn" onClick={() => switchTo('forgot')}>Oublié ?</button>}
-                  </span>
-                  <input
-                    id="password"
-                    className="input"
-                    type="password"
-                    required
-                    minLength={mode === 'signup' ? 8 : undefined}
-                    autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                    placeholder={mode === 'signup' ? '8 caractères minimum' : ''}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
+
+              {(mode === 'signin' || mode === 'magic') && (
+                <div className="seg" role="group" aria-label="Façon de se connecter" style={{ alignSelf: 'center' }}>
+                  <button type="button" aria-pressed={mode === 'signin'} onClick={() => switchTo('signin')}>Mot de passe</button>
+                  <button type="button" aria-pressed={mode === 'magic'} onClick={() => switchTo('magic')}>Lien magique</button>
                 </div>
               )}
-              {mode === 'signup' && (
-                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 14 }}>
-                  <input type="checkbox" required checked={accepted} onChange={(e) => setAccepted(e.target.checked)} style={{ width: 18, height: 18, marginTop: 3, flex: 'none', accentColor: 'var(--accent)' }} />
-                  <span>J'accepte les <LegalLink path={LEGAL_PATHS.cgu}>CGU</LegalLink> et la <LegalLink path={LEGAL_PATHS.confidentialite}>politique de confidentialité</LegalLink>.</span>
+
+              <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {signup && (
+                  <div className="grid-2">
+                    <label className="field">
+                      Prénom
+                      <input className="input" required maxLength={30} autoComplete="given-name" placeholder="Léa" value={first} onChange={(e) => setFirst(e.target.value)} />
+                    </label>
+                    <label className="field">
+                      Nom
+                      <input className="input" maxLength={30} autoComplete="family-name" placeholder="Martin" value={last} onChange={(e) => setLast(e.target.value)} />
+                    </label>
+                  </div>
+                )}
+                <label className="field">
+                  {signup ? 'Email' : 'Adresse email'}
+                  <input className="input" type="email" required autoComplete="email" placeholder="toi@exemple.fr" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  {signup && <span className="field-help">On t’enverra un email pour activer ton compte.</span>}
                 </label>
+                {(mode === 'signin' || signup) && (
+                  <div className="field">
+                    <span style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <label htmlFor="password">Mot de passe</label>
+                      {mode === 'signin' && <button type="button" className="link-btn" onClick={() => switchTo('forgot')}>Oublié ?</button>}
+                    </span>
+                    <div className="input-wrap">
+                      <input
+                        id="password"
+                        className="input"
+                        type={showPw ? 'text' : 'password'}
+                        required
+                        minLength={signup ? 8 : undefined}
+                        autoComplete={signup ? 'new-password' : 'current-password'}
+                        placeholder={signup ? '8 caractères minimum' : ''}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                      />
+                      <button type="button" className="input-eye" aria-label={showPw ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} onClick={() => setShowPw(!showPw)}>
+                        <EyeIcon open={showPw} />
+                      </button>
+                    </div>
+                    {signup && password && (
+                      <div className="pw-meter" aria-live="polite">
+                        <div className="pw-bars">{[1, 2, 3, 4].map((i) => <i key={i} className={i <= pw.score ? `on s${pw.score}` : ''} />)}</div>
+                        <span className="field-help"><strong>{pw.label}</strong> · {pw.hint}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {signup && (
+                  <label className="login-terms">
+                    <input type="checkbox" required checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
+                    <span>J'accepte les <LegalLink path={LEGAL_PATHS.cgu}>conditions d’utilisation</LegalLink> et la <LegalLink path={LEGAL_PATHS.confidentialite}>politique de confidentialité</LegalLink>.</span>
+                  </label>
+                )}
+                <button className="btn provider" disabled={!canSubmit}>{busy ? 'Un instant…' : submitLabel}</button>
+                {mode === 'magic' && <span className="muted" style={{ fontSize: 13, textAlign: 'center' }}>Pas de mot de passe : un lien magique arrive par email.</span>}
+              </form>
+
+              {signup && (
+                <ol className="login-steps" aria-label="Les étapes">
+                  {STEPS.map((s, i) => <li key={s}><span>{i + 1}</span>{s}</li>)}
+                </ol>
               )}
-              <button className="btn provider" disabled={busy || (mode === 'signup' && !accepted)}>{submitLabel}</button>
-              {mode === 'magic' && <span className="muted" style={{ fontSize: 13, textAlign: 'center' }}>Pas de mot de passe : un lien magique arrive par email.</span>}
-            </form>
+            </>
           )}
 
           {error && <p role="alert" style={{ color: 'var(--danger)', margin: 0 }}>{error}</p>}
 
-          <p className="muted" style={{ margin: 0, textAlign: 'center', fontSize: 14 }}>
-            {mode === 'signup' || mode === 'forgot' ? (
+          {mode === 'forgot' && (
+            <p className="muted" style={{ margin: 0, textAlign: 'center', fontSize: 14 }}>
               <button type="button" className="link-btn" onClick={() => switchTo('signin')}>Retour à la connexion</button>
-            ) : (
-              <>Pas encore de compte ? <button type="button" className="link-btn" onClick={() => switchTo('signup')}>Créer un compte</button></>
-            )}
-          </p>
+            </p>
+          )}
         </div>
       </section>
     </div>
