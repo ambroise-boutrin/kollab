@@ -181,13 +181,8 @@ export function DemoTour() {
     window.addEventListener('kollab:tour', again)
     return () => window.removeEventListener('kollab:tour', again)
   }, [])
-  if (!open) {
-    return (
-      <button className="tour-restart" onClick={() => setOpen(true)}>
-        Revoir la visite
-      </button>
-    )
-  }
+  // La visite se relance depuis le menu du compte : pas de bouton flottant qui cache le contenu.
+  if (!open) return null
   return (
     <SpotlightTour
       steps={STEPS}

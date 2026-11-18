@@ -99,6 +99,7 @@ export function Home() {
       </div>
 
       <div className="home-grid">
+        <div className="home-main">
         <section className="card home-day">
           <div className="row-between">
             <h2>Ma journée</h2>
@@ -124,24 +125,6 @@ export function Home() {
               ))}
             </ul>
           )}
-        </section>
-
-        <section className="card home-activity">
-          <h2>Activité</h2>
-          {activity.length === 0 && <p className="hint">Le projet démarre : invite l'équipe et crée les premières tâches.</p>}
-          <ul className="feed">
-            {activity.map((a) => {
-              const who = a.who ? ws.members.find((m) => m.id === a.who) : undefined
-              const inner = (
-                <>
-                  {who ? <Avatar member={who} size={26} /> : <span className="feed-dot" />}
-                  <span className="feed-text">{a.text}</span>
-                  <span className="muted feed-at">{ago(a.at)}</span>
-                </>
-              )
-              return <li key={a.id}>{a.link ? <Link to={a.link}>{inner}</Link> : <div>{inner}</div>}</li>
-            })}
-          </ul>
         </section>
 
         <section className="card home-board">
@@ -175,7 +158,27 @@ export function Home() {
           </div>
         </section>
 
+        </div>
+
         <div className="home-side">
+        <section className="card home-activity">
+          <h2>Activité</h2>
+          {activity.length === 0 && <p className="hint">Le projet démarre : invite l'équipe et crée les premières tâches.</p>}
+          <ul className="feed">
+            {activity.map((a) => {
+              const who = a.who ? ws.members.find((m) => m.id === a.who) : undefined
+              const inner = (
+                <>
+                  {who ? <Avatar member={who} size={26} /> : <span className="feed-dot" />}
+                  <span className="feed-text">{a.text}</span>
+                  <span className="muted feed-at">{ago(a.at)}</span>
+                </>
+              )
+              return <li key={a.id}>{a.link ? <Link to={a.link}>{inner}</Link> : <div>{inner}</div>}</li>
+            })}
+          </ul>
+        </section>
+
         <section className="card">
           <h2>PR à relire</h2>
           {toReview.length === 0 && <p className="hint">Aucune tâche en revue.</p>}
