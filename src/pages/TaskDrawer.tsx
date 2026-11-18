@@ -8,7 +8,7 @@ import { KINDS, STATUSES, type Task, type TaskKind, type TaskStatus } from '../l
 
 /** Charge d'un membre = points des tâches non terminées qui lui sont attribuées. */
 function load(tasks: Task[], memberId: string) {
-  return tasks.filter((t) => t.assigneeId === memberId && t.status !== 'done').reduce((n, t) => n + (t.points ?? 0), 0)
+  return tasks.filter((t) => t.assigneeIds.includes(memberId) && t.status !== 'done').reduce((n, t) => n + (t.points ?? 0), 0)
 }
 
 export function TaskDrawer({ task, onClose }: { task: Task; onClose: () => void }) {
@@ -31,13 +31,15 @@ export function TaskDrawer({ task, onClose }: { task: Task; onClose: () => void 
     void saveTask(next)
   }
 
-  function assign(memberId: string | null) {
-    const next = { ...draft, assigneeId: memberId }
+  /** Ajoute ou retire une personne ; une tâche peut en avoir plusieurs. */
+  function toggleAssignee(memberId: string) {
+    const on = draft.assigneeIds.includes(memberId)
+    const next = { ...draft, assigneeIds: on ? draft.assigneeIds.filter((id) => id !== memberId) : [...draft.assigneeIds, memberId] }
     commit(next)
-    if (memberId) {
+    if (!on) {
       const name = members.find((m) => m.id === memberId)?.name ?? ''
       void backend.notifyDiscord({ type: 'task_assigned', taskTitle: next.title, assignee: name })
-      toast(`Tâche attribuée à ${name}`)
+      toast(`${name} ajouté à la tâche`)
     }
   }
 
@@ -115,18 +117,19 @@ export function TaskDrawer({ task, onClose }: { task: Task; onClose: () => void 
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <h2>Attribuer à</h2>
-          <p className="muted" style={{ margin: '0 0 4px', fontSize: 13 }}>La barre montre les points déjà attribués à chacun.</p>
+          <p className="muted" style={{ margin: '0 0 4px', fontSize: 13 }}>Une ou plusieurs personnes. Elles sont prévenues.</p>
           {members.map((m) => {
             const l = load(tasks, m.id)
-            const selected = draft.assigneeId === m.id
+            const selected = draft.assigneeIds.includes(m.id)
             return (
-              <button key={m.id} className={`member-pick${selected ? ' selected' : ''}`} aria-pressed={selected} onClick={() => assign(selected ? null : m.id)}>
+              <button key={m.id} className={`member-pick${selected ? ' selected' : ''}`} aria-pressed={selected} onClick={() => toggleAssignee(m.id)}>
                 <Avatar member={m} size={34} online={online.includes(m.id)} />
                 <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 5 }}>
                   <span style={{ fontWeight: 500 }}>{m.name}{m.role === 'guest' && <span className="muted"> · invité</span>}</span>
                   <span className="load"><span style={{ width: `${Math.min(100, (l / maxLoad) * 100)}%`, background: l >= 13 ? 'var(--danger)' : 'var(--ok)' }} /></span>
                 </span>
                 <span className="muted" style={{ fontSize: 12 }}>{l} pts</span>
+                <span className={`check-box${selected ? ' on' : ''}`} aria-hidden="true">{selected && <Icon name="check" size={14} />}</span>
               </button>
             )
           })}

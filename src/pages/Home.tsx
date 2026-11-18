@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Avatar } from '../components/Avatar'
+import { AvatarGroup } from '../components/Avatar'
 import { LinksCard } from '../components/LinksCard'
 import { MembersStack } from '../components/Layout'
+import { NotificationBell } from '../components/Notifications'
 import { PrStatus } from '../components/PrLink'
 import { useStore, useWorkspace } from '../lib/store'
 import { KINDS, STATUSES } from '../lib/types'
@@ -43,6 +44,7 @@ export function Home() {
             <input type="search" placeholder="Rechercher une tâche" value={query} onChange={(e) => setQuery(e.target.value)} />
           </label>
           <MembersStack />
+          <NotificationBell />
           <button className="btn" onClick={() => navigate('/equipe')}>Inviter des membres</button>
         </div>
       </header>
@@ -60,14 +62,14 @@ export function Home() {
                 <div key={s.id} className="mini-col">
                   <div className="mini-col-head">{s.label} · {list.length}</div>
                   {list.slice(0, 4).map((t) => {
-                    const who = ws.members.find((m) => m.id === t.assigneeId)
+                    const who = ws.members.filter((m) => t.assigneeIds.includes(m.id))
                     return (
-                      <Link key={t.id} to="/tableau" className={`mini-task${s.id === 'done' ? ' is-done' : ''}`}>
+                      <Link key={t.id} to={`/tableau?tache=${t.id}`} className={`mini-task${s.id === 'done' ? ' is-done' : ''}`}>
                         <span className={`tag ${t.kind}`}>{KINDS[t.kind]}</span>
                         <span>{t.title}</span>
                         <span className="mini-meta">
                           {t.points != null ? `${t.points} pts` : ''}
-                          {who && <Avatar member={who} size={20} />}
+                          <AvatarGroup members={who} size={20} />
                         </span>
                       </Link>
                     )
@@ -84,11 +86,11 @@ export function Home() {
           <h2>PR à relire</h2>
           {toReview.length === 0 && <p className="hint">Aucune tâche en revue.</p>}
           {toReview.map((t) => {
-            const who = ws.members.find((m) => m.id === t.assigneeId)
+            const who = ws.members.filter((m) => t.assigneeIds.includes(m.id))
             return (
               <div key={t.id} className="pr-row">
                 <span className="pr-title">{t.title}</span>
-                <span className="hint">{who?.name ?? 'Personne'}</span>
+                <span className="hint">{who.map((m) => m.name).join(', ') || 'Personne'}</span>
                 {t.prUrl ? (
                   <>
                     <PrStatus url={t.prUrl} />

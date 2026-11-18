@@ -1,5 +1,20 @@
 [
   {
+    "version": "0.3.0",
+    "date": "2026-11-18",
+    "title": "Équipe et revues",
+    "items": [
+      "Une tâche peut être attribuée à plusieurs personnes",
+      "Filtre « Mes tâches » sur le tableau",
+      "Notifications avec pastille : attribution, mention, invitation, arrivée",
+      "Invitation par email pour les comptes existants",
+      "Tout se met à jour en direct : tâches, chat, membres, liens, PR",
+      "Page Revues : diff coloré, commentaires, tests et relance de la CI",
+      "Tâche liée à une vraie PR, terminée à la fusion",
+      "Thèmes personnalisés"
+    ]
+  },
+  {
     "version": "0.2.0",
     "date": "2026-11-18",
     "title": "Plusieurs projets",

@@ -3,7 +3,7 @@ import { APP_BASE } from './base'
 import { createClient, type SupabaseClient, type User as SbUser } from '@supabase/supabase-js'
 import type { Backend, User, Workspace } from './backend'
 import { CGU_VERSION } from './legal'
-import type { Invite, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
+import type { AppNotification, Invite, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
 
 interface TaskRow {
   id: string
@@ -13,7 +13,7 @@ interface TaskRow {
   status: Task['status']
   kind: Task['kind']
   points: number | null
-  assignee_id: string | null
+  assignee_ids: string[] | null
   pr_url: string | null
   position: number
   created_at: string
@@ -34,10 +34,19 @@ const toTask = (r: TaskRow): Task => ({
   status: r.status,
   kind: r.kind,
   points: r.points,
-  assigneeId: r.assignee_id,
+  assigneeIds: r.assignee_ids ?? [],
   prUrl: r.pr_url,
   position: r.position,
   createdAt: r.created_at,
+})
+
+interface NotificationRow {
+  id: string; kind: AppNotification['kind']; title: string; body: string; link: string | null
+  group_id: string | null; actor_id: string | null; data: AppNotification['data'] | null; read_at: string | null; created_at: string
+}
+const toNotification = (r: NotificationRow): AppNotification => ({
+  id: r.id, kind: r.kind, title: r.title, body: r.body, link: r.link, groupId: r.group_id, actorId: r.actor_id,
+  data: r.data ?? {}, readAt: r.read_at, createdAt: r.created_at,
 })
 
 const toMessage = (r: MessageRow): Message => ({
@@ -265,15 +274,26 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
 
     live(gid, h) {
       const filter = `group_id=eq.${gid}`
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const refresh = () => {
+        clearTimeout(timer)
+        timer = setTimeout(() => h.onRefresh(), 300)
+      }
       const ch = sb
         .channel(`group:${gid}`, { config: { presence: { key: gid } } })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter }, (p) => {
-          if (p.eventType === 'DELETE') h.onTaskDeleted((p.old as { id: string }).id)
-          else h.onTask(toTask(p.new as TaskRow))
+          if (p.eventType !== 'DELETE') h.onTask(toTask(p.new as TaskRow))
         })
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter }, (p) =>
           h.onMessage(toMessage(p.new as MessageRow)),
         )
+        // Les suppressions ne sont pas filtrables : on reçoit l'id seul et on l'ignore s'il n'est pas chez nous.
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tasks' }, (p) => h.onTaskDeleted((p.old as { id: string }).id))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'links', filter }, refresh)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'channels', filter }, refresh)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'group_members', filter }, refresh)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'groups', filter: `id=eq.${gid}` }, refresh)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, refresh)
         .on('presence', { event: 'sync' }, () => {
           const state = ch.presenceState<{ userId: string }>()
           h.onPresence(Object.values(state).flat().map((s) => s.userId))
@@ -284,8 +304,44 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
           if (data.user) await ch.track({ userId: data.user.id })
         })
       return () => {
+        clearTimeout(timer)
         void sb.removeChannel(ch)
       }
+    },
+
+    async listNotifications() {
+      const rows = must(await sb.from('notifications').select('*').order('created_at', { ascending: false }).limit(50))
+      return (rows as NotificationRow[]).map(toNotification)
+    },
+
+    async markNotificationsRead(ids) {
+      if (ids.length) must(await sb.from('notifications').update({ read_at: new Date().toISOString() }).in('id', ids))
+    },
+
+    async deleteNotification(id) {
+      must(await sb.from('notifications').delete().eq('id', id))
+    },
+
+    watchNotifications(onNew) {
+      let ch: ReturnType<typeof sb.channel> | null = null
+      let stopped = false
+      void sb.auth.getUser().then(({ data }) => {
+        if (stopped || !data.user) return
+        ch = sb
+          .channel(`notifs:${data.user.id}`)
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${data.user.id}` }, (p) =>
+            onNew(toNotification(p.new as NotificationRow)),
+          )
+          .subscribe()
+      })
+      return () => {
+        stopped = true
+        if (ch) void sb.removeChannel(ch)
+      }
+    },
+
+    async inviteByEmail(email, role) {
+      return must(await sb.rpc('invite_by_email', { gid: groupId, email, new_role: role })) as boolean
     },
 
     async listInvites() {
@@ -322,7 +378,8 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         status: task.status,
         kind: task.kind,
         points: task.points,
-        assignee_id: task.assigneeId,
+        assignee_ids: task.assigneeIds,
+        assignee_id: task.assigneeIds[0] ?? null,
         pr_url: task.prUrl,
         position: task.position,
       }

@@ -27,6 +27,7 @@ export function Group() {
   const [role, setRole] = useState<Role>('member')
   const [days, setDays] = useState(7)
   const [single, setSingle] = useState(false)
+  const [email, setEmail] = useState('')
 
   const loadInvites = useCallback(async () => {
     if (isAdmin) setInvites(await backend.listInvites())
@@ -52,6 +53,18 @@ export function Group() {
       await copy(inviteUrl(inv.code), `Lien ${ROLES[role].label.toLowerCase()} copié`)
     } catch (err) {
       toast(err instanceof Error ? err.message : "Impossible de créer l'invitation")
+    }
+  }
+
+  async function inviteEmail(e: FormEvent) {
+    e.preventDefault()
+    try {
+      if (await backend.inviteByEmail(email, role)) {
+        toast('Invitation envoyée')
+        setEmail('')
+      } else toast('Pas de compte Kollab avec cet email : envoie-lui un lien')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Invitation impossible')
     }
   }
 
@@ -128,7 +141,16 @@ export function Group() {
               </div>
               <button className="btn">Créer et copier le lien</button>
             </form>
-          ) : (
+          ) : null}
+          {isAdmin && backend.mode === 'supabase' ? (
+            <form onSubmit={inviteEmail} className="field">
+              Ou par email, s'il a déjà un compte
+              <span style={{ display: 'flex', gap: 8 }}>
+                <input className="input" type="email" required placeholder="nom@exemple.fr" value={email} onChange={(e) => setEmail(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
+                <button className="btn soft">Inviter</button>
+              </span>
+            </form>
+          ) : isAdmin ? null : (
             <p className="muted" style={{ margin: 0 }}>Seuls les admins peuvent inviter.</p>
           )}
 

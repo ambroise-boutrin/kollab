@@ -1,3 +1,4 @@
+import { useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
@@ -54,7 +55,13 @@ export function Chat() {
   const { channels, members } = useWorkspace()
   const { backend, incoming, online, createTask } = useStore()
   const toast = useToast()
-  const [channelId, setChannelId] = useState(channels[0]?.id ?? '')
+  const [params] = useSearchParams()
+  const wanted = params.get('salon')
+  const [channelId, setChannelId] = useState(channels.find((c) => c.id === wanted)?.id ?? channels[0]?.id ?? '')
+  // Arrivée depuis une notification alors que le chat est déjà ouvert.
+  useEffect(() => {
+    if (wanted && channels.some((c) => c.id === wanted)) setChannelId(wanted)
+  }, [wanted, channels])
   const [messages, setMessages] = useState<Message[]>([])
   const [text, setText] = useState('')
   const [pick, setPick] = useState(0)

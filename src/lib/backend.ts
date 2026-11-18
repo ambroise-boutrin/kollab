@@ -1,4 +1,4 @@
-import type { Channel, Group, Invite, LinkItem, Member, Message, ProfilePatch, Provider, Role, Task } from './types'
+import type { AppNotification, Channel, Group, Invite, LinkItem, Member, Message, ProfilePatch, Provider, Role, Task } from './types'
 
 export interface User {
   id: string
@@ -39,6 +39,8 @@ export interface LiveHandlers {
   onTaskDeleted(id: string): void
   onMessage(message: Message): void
   onPresence(onlineIds: string[]): void
+  /** Membres, liens, salons ou projet modifiés : on recharge. */
+  onRefresh(): void
 }
 
 /**
@@ -89,6 +91,8 @@ export interface Backend {
   deleteGroup(): Promise<void>
   live(groupId: string, handlers: LiveHandlers): () => void
 
+  /** Invite quelqu'un qui a déjà un compte ; false s'il n'y a pas de compte avec cet email. */
+  inviteByEmail(email: string, role: Role): Promise<boolean>
   listInvites(): Promise<Invite[]>
   createInvite(role: Role, opts: { days: number; maxUses: number | null }): Promise<Invite>
   revokeInvite(id: string): Promise<void>
@@ -102,6 +106,13 @@ export interface Backend {
 
   addLink(title: string, url: string): Promise<LinkItem>
   removeLink(id: string): Promise<void>
+
+  /** Notifications de l'utilisateur, tous projets confondus (récentes d'abord). */
+  listNotifications(): Promise<AppNotification[]>
+  markNotificationsRead(ids: string[]): Promise<void>
+  deleteNotification(id: string): Promise<void>
+  /** Nouvelles notifications en direct. */
+  watchNotifications(onNew: (n: AppNotification) => void): () => void
 
   setDiscordWebhook(url: string | null): Promise<void>
   notifyDiscord(event: DiscordEvent): Promise<void>

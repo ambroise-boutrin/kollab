@@ -20,3 +20,15 @@ export function Avatar({ member, size = 32, online = false }: { member: Member |
     </span>
   )
 }
+
+/** Plusieurs personnes : avatars superposés, puis « +N ». */
+export function AvatarGroup({ members, size = 24, max = 3, online = [] }: { members: Member[]; size?: number; max?: number; online?: string[] }) {
+  if (!members.length) return null
+  const extra = members.length - max
+  return (
+    <span className="avatar-group" title={members.map((m) => m.name).join(', ')}>
+      {members.slice(0, extra > 0 ? max - 1 : max).map((m) => <Avatar key={m.id} member={m} size={size} online={online.includes(m.id)} />)}
+      {extra > 0 && <span className="avatar more" style={{ width: size, height: size, fontSize: Math.round(size * 0.42) }}>+{extra + 1}</span>}
+    </span>
+  )
+}

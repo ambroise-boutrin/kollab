@@ -46,7 +46,8 @@ export interface Task {
   status: TaskStatus
   kind: TaskKind
   points: number | null
-  assigneeId: string | null
+  /** Personnes attribuées (une ou plusieurs). */
+  assigneeIds: string[]
   prUrl: string | null
   position: number
   createdAt: string
@@ -93,4 +94,20 @@ export interface Group {
   name: string
   inviteCode: string
   discordWebhookSet: boolean
+}
+
+export type NotificationKind = 'assigned' | 'mention' | 'invited' | 'joined'
+
+export interface AppNotification {
+  id: string
+  kind: NotificationKind
+  title: string
+  body: string
+  /** Page à ouvrir dans le projet (ex. /tableau?tache=…). */
+  link: string | null
+  groupId: string | null
+  actorId: string | null
+  data: { code?: string }
+  readAt: string | null
+  createdAt: string
 }
