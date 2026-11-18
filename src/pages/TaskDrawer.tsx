@@ -20,10 +20,10 @@ const POINTS = [1, 2, 3, 5, 8, 13, 21]
  */
 export function TaskDrawer({ task, onClose, isNew = false }: { task: Task; onClose: () => void; isNew?: boolean }) {
   const { members, tasks, sprints } = useWorkspace()
-  const openSprints = sprints.filter((sp) => sp.status !== 'done' || sp.id === draft.sprintId)
   const { saveTask, createTask, deleteTask, backend, online } = useStore()
   const toast = useToast()
   const [draft, setDraft] = useState(task)
+  const openSprints = sprints.filter((sp) => sp.status !== 'done' || sp.id === draft.sprintId)
   const titleRef = useRef<HTMLTextAreaElement>(null)
 
   // Si quelqu'un d'autre modifie la tâche pendant qu'elle est ouverte.

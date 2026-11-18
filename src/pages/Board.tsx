@@ -93,7 +93,7 @@ export function Board() {
 
   const byStatus = (s: TaskStatus) => tasks.filter((t) => t.status === s).sort((a, b) => a.position - b.position)
   const dragged = tasks.find((t) => t.id === dragId)
-  const open = all.find((t) => t.id === openId)
+  const open = ws.tasks.find((t) => t.id === openId)
   const [fresh, setFresh] = useState<Task | null>(null)
 
   function onDragStart(e: DragStartEvent) {

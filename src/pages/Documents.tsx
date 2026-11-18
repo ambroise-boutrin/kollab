@@ -98,6 +98,21 @@ export function Documents() {
     }, { replace: true })
   const notes = ws.notes.filter((n) => !q || n.title.toLowerCase().includes(q) || n.preview.toLowerCase().includes(q))
 
+  // Ouverture depuis la recherche : ?fichier=… ou ?nouveau=1.
+  const wantFile = params.get('fichier')
+  const wantNew = params.get('nouveau') === '1'
+  useEffect(() => {
+    if (!wantFile && !wantNew) return
+    setParams((p) => {
+      const next = new URLSearchParams(p)
+      next.delete('fichier')
+      next.delete('nouveau')
+      return next
+    }, { replace: true })
+    if (wantFile) setOpen(wantFile)
+    if (wantNew && canWrite) void newNote()
+  }, [wantFile, wantNew]) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function newNote() {
     try {
       const n = await backend.createNote('Sans titre')
