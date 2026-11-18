@@ -5,6 +5,7 @@ import './site.css'
 /** Lien d'invitation au serveur Discord de Kollab. Laisser vide pour masquer le bouton. */
 const DISCORD_URL = ''
 const APP_URL = '/app/'
+const YEAR = new Date().getFullYear()
 
 type Feature = { title: string; text: string; icon: string; color: string; soon?: boolean }
 
@@ -147,7 +148,7 @@ export default function Site() {
         <section className="s-hero">
           <div className="s-wrap">
             <div className="s-hero-text">
-              <span className="s-pill fade-in">Gratuit pour les équipes étudiantes</span>
+              <span className="s-pill fade-in">Pour les équipes de développement</span>
               <h1 className="fade-in d1">Le code, les sprints et l'équipe au même endroit.</h1>
               <p className="s-lead fade-in d2">
                 Kollab réunit la relecture des PR GitHub, le tableau Scrum et le chat de groupe. Moins d'onglets, moins de
@@ -263,7 +264,7 @@ export default function Site() {
             <a href="https://github.com/ambroise-boutrin/kollab" target="_blank" rel="noreferrer">GitHub</a>
             {DISCORD_URL && <a href={DISCORD_URL} target="_blank" rel="noreferrer">Discord</a>}
           </nav>
-          <span className="muted">© {new Date().getFullYear()} Kollab</span>
+          <span className="muted">© {YEAR} Kollab</span>
         </div>
       </footer>
     </div>
