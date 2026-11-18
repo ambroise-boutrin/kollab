@@ -8,6 +8,7 @@ import { AboutCard } from './AboutCard'
 import { AppearanceCard } from './AppearanceCard'
 import { DangerCard } from './DangerCard'
 import { ProfileCard } from './ProfileCard'
+import { PushCard } from './PushCard'
 
 export function Settings() {
   const { backend } = useStore()
@@ -80,6 +81,7 @@ export function Settings() {
             </>
           ),
         },
+        { id: 'notifications', label: 'Notifications', icon: 'bell', render: () => <PushCard /> },
         {
           id: 'apparence',
           label: 'Apparence',

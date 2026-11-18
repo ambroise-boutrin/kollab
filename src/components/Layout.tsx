@@ -9,7 +9,7 @@ import { Icon, type IconName } from './Icon'
 import { LogoMark } from './Logo'
 import { NewProjectDialog } from './NewProjectDialog'
 import { Popover } from './Popover'
-import { NotificationBell } from './Notifications'
+import { NotificationBell, usePushOpen } from './Notifications'
 import { InviteDialog } from './InviteDialog'
 import { CommandPalette, openSearch } from './CommandPalette'
 import { VoiceProvider } from '../lib/voice'
@@ -194,6 +194,7 @@ function ProfileMenu({ compact = false }: { compact?: boolean }) {
 
 export function Layout() {
   const { workspace, user, backend } = useStore()
+  usePushOpen()
   const [creating, setCreating] = useState(false)
   const [inviting, setInviting] = useState(false)
   useEffect(() => {
