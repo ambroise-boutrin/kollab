@@ -215,3 +215,23 @@ export async function createTaskPr(r: Repo, task: TaskInfo): Promise<string> {
   await emptyCommit(r, branch, `Démarre : ${task.title}`, true, main)
   return openPr(r, branch, main, task)
 }
+
+/* --- Dépôt du projet --- */
+
+export interface RepoInfo {
+  fullName: string; description: string | null; private: boolean; stars: number; defaultBranch: string
+  pushedAt: string; openIssues: number; ownerAvatar: string; url: string; language: string | null
+}
+type RawRepo = {
+  full_name: string; description: string | null; private: boolean; stargazers_count: number; default_branch: string
+  pushed_at: string; open_issues_count: number; owner: { avatar_url: string }; html_url: string; language: string | null
+}
+const toRepo = (r: RawRepo): RepoInfo => ({
+  fullName: r.full_name, description: r.description, private: r.private, stars: r.stargazers_count, defaultBranch: r.default_branch,
+  pushedAt: r.pushed_at, openIssues: r.open_issues_count, ownerAvatar: r.owner.avatar_url, url: r.html_url, language: r.language,
+})
+export const getRepo = async (r: Repo) => toRepo(await gh<RawRepo>(base(r)))
+/** Dépôts accessibles avec la connexion GitHub, les plus récents d'abord. */
+export async function myRepos(): Promise<RepoInfo[]> {
+  return (await gh<RawRepo[]>('/user/repos?sort=pushed&per_page=100&affiliation=owner,collaborator,organization_member')).map(toRepo)
+}

@@ -57,7 +57,7 @@ export function Reviews() {
     return (
       <div className="page settings">
         <h1>Revues de code</h1>
-        <div className="card"><p className="hint">Aucun dépôt relié. <Link to="/projet#general">Relier un dépôt GitHub</Link></p></div>
+        <div className="card"><p className="hint">Aucun dépôt relié. <Link to="/projet#github">Relier un dépôt GitHub</Link></p></div>
       </div>
     )
   }

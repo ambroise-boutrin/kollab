@@ -19,7 +19,7 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="modal-back" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="new-project-title">
+      <div className="modal" style={{ width: "min(860px, 100%)" }} role="dialog" aria-modal="true" aria-labelledby="new-project-title">
         <div className="modal-head">
           <h2 id="new-project-title">Nouveau projet</h2>
           <button className="icon-btn" aria-label="Fermer" onClick={onClose}><Icon name="close" size={18} /></button>

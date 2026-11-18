@@ -3,7 +3,7 @@ import { APP_BASE } from './base'
 import { createClient, type SupabaseClient, type User as SbUser } from '@supabase/supabase-js'
 import type { Backend, User, Workspace } from './backend'
 import { CGU_VERSION } from './legal'
-import type { AppNotification, Invite, ReactionChange, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
+import type { AppNotification, Channel, Invite, ReactionChange, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
 
 interface TaskRow {
   id: string
@@ -452,6 +452,32 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       if (on) must(await sb.from('message_reactions').upsert({ message_id: messageId, group_id: groupId, user_id: auth.user.id, emoji }, { ignoreDuplicates: true }))
       else must(await sb.from('message_reactions').delete().eq('message_id', messageId).eq('user_id', auth.user.id).eq('emoji', emoji))
       liveChannel?.send({ type: 'broadcast', event: 'reaction', payload: { messageId, emoji, userId: auth.user.id, on } })
+    },
+
+    async createChannel(name) {
+      const clean = name.trim().toLowerCase().replace(/^#/, '').replace(/\s+/g, '-').slice(0, 40)
+      return must(await sb.from('channels').insert({ group_id: groupId, name: clean }).select('id, name').single()) as Channel
+    },
+
+    async listTrash() {
+      const { data, error } = await sb.rpc('list_trash', { gid: groupId })
+      if (error) return null
+      type Row = { kind: 'task' | 'link'; id: string; title: string; deleted_at: string; deleted_by: string | null }
+      return (data as Row[]).map((r) => ({ kind: r.kind, id: r.id, title: r.title, deletedAt: r.deleted_at, deletedBy: r.deleted_by }))
+    },
+
+    async restoreItem(kind, id) {
+      must(await sb.rpc('restore_item', { item_kind: kind, item_id: id }))
+    },
+
+    async listDeletedGroups() {
+      const { data, error } = await sb.rpc('list_deleted_groups')
+      if (error) return []
+      return (data as { id: string; name: string; deleted_at: string }[]).map((g) => ({ id: g.id, name: g.name, deletedAt: g.deleted_at }))
+    },
+
+    async restoreGroup(id) {
+      must(await sb.rpc('restore_group', { gid: id }))
     },
 
     async addLink(title, url) {

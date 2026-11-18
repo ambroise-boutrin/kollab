@@ -6,6 +6,14 @@ export interface User {
   email: string | null
 }
 
+export interface TrashItem {
+  kind: 'task' | 'link'
+  id: string
+  title: string
+  deletedAt: string
+  deletedBy: string | null
+}
+
 export interface Workspace {
   group: Group
   members: Member[]
@@ -115,6 +123,14 @@ export interface Backend {
   react(messageId: string, emoji: string, on: boolean): Promise<void>
 
   addLink(title: string, url: string): Promise<LinkItem>
+  createChannel(name: string): Promise<Channel>
+
+  /** Corbeille du projet ouvert (null si la base ne la connaît pas encore). */
+  listTrash(): Promise<TrashItem[] | null>
+  restoreItem(kind: TrashItem['kind'], id: string): Promise<void>
+  /** Projets supprimés dont on était admin. */
+  listDeletedGroups(): Promise<{ id: string; name: string; deletedAt: string }[]>
+  restoreGroup(id: string): Promise<void>
   removeLink(id: string): Promise<void>
 
   /** Notifications de l'utilisateur, tous projets confondus (récentes d'abord). */
