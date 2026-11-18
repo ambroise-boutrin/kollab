@@ -7,6 +7,7 @@ import { useToast } from '../components/Toast'
 import { activeSprint, addDays, burndown, daysLeft, isoDay, shortDate, sprintLength, sprintPoints } from '../lib/sprints'
 import { useStore, useWorkspace } from '../lib/store'
 import { KINDS, STATUSES, type Sprint, type Task } from '../lib/types'
+import { Poker } from './Poker'
 import { TaskDrawer } from './TaskDrawer'
 
 /** Scrum : sprint en cours avec son burndown, backlog à planifier, sprints à venir et vélocité. */
@@ -26,6 +27,14 @@ export function Sprints() {
   const done = ws.sprints.filter((s) => s.status === 'done').sort((a, b) => a.startsOn.localeCompare(b.startsOn))
   const backlog = ws.tasks.filter((t) => !t.sprintId && t.status !== 'done').sort((a, b) => a.position - b.position)
   const target = active ?? planned[0]
+  const poker = params.get('poker') === '1'
+  const setPoker = (on: boolean) =>
+    setParams((p) => {
+      const next = new URLSearchParams(p)
+      if (on) next.set('poker', '1')
+      else next.delete('poker')
+      return next
+    }, { replace: true })
   const openId = params.get('tache')
   const open = ws.tasks.find((t) => t.id === openId)
   const setOpenId = (id: string | null) =>
@@ -68,7 +77,10 @@ export function Sprints() {
             {active ? `${active.name} en cours` : 'Aucun sprint en cours'} · {backlog.length} tâche{backlog.length > 1 ? 's' : ''} dans le backlog{avg != null ? ` · vélocité ${avg} pts` : ''}
           </p>
         </div>
-        {canWrite && <button className="btn" onClick={() => setCreating(true)}><Icon name="plus" size={18} /> Nouveau sprint</button>}
+        <div className="actions">
+          <button className="btn soft" onClick={() => setPoker(true)}><Icon name="cards" size={18} /> Poker planning</button>
+          {canWrite && <button className="btn" onClick={() => setCreating(true)}><Icon name="plus" size={18} /> Nouveau sprint</button>}
+        </div>
       </div>
 
       {active ? (
@@ -164,6 +176,7 @@ export function Sprints() {
           }}
         />
       )}
+      {poker && <Poker onClose={() => setPoker(false)} />}
       {open && <TaskDrawer task={open} onClose={() => setOpenId(null)} />}
       {fresh && <TaskDrawer task={fresh} isNew onClose={() => setFresh(null)} />}
     </div>

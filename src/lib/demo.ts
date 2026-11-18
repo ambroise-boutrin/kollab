@@ -1,4 +1,4 @@
-import { newId, type Backend, type TrashItem, type GroupSetup, type LiveHandlers, type User, type Workspace } from './backend'
+import { newId, type Backend, type RoomEvent, type TrashItem, type GroupSetup, type LiveHandlers, type User, type Workspace } from './backend'
 import type { AppNotification, DocumentItem, Sprint, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task } from './types'
 
 /**
@@ -607,6 +607,32 @@ export const demoBackend: Backend = {
       s.trash = [{ kind: 'document', id, title: d.name, deletedAt: new Date().toISOString(), deletedBy: 'me' }, ...(s.trash ?? [])]
     })
     emit({ kind: 'refresh' })
+  },
+
+  joinRoom(room, h) {
+    // Démo : Léa et Sami sont là et votent quelques secondes après chaque nouvelle tâche.
+    const bots = ['lm', 'sk']
+    const timers: ReturnType<typeof setTimeout>[] = []
+    const bc = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(`kollab-room-${room}`) : null
+    if (bc) bc.onmessage = (m) => h.onEvent(m.data as RoomEvent)
+    setTimeout(() => h.onPeers(['me', ...bots]), 300)
+    const deck = [2, 3, 5, 5, 8]
+    const botsVote = () => {
+      for (const b of bots) {
+        timers.push(setTimeout(() => h.onEvent({ type: 'vote', from: b, value: String(deck[Math.floor(Math.random() * deck.length)]) }), 1200 + Math.random() * 2500))
+      }
+    }
+    return {
+      send(e) {
+        const ev = { ...e, from: 'me' } as RoomEvent
+        bc?.postMessage(ev)
+        if (e.type === 'task' || e.type === 'reset') botsVote()
+      },
+      leave() {
+        timers.forEach(clearTimeout)
+        bc?.close()
+      },
+    }
   },
 
   async createSprint(sp) {

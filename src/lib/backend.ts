@@ -14,6 +14,16 @@ export interface TrashItem {
   deletedBy: string | null
 }
 
+export interface RoomHandlers {
+  onEvent(e: RoomEvent): void
+  onPeers(ids: string[]): void
+}
+export type RoomEvent = { type: string; from: string; [k: string]: unknown }
+export interface Room {
+  send(e: Omit<RoomEvent, 'from'>): void
+  leave(): void
+}
+
 export interface Workspace {
   group: Group
   members: Member[]
@@ -138,6 +148,11 @@ export interface Backend {
   removeLink(id: string): Promise<void>
 
   createSprint(sprint: Omit<Sprint, 'id' | 'closedAt'>): Promise<Sprint>
+  /**
+   * Salle en direct du projet (poker planning…) : messages diffusés à tous et liste des présents.
+   * Rien n'est enregistré en base.
+   */
+  joinRoom(room: string, handlers: RoomHandlers): Room
   updateSprint(id: string, patch: Partial<Omit<Sprint, 'id'>>): Promise<void>
 
   /** Envoie un fichier dans l'espace documents du projet. */
