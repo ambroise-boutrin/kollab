@@ -112,8 +112,9 @@ export function Login() {
 
       <section className="login-form">
         <div className="appear" key={mode}>
+          <div className="login-brand" aria-hidden="true"><LogoMark size={36} /> Kollab</div>
           <div>
-            <h1 style={{ fontSize: 32 }}>{HEADINGS[mode].title}</h1>
+            <h1>{HEADINGS[mode].title}</h1>
             <p className="muted" style={{ margin: '4px 0 0' }}>{HEADINGS[mode].sub}</p>
           </div>
 

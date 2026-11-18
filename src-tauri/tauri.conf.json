@@ -51,7 +51,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU1QjFDNzNEMzdBNjYwREYKUldUZllLWTNQY2V4VlJnemRTZEExNGF3V1ZRTUI1ZlVwUUlzM2YxVVZWY2pzdU44Skh2YnhWSUIK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDkwQjNEREVDNUQzRDNCMDEKUldRQk96MWQ3TjJ6a0JMY0V5eGtWWGljWE13cGxDeFFWVVE3dmluSjBCRWlYYythQytVcWNGN1AK",
       "endpoints": [
         "https://github.com/ambroise-boutrin/kollab/releases/latest/download/latest.json"
       ],

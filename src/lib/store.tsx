@@ -12,6 +12,8 @@ interface Store {
   backend: Backend
   user: User | null
   ready: boolean
+  /** Erreur au chargement du groupe (réseau, serveur) : on l'affiche au lieu de rester bloqué. */
+  loadError: string | null
   workspace: Workspace | null
   online: string[]
   /** Dernier message reçu, pour que le chat l'ajoute s'il est dans le bon salon. */
@@ -28,15 +30,22 @@ const Ctx = createContext<Store | null>(null)
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [ready, setReady] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
   const [online, setOnline] = useState<string[]>([])
   const [incoming, setIncoming] = useState<Message | null>(null)
 
   const reload = useCallback(async () => {
-    const u = await backend.currentUser()
-    setUser(u)
-    setWorkspace(u ? await backend.loadWorkspace() : null)
-    setReady(true)
+    try {
+      const u = await backend.currentUser()
+      setUser(u)
+      setWorkspace(u ? await backend.loadWorkspace() : null)
+      setLoadError(null)
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Chargement impossible')
+    } finally {
+      setReady(true)
+    }
   }, [])
 
   useEffect(() => {
@@ -98,8 +107,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
 
   const value = useMemo<Store>(
-    () => ({ backend, user, ready, workspace, online, incoming, reload, saveTask, createTask, deleteTask, memberName }),
-    [user, ready, workspace, online, incoming, reload, saveTask, createTask, deleteTask, memberName],
+    () => ({ backend, user, ready, loadError, workspace, online, incoming, reload, saveTask, createTask, deleteTask, memberName }),
+    [user, ready, loadError, workspace, online, incoming, reload, saveTask, createTask, deleteTask, memberName],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
