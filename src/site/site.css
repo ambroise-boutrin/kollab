@@ -522,3 +522,12 @@
   .k-aud-card, .k-road, .k-integ li { border-radius: 16px; padding: 22px; }
   .k-block { padding: 22px; }
 }
+
+/* Comparatif : en-tête aligné avec la colonne des fonctions, et noms d'outils toujours visibles sur téléphone */
+.k-compare thead th:first-child { text-align: left; padding-left: 18px; }
+@media (max-width: 600px) {
+  .k-compare { overflow: clip; }
+  .k-compare thead { position: sticky; top: 60px; z-index: 2; background: #fff; border-bottom: 1px solid var(--ink); }
+  .k-compare thead th { border-bottom: 0; }
+  .k-compare tbody td.me { position: relative; }
+}
