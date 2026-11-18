@@ -6,13 +6,26 @@ import { MembersStack } from '../components/Layout'
 import { NotificationBell } from '../components/Notifications'
 import { openInvite } from './Group'
 import { PrStatus } from '../components/PrLink'
+import { Avatar } from '../components/Avatar'
 import { useStore, useWorkspace } from '../lib/store'
-import { KINDS, STATUSES } from '../lib/types'
+import { KINDS, STATUSES, type Task, type TaskStatus } from '../lib/types'
+
+const NEXT: Record<TaskStatus, TaskStatus | null> = { todo: 'doing', doing: 'review', review: 'done', done: null }
+const NEXT_LABEL: Record<TaskStatus, string> = { todo: 'Commencer', doing: 'En revue', review: 'Terminer', done: '' }
+
+function ago(iso: string) {
+  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
+  if (s < 60) return "à l'instant"
+  if (s < 3600) return `il y a ${Math.floor(s / 60)} min`
+  if (s < 86400) return `il y a ${Math.floor(s / 3600)} h`
+  const d = Math.floor(s / 86400)
+  return d === 1 ? 'hier' : `il y a ${d} j`
+}
 
 /** Accueil du projet, d'après la maquette : en-tête, tableau du sprint, PR à relire, liens. */
 export function Home() {
   const ws = useWorkspace()
-  const { user } = useStore()
+  const { user, saveTask, notifications, online } = useStore()
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const me = ws.members.find((m) => m.id === user?.id) ?? ws.members[0]
@@ -26,6 +39,24 @@ export function Home() {
   const q = query.trim().toLowerCase()
   const shown = useMemo(() => (q ? ws.tasks.filter((t) => t.title.toLowerCase().includes(q)) : ws.tasks), [ws.tasks, q])
   const toReview = ws.tasks.filter((t) => t.status === 'review')
+  const mine = ws.tasks
+    .filter((t) => me && t.assigneeIds.includes(me.id) && t.status !== 'done')
+    .sort((a, b) => ['doing', 'review', 'todo'].indexOf(a.status) - ['doing', 'review', 'todo'].indexOf(b.status))
+  const onlineMembers = ws.members.filter((m) => online.includes(m.id) && m.id !== me?.id)
+
+  // Fil d'activité : notifications du projet + tâches récentes.
+  type Item = { id: string; at: string; who?: string | null; text: string; link: string | null }
+  const activity: Item[] = [
+    ...notifications.filter((n) => !n.groupId || n.groupId === ws.group.id).map((n) => ({ id: n.id, at: n.createdAt, who: n.actorId, text: n.body ? `${n.title} : ${n.body}` : n.title, link: n.link })),
+    ...[...ws.tasks].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 4).map((t) => ({ id: t.id, at: t.createdAt, who: null, text: `Nouvelle tâche : ${t.title}`, link: `/tableau?tache=${t.id}` })),
+  ]
+    .sort((a, b) => b.at.localeCompare(a.at))
+    .slice(0, 6)
+
+  function advance(t: Task) {
+    const next = NEXT[t.status]
+    if (next) void saveTask({ ...t, status: next })
+  }
 
   function newTask() {
     navigate('/tableau')
@@ -50,7 +81,69 @@ export function Home() {
         </div>
       </header>
 
+      <div className="home-strip">
+        <div className="strip-tile" style={{ ['--tile' as string]: 'var(--accent)' }}>
+          <b>{mine.length}</b><span>pour toi</span>
+        </div>
+        <div className="strip-tile" style={{ ['--tile' as string]: '#D98A1C' }}>
+          <b>{toReview.length}</b><span>en revue</span>
+        </div>
+        <div className="strip-tile sprint" style={{ ['--tile' as string]: 'var(--ok)' }}>
+          <b>{pct} %</b><span>du sprint</span>
+          <i><em style={{ width: `${pct}%` }} /></i>
+        </div>
+        <div className="strip-tile people" style={{ ['--tile' as string]: '#2F6FD0' }}>
+          {onlineMembers.length ? <AvatarGroup members={onlineMembers} size={28} /> : <b>0</b>}
+          <span>{onlineMembers.length ? `${onlineMembers.length} en ligne` : 'personne en ligne'}</span>
+        </div>
+      </div>
+
       <div className="home-grid">
+        <section className="card home-day">
+          <div className="row-between">
+            <h2>Ma journée</h2>
+            <Link to="/tableau" className="mini-more">Tout voir</Link>
+          </div>
+          {mine.length === 0 ? (
+            <div className="day-empty">
+              <strong>Rien pour toi pour l'instant.</strong>
+              <span className="muted">Prends une tâche du sprint ou crées-en une.</span>
+              <button className="btn small" style={{ alignSelf: 'flex-start' }} onClick={newTask}>Nouvelle tâche</button>
+            </div>
+          ) : (
+            <ul className="day-list">
+              {mine.slice(0, 5).map((t) => (
+                <li key={t.id} className={`day-task status-${t.status}`}>
+                  <Link to={`/tableau?tache=${t.id}`} className="day-title">
+                    <span className="day-dot" />
+                    <span>{t.title}</span>
+                  </Link>
+                  <span className="muted day-meta">{STATUSES.find((s) => s.id === t.status)?.label}{t.points != null ? ` · ${t.points} pts` : ''}</span>
+                  <button className="btn soft small" onClick={() => advance(t)}>{NEXT_LABEL[t.status]}</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="card home-activity">
+          <h2>Activité</h2>
+          {activity.length === 0 && <p className="hint">Le projet démarre : invite l'équipe et crée les premières tâches.</p>}
+          <ul className="feed">
+            {activity.map((a) => {
+              const who = a.who ? ws.members.find((m) => m.id === a.who) : undefined
+              const inner = (
+                <>
+                  {who ? <Avatar member={who} size={26} /> : <span className="feed-dot" />}
+                  <span className="feed-text">{a.text}</span>
+                  <span className="muted feed-at">{ago(a.at)}</span>
+                </>
+              )
+              return <li key={a.id}>{a.link ? <Link to={a.link}>{inner}</Link> : <div>{inner}</div>}</li>
+            })}
+          </ul>
+        </section>
+
         <section className="card home-board">
           <div className="row-between">
             <h2>Tableau du sprint</h2>

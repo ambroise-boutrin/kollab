@@ -208,15 +208,16 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       const rows = must(
         await sb.from('group_members').select('group_id, role, groups(name)').eq('user_id', auth.user.id).order('joined_at'),
       ) as unknown as Row[]
-      return rows.map((r) => ({ id: r.group_id, name: r.groups?.name ?? 'Projet', role: r.role }))
+      // Un projet à la corbeille n'est plus lisible : il n'apparaît plus.
+      return rows.filter((r) => r.groups).map((r) => ({ id: r.group_id, name: r.groups?.name ?? 'Projet', role: r.role }))
     },
 
     async loadWorkspace(wanted?: string | null): Promise<Workspace | null> {
       const { data: auth } = await sb.auth.getUser()
       if (!auth.user) return null
-      const memberships = must(
-        await sb.from('group_members').select('group_id').eq('user_id', auth.user.id).order('joined_at'),
-      ) as { group_id: string }[]
+      const memberships = (must(
+        await sb.from('group_members').select('group_id, groups(id)').eq('user_id', auth.user.id).order('joined_at'),
+      ) as unknown as { group_id: string; groups: { id: string } | null }[]).filter((m) => m.groups)
       if (!memberships.length) return null
       groupId = (memberships.find((m) => m.group_id === wanted) ?? memberships[0]).group_id
 
@@ -276,7 +277,8 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     },
 
     async deleteGroup() {
-      must(await sb.from('groups').delete().eq('id', groupId))
+      // Corbeille : restaurable pendant 30 jours.
+      must(await sb.rpc('trash_group', { gid: groupId }))
     },
 
     live(gid, h) {
@@ -404,7 +406,8 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     },
 
     async deleteTask(id) {
-      must(await sb.from('tasks').delete().eq('id', id))
+      const { data: auth } = await sb.auth.getUser()
+      must(await sb.from('tasks').update({ deleted_at: new Date().toISOString(), deleted_by: auth.user?.id ?? null }).eq('id', id))
       liveChannel?.send({ type: 'broadcast', event: 'task-deleted', payload: { id } })
     },
 
@@ -442,7 +445,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     },
 
     async deleteMessage(id) {
-      must(await sb.from('messages').delete().eq('id', id))
+      must(await sb.from('messages').update({ deleted_at: new Date().toISOString() }).eq('id', id))
       liveChannel?.send({ type: 'broadcast', event: 'message-updated', payload: { id } })
     },
 
@@ -485,7 +488,8 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     },
 
     async removeLink(id) {
-      must(await sb.from('links').delete().eq('id', id))
+      const { data: auth } = await sb.auth.getUser()
+      must(await sb.from('links').update({ deleted_at: new Date().toISOString(), deleted_by: auth.user?.id ?? null }).eq('id', id))
     },
 
     async setDiscordWebhook(webhook) {

@@ -30,9 +30,11 @@ const TEAM: Member[] = [
 ]
 
 function seed(user: User): Workspace {
-  const now = new Date().toISOString()
+  let age = 0
   const t = (title: string, status: Task['status'], kind: Task['kind'], points: number, assignees: string[], position: number): Task => ({
-    id: newId(), title, description: '', status, kind, points, assigneeIds: assignees, prUrl: null, position, createdAt: now,
+    id: newId(), title, description: '', status, kind, points, assigneeIds: assignees, prUrl: null, position,
+    // Créées au fil des derniers jours, pour un fil d'activité réaliste.
+    createdAt: new Date(Date.now() - (age += 95) * 60000 * 7).toISOString(),
   })
   return {
     group: { id: 'demo', name: 'Mon équipe', inviteCode: 'KOLLAB-DEMO', discordWebhookSet: false },
