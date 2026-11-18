@@ -12,7 +12,7 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-function format(e: Event): { title: string; description: string; color: number } {
+function format(e: Event): { title: string; description: string; color: number } | null {
   switch (e.type) {
     case 'task_assigned':
       return { title: 'Tâche attribuée', description: `**${e.taskTitle}** → ${e.assignee}`, color: 0x5546e0 }
@@ -20,6 +20,8 @@ function format(e: Event): { title: string; description: string; color: number }
       return { title: 'Tâche terminée', description: `**${e.taskTitle}** est passée en Terminé`, color: 0x2e7d4f }
     case 'pr_linked':
       return { title: 'PR liée', description: `**${e.taskTitle}**\n${e.prUrl}`, color: 0x2f6fd0 }
+    default:
+      return null
   }
 }
 
@@ -38,9 +40,10 @@ Deno.serve(async (req) => {
 
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
   const { data: secret } = await admin.from('group_secrets').select('discord_webhook').eq('group_id', groupId).maybeSingle()
-  if (!secret?.discord_webhook) return new Response('no webhook', { status: 204, headers: cors })
+  if (!secret?.discord_webhook) return new Response(null, { status: 204, headers: cors })
 
   const embed = format(event)
+  if (!embed) return new Response('bad event', { status: 400, headers: cors })
   const res = await fetch(secret.discord_webhook, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
