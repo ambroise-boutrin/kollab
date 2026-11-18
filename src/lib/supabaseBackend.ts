@@ -3,7 +3,7 @@ import { APP_BASE } from './base'
 import { createClient, type SupabaseClient, type User as SbUser } from '@supabase/supabase-js'
 import type { Backend, User, Workspace } from './backend'
 import { CGU_VERSION } from './legal'
-import type { AppNotification, Channel, DocumentItem, Invite, ReactionChange, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
+import type { AppNotification, Channel, DocumentItem, Sprint, Invite, ReactionChange, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
 
 interface TaskRow {
   id: string
@@ -18,7 +18,21 @@ interface TaskRow {
   pr_url: string | null
   position: number
   created_at: string
+  sprint_id?: string | null
+  done_at?: string | null
 }
+
+interface SprintRow {
+  id: string
+  name: string
+  goal: string
+  starts_on: string
+  ends_on: string
+  status: Sprint['status']
+  closed_at: string | null
+}
+
+const toSprint = (r: SprintRow): Sprint => ({ id: r.id, name: r.name, goal: r.goal, startsOn: r.starts_on, endsOn: r.ends_on, status: r.status, closedAt: r.closed_at })
 
 interface DocumentRow {
   id: string
@@ -53,6 +67,8 @@ const toTask = (r: TaskRow): Task => ({
   prUrl: r.pr_url,
   position: r.position,
   createdAt: r.created_at,
+  sprintId: r.sprint_id ?? null,
+  doneAt: r.done_at ?? null,
 })
 
 interface NotificationRow {
@@ -233,13 +249,14 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       if (!memberships.length) return null
       groupId = (memberships.find((m) => m.group_id === wanted) ?? memberships[0]).group_id
 
-      const [group, members, tasks, channels, links, documents] = await Promise.all([
+      const [group, members, tasks, channels, links, documents, sprints] = await Promise.all([
         sb.from('groups').select('id, name, invite_code, discord_webhook_set').eq('id', groupId).single(),
         sb.from('group_members').select('user_id, role, profiles(name, color, title, status, avatar_url)').eq('group_id', groupId),
         sb.from('tasks').select('*').eq('group_id', groupId).order('position'),
         sb.from('channels').select('id, name').eq('group_id', groupId).order('created_at'),
         sb.from('links').select('*').eq('group_id', groupId).order('created_at'),
         sb.from('documents').select('*').eq('group_id', groupId).is('deleted_at', null).order('created_at', { ascending: false }),
+        sb.from('sprints').select('*').eq('group_id', groupId).is('deleted_at', null).order('starts_on'),
       ])
       const g = must(group)
       type MemberRow = {
@@ -264,6 +281,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         channels: must(channels),
         links: (must(links) as (LinkItem & { deleted_at?: string | null })[]).filter((l) => !l.deleted_at).map(({ id, title, url }) => ({ id, title, url })),
         documents: documents.error ? [] : (documents.data as DocumentRow[]).map(toDocument),
+        sprints: sprints.error ? [] : (sprints.data as SprintRow[]).map(toSprint),
       }
     },
 
@@ -322,6 +340,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'links', filter }, refresh)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'documents', filter }, refresh)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'sprints', filter }, refresh)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'channels', filter }, refresh)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'group_members', filter }, refresh)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'groups', filter: `id=eq.${gid}` }, refresh)
@@ -416,6 +435,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         assignee_id: task.assigneeIds[0] ?? null,
         pr_url: task.prUrl,
         position: task.position,
+        ...(task.sprintId !== undefined ? { sprint_id: task.sprintId } : {}),
       }
       return toTask(must(await sb.from('tasks').upsert(row).select().single()) as TaskRow)
     },
@@ -527,6 +547,24 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     async removeDocument(id) {
       const { data: auth } = await sb.auth.getUser()
       must(await sb.from('documents').update({ deleted_at: new Date().toISOString(), deleted_by: auth.user?.id ?? null }).eq('id', id))
+    },
+
+    async createSprint(sp) {
+      const row = must(
+        await sb.from('sprints').insert({ group_id: groupId, name: sp.name, goal: sp.goal, starts_on: sp.startsOn, ends_on: sp.endsOn, status: sp.status }).select('*').single(),
+      ) as SprintRow
+      return toSprint(row)
+    },
+
+    async updateSprint(id, patch) {
+      const row: Record<string, unknown> = {}
+      if (patch.name !== undefined) row.name = patch.name
+      if (patch.goal !== undefined) row.goal = patch.goal
+      if (patch.startsOn !== undefined) row.starts_on = patch.startsOn
+      if (patch.endsOn !== undefined) row.ends_on = patch.endsOn
+      if (patch.status !== undefined) row.status = patch.status
+      if (patch.closedAt !== undefined) row.closed_at = patch.closedAt
+      must(await sb.from('sprints').update(row).eq('id', id))
     },
 
     async removeLink(id) {

@@ -19,7 +19,8 @@ const POINTS = [1, 2, 3, 5, 8, 13, 21]
  * `isNew` : rien n'est enregistré avant « Créer la tâche » (fermer = abandonner).
  */
 export function TaskDrawer({ task, onClose, isNew = false }: { task: Task; onClose: () => void; isNew?: boolean }) {
-  const { members, tasks } = useWorkspace()
+  const { members, tasks, sprints } = useWorkspace()
+  const openSprints = sprints.filter((sp) => sp.status !== 'done' || sp.id === draft.sprintId)
   const { saveTask, createTask, deleteTask, backend, online } = useStore()
   const toast = useToast()
   const [draft, setDraft] = useState(task)
@@ -72,7 +73,7 @@ export function TaskDrawer({ task, onClose, isNew = false }: { task: Task; onClo
       titleRef.current?.focus()
       return
     }
-    await createTask({ title, status: draft.status, kind: draft.kind, points: draft.points, description: draft.description, assigneeIds: draft.assigneeIds, prUrl: draft.prUrl })
+    await createTask({ title, status: draft.status, kind: draft.kind, points: draft.points, description: draft.description, assigneeIds: draft.assigneeIds, prUrl: draft.prUrl, ...(draft.sprintId !== undefined ? { sprintId: draft.sprintId } : {}) })
     for (const id of draft.assigneeIds) {
       const name = members.find((m) => m.id === id)?.name ?? ''
       void backend.notifyDiscord({ type: 'task_assigned', taskTitle: title, assignee: name })
@@ -156,6 +157,20 @@ export function TaskDrawer({ task, onClose, isNew = false }: { task: Task; onClo
                 ))}
               </div>
             </div>
+
+            {openSprints.length > 0 && (
+              <div className="task-field">
+                <span className="task-label">Sprint</span>
+                <div className="chips" role="radiogroup" aria-label="Sprint">
+                  <button type="button" role="radio" aria-checked={!draft.sprintId} className="chip" onClick={() => commit({ ...draft, sprintId: null })}>Backlog</button>
+                  {openSprints.map((sp) => (
+                    <button key={sp.id} type="button" role="radio" aria-checked={draft.sprintId === sp.id} className="chip" onClick={() => commit({ ...draft, sprintId: sp.id })}>
+                      {sp.name}{sp.status === 'active' ? ' · en cours' : ''}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <label className="task-field">
               <span className="task-label">Description</span>

@@ -1,4 +1,4 @@
-import type { AppNotification, Channel, DocumentItem, ReactionChange, Group, Invite, LinkItem, Member, Message, ProfilePatch, Provider, Role, Task } from './types'
+import type { AppNotification, Channel, DocumentItem, Sprint, ReactionChange, Group, Invite, LinkItem, Member, Message, ProfilePatch, Provider, Role, Task } from './types'
 
 export interface User {
   id: string
@@ -22,6 +22,8 @@ export interface Workspace {
   links: LinkItem[]
   /** Espace documents (vide si la base ne le connaît pas encore). */
   documents: DocumentItem[]
+  /** Sprints du projet (vide si la base ne les connaît pas encore). */
+  sprints: Sprint[]
 }
 
 /** Un projet (groupe) dont l'utilisateur est membre, pour le sélecteur. */
@@ -134,6 +136,9 @@ export interface Backend {
   listDeletedGroups(): Promise<{ id: string; name: string; deletedAt: string }[]>
   restoreGroup(id: string): Promise<void>
   removeLink(id: string): Promise<void>
+
+  createSprint(sprint: Omit<Sprint, 'id' | 'closedAt'>): Promise<Sprint>
+  updateSprint(id: string, patch: Partial<Omit<Sprint, 'id'>>): Promise<void>
 
   /** Envoie un fichier dans l'espace documents du projet. */
   uploadDocument(file: File): Promise<DocumentItem>

@@ -234,6 +234,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const autoPrBusy = useRef(new Set<string>())
   const saveTask = useCallback(async (task: Task) => {
     const before = workspaceRef.current?.tasks.find((t) => t.id === task.id)
+    // Date de fin tenue à jour tout de suite (la base fait de même).
+    task = { ...task, doneAt: task.status === 'done' ? task.doneAt ?? before?.doneAt ?? new Date().toISOString() : null }
     // Mise à jour optimiste : l'écran réagit tout de suite.
     setWorkspace((w) => (w ? { ...w, tasks: w.tasks.map((t) => (t.id === task.id ? task : t)) } : w))
     await backend.saveTask(task)
@@ -270,6 +272,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         prUrl: null,
         position: sameColumn.length ? Math.max(...sameColumn.map((t) => t.position)) + 1 : 0,
         createdAt: new Date().toISOString(),
+        // Créée pendant un sprint : elle en fait partie.
+        sprintId: workspace?.sprints.find((s) => s.status === 'active')?.id ?? null,
         ...partial,
       }
       setWorkspace((w) => (w ? { ...w, tasks: [...w.tasks, task] } : w))
