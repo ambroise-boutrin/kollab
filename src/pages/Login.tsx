@@ -1,0 +1,110 @@
+import { useState, type FormEvent } from 'react'
+import { LogoMark } from '../components/Logo'
+import { useStore } from '../lib/store'
+import type { Provider } from '../lib/types'
+
+export const PROVIDERS: { id: Exclude<Provider, 'email'>; label: string; bg: string; icon: string }[] = [
+  {
+    id: 'github',
+    label: 'GitHub',
+    bg: '#14142B',
+    icon: 'M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.7 5.4-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z',
+  },
+  {
+    id: 'google',
+    label: 'Google',
+    bg: '#1F5FC4',
+    icon: 'M21.6 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.7 3-4.3 3-7.3zM12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.8-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22zM6.4 14a6 6 0 0 1 0-3.9V7.5H3.1a10 10 0 0 0 0 9zM12 5.9c1.5 0 2.8.5 3.8 1.5l2.9-2.9A10 10 0 0 0 3.1 7.5l3.3 2.6C7.2 7.7 9.4 5.9 12 5.9z',
+  },
+  {
+    id: 'discord',
+    label: 'Discord',
+    bg: '#5865F2',
+    icon: 'M20.3 4.4A19.6 19.6 0 0 0 15.4 3l-.6 1.3a18 18 0 0 0-5.5 0L8.7 3a19.6 19.6 0 0 0-4.9 1.5C.7 9.1-.2 13.6.3 18.1a19.8 19.8 0 0 0 6 3l1.3-2a12.8 12.8 0 0 1-2-1l.5-.4a14 14 0 0 0 12 0l.5.4a12.8 12.8 0 0 1-2 1l1.3 2a19.7 19.7 0 0 0 6-3c.5-5.2-.9-9.7-3.6-13.7zM8.3 15.3c-1.2 0-2.1-1.1-2.1-2.4s.9-2.4 2.1-2.4 2.2 1.1 2.1 2.4c0 1.3-.9 2.4-2.1 2.4zm7.4 0c-1.2 0-2.1-1.1-2.1-2.4s.9-2.4 2.1-2.4 2.2 1.1 2.1 2.4c0 1.3-.9 2.4-2.1 2.4z',
+  },
+]
+
+export function ProviderIcon({ path }: { path: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
+      <path d={path} />
+    </svg>
+  )
+}
+
+export function Login() {
+  const { backend } = useStore()
+  const [email, setEmail] = useState('')
+  const [sent, setSent] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function go(provider: Provider) {
+    setError(null)
+    setBusy(true)
+    try {
+      const r = await backend.signIn(provider, email)
+      if (r.emailSent) setSent(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Connexion impossible')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function onEmail(e: FormEvent) {
+    e.preventDefault()
+    void go('email')
+  }
+
+  return (
+    <div className="login page">
+      <section className="login-art" aria-hidden="true">
+        <div style={{ fontFamily: 'var(--display)', fontWeight: 800, fontSize: 22 }}>Kollab</div>
+        <div className="float"><LogoMark size={200} /></div>
+        <div style={{ maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <h2 style={{ fontSize: 28, lineHeight: 1.2, fontWeight: 700 }}>Ton équipe, ton code et tes sprints au même endroit.</h2>
+          <p className="muted" style={{ margin: 0 }}>Relis les PR, organise les sprints et discute avec ton groupe, sur ordinateur comme sur téléphone.</p>
+        </div>
+      </section>
+
+      <section className="login-form">
+        <div className="appear">
+          <div>
+            <h1 style={{ fontSize: 32 }}>Bon retour</h1>
+            <p className="muted" style={{ margin: '4px 0 0' }}>Connecte-toi pour retrouver ton groupe.</p>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {PROVIDERS.map((p) => (
+              <button key={p.id} className="btn provider" style={{ background: p.bg }} disabled={busy} onClick={() => void go(p.id)}>
+                <ProviderIcon path={p.icon} />
+                Continuer avec {p.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="or">ou par email</div>
+
+          {sent ? (
+            <div className="card appear" style={{ textAlign: 'center' }}>
+              <strong>Regarde ta boîte mail</strong>
+              <p className="muted" style={{ margin: '4px 0 0' }}>On t'a envoyé un lien de connexion à {email}.</p>
+            </div>
+          ) : (
+            <form onSubmit={onEmail} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <label className="field">
+                Adresse email
+                <input className="input" type="email" required placeholder="toi@exemple.fr" value={email} onChange={(e) => setEmail(e.target.value)} />
+              </label>
+              <button className="btn provider" disabled={busy}>Recevoir un lien de connexion</button>
+              <span className="muted" style={{ fontSize: 13, textAlign: 'center' }}>Pas de mot de passe : un lien magique arrive par email.</span>
+            </form>
+          )}
+
+          {error && <p role="alert" style={{ color: 'var(--danger)', margin: 0 }}>{error}</p>}
+        </div>
+      </section>
+    </div>
+  )
+}
