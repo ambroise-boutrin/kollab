@@ -151,7 +151,7 @@
 .k-integ p { margin: 0; color: var(--mute); }
 
 /* Tarifs -------------------------------------------------------------- */
-.k-price { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); border-radius: 28px; overflow: hidden; box-shadow: inset 0 0 0 1.5px var(--ink); }
+.k-price { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); border-radius: 28px; overflow: hidden; border: 1.5px solid var(--ink); }
 .k-price-main { padding: clamp(28px, 4vw, 56px); display: flex; flex-direction: column; align-items: flex-start; gap: 18px; }
 .k-price-sub { margin: 0; font-size: 18px; color: var(--mute); }
 .k-price-tag { display: flex; align-items: baseline; gap: 12px; margin: 8px 0; }
@@ -535,3 +535,4 @@
 @media (min-width: 981px) {
   .k-header .k-wrap { max-width: 1600px; padding: 0 clamp(32px, 3.5vw, 56px); }
 }
+.k-header-cta .k-btn-ink { gap: .3em; }

@@ -608,7 +608,6 @@ function PricingSection() {
       {/* Tarifs. */}
       <section id="tarifs" className="k-section">
         <div className="k-wrap">
-          <p className="k-kicker reveal">{p.kicker}</p>
           <div className="k-price reveal">
             <div className="k-price-main">
               <h2 className="k-h2">{p.title}</h2>
