@@ -77,7 +77,6 @@ export function ProfileCard() {
         <div className="seg" role="group" aria-label="Statut">
           {(Object.keys(PRESENCE) as PresenceStatus[]).map((s) => (
             <button key={s} aria-pressed={me.status === s} onClick={() => void save({ status: s })}>
-              <i style={{ background: PRESENCE[s].color }} />
               {PRESENCE[s].label}
             </button>
           ))}

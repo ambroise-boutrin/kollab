@@ -14,6 +14,20 @@ export interface Workspace {
   links: LinkItem[]
 }
 
+/** Un projet (groupe) dont l'utilisateur est membre, pour le sélecteur. */
+export interface GroupSummary {
+  id: string
+  name: string
+  role: Role
+}
+
+/** Préconfiguration d'un nouveau projet (modèle choisi à la création). */
+export interface GroupSetup {
+  channels?: string[]
+  tasks?: Pick<Task, 'title' | 'status' | 'kind' | 'points'>[]
+  repoUrl?: string | null
+}
+
 export type DiscordEvent =
   | { type: 'task_assigned'; taskTitle: string; assignee: string }
   | { type: 'task_done'; taskTitle: string }
@@ -58,10 +72,19 @@ export interface Backend {
   link(provider: Provider): Promise<void>
   unlink(provider: Provider): Promise<void>
 
-  /** Charge le groupe de l'utilisateur, ou null s'il n'en a pas encore. */
-  loadWorkspace(): Promise<Workspace | null>
-  createGroup(name: string): Promise<void>
-  joinGroup(inviteCode: string): Promise<void>
+  /** Projets dont l'utilisateur est membre, du plus ancien au plus récent. */
+  listGroups(): Promise<GroupSummary[]>
+  /** Charge le projet demandé (ou le premier), ou null s'il n'en a aucun. */
+  loadWorkspace(groupId?: string | null): Promise<Workspace | null>
+  /** Crée un projet, éventuellement préconfiguré, et renvoie son id. */
+  createGroup(name: string, setup?: GroupSetup): Promise<string>
+  /** Rejoint un projet avec un code et renvoie son id. */
+  joinGroup(inviteCode: string): Promise<string>
+  renameGroup(name: string): Promise<void>
+  /** Quitte le projet ouvert. */
+  leaveGroup(): Promise<void>
+  /** Supprime le projet ouvert et tout son contenu (admin). */
+  deleteGroup(): Promise<void>
   live(groupId: string, handlers: LiveHandlers): () => void
 
   listInvites(): Promise<Invite[]>
