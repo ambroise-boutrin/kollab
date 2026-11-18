@@ -1,12 +1,44 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { newId, type Backend, type User, type Workspace } from './backend'
-import { demoBackend } from './demo'
+import { APP_BASE } from './base'
+import { demoBackend, startDemoSession } from './demo'
 import { createSupabaseBackend } from './supabaseBackend'
 import type { Message, Task } from './types'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
-export const backend: Backend = url && key ? createSupabaseBackend(url, key) : demoBackend
+
+/** Démo forcée par `?demo=1` (bouton « Essayer sans s'inscrire » du site), gardée pour la session. */
+const DEMO_FLAG = 'kollab-demo'
+function demoRequested(): boolean {
+  try {
+    const params = new URLSearchParams(location.search)
+    if (params.get('demo') === '1') {
+      sessionStorage.setItem(DEMO_FLAG, '1')
+      params.delete('demo')
+      const rest = params.toString()
+      history.replaceState(history.state, '', location.pathname + (rest ? `?${rest}` : '') + location.hash)
+    }
+    return sessionStorage.getItem(DEMO_FLAG) === '1'
+  } catch {
+    return false
+  }
+}
+
+export const DEMO_SESSION = demoRequested()
+if (DEMO_SESSION) startDemoSession()
+
+export const backend: Backend = !DEMO_SESSION && url && key ? createSupabaseBackend(url, key) : demoBackend
+
+/** Quitte la démo et ouvre le vrai formulaire d'inscription. */
+export function leaveDemo() {
+  try {
+    sessionStorage.removeItem(DEMO_FLAG)
+  } catch {
+    /* rien à nettoyer */
+  }
+  location.assign(`${APP_BASE}/?inscription=1`)
+}
 
 interface Store {
   backend: Backend

@@ -101,6 +101,19 @@ function update(fn: (s: DemoState) => void): DemoState {
   return s
 }
 
+/**
+ * Démo sans inscription (`/app/?demo=1`) : connecte un utilisateur fictif et
+ * remplit une équipe d'exemple, pour arriver directement sur l'outil.
+ */
+export function startDemoSession() {
+  const s = read()
+  if (s.user && s.workspace) return
+  const user: User = { id: 'me', name: 'Moi', email: null }
+  const workspace = seed(user)
+  workspace.group.name = 'Équipe Kollab'
+  write({ ...s, user, providers: ['email'], workspace, messages: seedMessages() })
+}
+
 export const demoBackend: Backend = {
   mode: 'demo',
 

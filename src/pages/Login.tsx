@@ -83,7 +83,7 @@ function EyeIcon({ open }: { open: boolean }) {
 
 export function Login() {
   const { backend } = useStore()
-  const [mode, setMode] = useState<Mode>('signin')
+  const [mode, setMode] = useState<Mode>(() => (new URLSearchParams(location.search).has('inscription') ? 'signup' : 'signin'))
   const [first, setFirst] = useState('')
   const [last, setLast] = useState('')
   const [email, setEmail] = useState('')
