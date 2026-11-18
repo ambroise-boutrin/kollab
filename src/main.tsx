@@ -12,6 +12,11 @@ import './styles.css'
 applyTheme(loadThemeChoice())
 window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme(loadThemeChoice()))
 
+// Hors ligne pour la version web. L'appli bureau embarque déjà tous ses fichiers.
+if (!('__TAURI_INTERNALS__' in window) && 'serviceWorker' in navigator) {
+  void import('virtual:pwa-register').then(({ registerSW }) => registerSW({ immediate: true }))
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <StoreProvider>
