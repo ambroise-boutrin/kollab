@@ -63,7 +63,7 @@ function must<R extends { data: unknown; error: { message: string } | null }>(re
 export function createSupabaseBackend(url: string, anonKey: string): Backend {
   const sb: SupabaseClient = createClient(url, anonKey)
   let groupId: string | null = null
-  const redirectTo = window.location.origin
+  const redirectTo = `${window.location.origin}/app`
 
   return {
     mode: 'supabase',

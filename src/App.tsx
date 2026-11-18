@@ -15,7 +15,7 @@ export function App() {
   if (!user) return <Login />
   if (!workspace) return <Welcome />
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/app">
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<Home />} />

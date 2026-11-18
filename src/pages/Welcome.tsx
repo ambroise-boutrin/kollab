@@ -14,7 +14,7 @@ export function Welcome() {
     setError(null)
     try {
       await fn()
-      window.history.replaceState(null, '', '/')
+      window.history.replaceState(null, '', '/app/')
       await reload()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Action impossible')
