@@ -65,7 +65,7 @@ export function Home() {
                     const who = ws.members.filter((m) => t.assigneeIds.includes(m.id))
                     return (
                       <Link key={t.id} to={`/tableau?tache=${t.id}`} className={`mini-task${s.id === 'done' ? ' is-done' : ''}`}>
-                        <span className={`tag ${t.kind}`}>{KINDS[t.kind]}</span>
+                        {t.kind !== 'feature' && <span className={`tag ${t.kind}`}>{KINDS[t.kind]}</span>}
                         <span>{t.title}</span>
                         <span className="mini-meta">
                           {t.points != null ? `${t.points} pts` : ''}
