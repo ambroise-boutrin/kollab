@@ -7,15 +7,17 @@ import { Board } from './pages/Board'
 import { Chat } from './pages/Chat'
 import { Group } from './pages/Group'
 import { Home } from './pages/Home'
+import { LoadError } from './pages/LoadError'
 import { Login } from './pages/Login'
 import { NewPassword } from './pages/NewPassword'
 import { Settings } from './pages/Settings'
 import { Welcome } from './pages/Welcome'
 
 export function App() {
-  const { ready, user, workspace } = useStore()
+  const { ready, user, workspace, loadError } = useStore()
   const [resetting, setResetting] = useState(() => new URLSearchParams(window.location.search).has('nouveau-mot-de-passe'))
   if (!ready) return null
+  if (loadError) return <LoadError message={loadError} />
   if (!user) return <Login />
   if (resetting)
     return (

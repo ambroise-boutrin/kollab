@@ -6,11 +6,18 @@ import { useStore, useWorkspace } from '../lib/store'
 import type { Member, Message } from '../lib/types'
 
 const PR_RE = /https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/(\d+)/g
-const TOKEN_RE = /(https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+|https?:\/\/\S+|@[\p{L}\d_-]+)/gu
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/** Liens et @mentions. Les noms complets (« @Léa Martin ») passent avant les prénoms seuls. */
+function tokenRe(members: Member[]) {
+  const names = members.map((m) => m.name.trim()).filter(Boolean).sort((a, b) => b.length - a.length).map(escapeRe)
+  const mention = names.length ? `@(?:${names.join('|')})(?![\\p{L}\\d])|` : ''
+  return new RegExp(`(https:\\/\\/github\\.com\\/[\\w.-]+\\/[\\w.-]+\\/pull\\/\\d+|https?:\\/\\/\\S+|${mention}@[\\p{L}\\d_-]+)`, 'giu')
+}
 
 /** Affiche le texte avec les @mentions surlignées et les liens cliquables. */
 function renderBody(body: string, members: Member[]): ReactNode[] {
-  return body.split(TOKEN_RE).map((part, i) => {
+  return body.split(tokenRe(members)).map((part, i) => {
     if (part.startsWith('@') && members.some((m) => m.name.toLowerCase() === part.slice(1).toLowerCase())) {
       return <span key={i} className="mention">{part}</span>
     }
@@ -73,15 +80,22 @@ export function Chat() {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages])
 
-  // Autocomplétion des mentions : le mot en cours commence par @.
-  const query = /(?:^|\s)@([\p{L}\d_-]*)$/u.exec(text)?.[1]
-  const suggestions = useMemo(
-    () => (query === undefined ? [] : members.filter((m) => m.name.toLowerCase().startsWith(query.toLowerCase())).slice(0, 5)),
-    [query, members],
-  )
+  // Autocomplétion des mentions : après @, on cherche dans le prénom comme dans le nom (« @mar » trouve Léa Martin).
+  const query = /(?:^|\s)@([\p{L}\d_' -]{0,40})$/u.exec(text)?.[1]
+  const suggestions = useMemo(() => {
+    if (query === undefined) return []
+    const q = query.toLowerCase()
+    return members
+      .filter((m) => {
+        const name = m.name.toLowerCase()
+        return name.startsWith(q) || (!q.includes(' ') && name.split(/\s+/).some((w) => w.startsWith(q)))
+      })
+      .filter((m) => m.name.toLowerCase() !== q.trimEnd())
+      .slice(0, 5)
+  }, [query, members])
 
   function insertMention(m: Member) {
-    setText((t) => t.replace(/@[\p{L}\d_-]*$/u, `@${m.name} `))
+    setText((t) => t.replace(/@[\p{L}\d_' -]{0,40}$/u, `@${m.name} `))
     setPick(0)
     inputRef.current?.focus()
   }

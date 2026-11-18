@@ -15,8 +15,13 @@ export function Splash() {
 
   useEffect(() => {
     void document.fonts.ready.then(() => setFonts(true))
+    // Filets de sécurité : l'écran de lancement ne reste jamais affiché indéfiniment.
+    const fontsLate = setTimeout(() => setFonts(true), 2500)
     const t = setTimeout(() => setMinDone(true), 1400)
-    return () => clearTimeout(t)
+    return () => {
+      clearTimeout(t)
+      clearTimeout(fontsLate)
+    }
   }, [])
 
   const leaving = ready && fonts && minDone
