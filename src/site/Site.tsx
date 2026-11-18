@@ -1,4 +1,5 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react'
+import { inject } from '@vercel/analytics'
 import { LogoMark } from '../components/Logo'
 import { LegalPage, LEGAL_DOCS, findLegal } from './legal'
 import changelog from '../changelog.json'
@@ -8,11 +9,13 @@ import './site.css'
 /** Lien d'invitation au serveur Discord de Kollab. Laisser vide pour masquer le bouton. */
 const DISCORD_URL = ''
 const APP_URL = '/app/'
+/** Démo sans compte : une équipe d'exemple, avec une visite guidée. */
+const DEMO_URL = '/app/?demo=1'
 /**
  * Passe à true dès que la première release GitHub contient les installeurs Tauri.
  * Les boutons pointent alors vers la dernière release.
  */
-const DESKTOP_READY = false
+const DESKTOP_READY = true
 const RELEASES_URL = 'https://github.com/ambroise-boutrin/kollab/releases/latest'
 const YEAR = new Date().getFullYear()
 
@@ -54,7 +57,7 @@ const ROADMAP: { when: string; color: string; items: string[] }[] = [
 
 const FAQ: { q: string; a: string }[] = [
   { q: 'Kollab est-il gratuit ?', a: "Oui. Kollab est gratuit pendant toute la phase bêta, pour toutes les fonctions. Si une offre payante arrive un jour, elle sera annoncée à l'avance et la version gratuite restera utilisable." },
-  { q: "Faut-il installer quelque chose ?", a: "Non. Kollab marche dans le navigateur. Tu peux aussi l'installer sur ton téléphone depuis le navigateur, et bientôt sur ordinateur (Windows, macOS, Linux)." },
+  { q: "Faut-il installer quelque chose ?", a: "Non. Kollab marche dans le navigateur. Tu peux aussi l'installer sur ton téléphone depuis le navigateur, et sur ordinateur avec l'app de bureau (Windows, macOS, Linux)." },
   { q: 'Combien de personnes dans un groupe ?', a: "Il n'y a pas de limite fixe pendant la bêta. Kollab est pensé pour les équipes de 2 à 15 personnes, comme un projet étudiant ou une petite équipe de dev." },
   { q: 'Où sont stockées mes données ?', a: 'Dans une base Supabase hébergée à Paris, dans l’Union européenne. Chaque groupe ne voit que ses propres données. Les détails sont dans la politique de confidentialité.' },
   { q: 'Faut-il un compte GitHub ?', a: "Non. Tu peux te connecter avec Google, Discord ou un email. GitHub n'est utile que pour les fonctions liées aux PR." },
@@ -212,8 +215,8 @@ function HeroSection() {
               navigateur, sur téléphone et sur ordinateur.
             </p>
             <div className="k-cta">
-              <a className="k-btn k-btn-ink k-btn-lg" href={APP_URL}>Essayer Kollab</a>
-              <a className="k-btn k-btn-line k-btn-lg" href="#produit">Voir le produit</a>
+              <a className="k-btn k-btn-ink k-btn-lg" href={APP_URL}>Créer mon compte</a>
+              <a className="k-btn k-btn-line k-btn-lg" href={DEMO_URL}>Essayer sans s'inscrire</a>
             </div>
           </div>
         </div>
@@ -516,6 +519,7 @@ function FinalSection() {
           <h2 className="k-display k-display-sm reveal">Lance ton prochain sprint sur Kollab.</h2>
           <div className="k-cta reveal">
             <a className="k-btn k-btn-paper k-btn-lg" href={APP_URL}>Essayer gratuitement</a>
+            <a className="k-btn k-btn-line-paper k-btn-lg" href={DEMO_URL}>Voir la démo</a>
             {DISCORD_URL && (
               <a className="k-btn k-btn-line-paper k-btn-lg" href={DISCORD_URL} target="_blank" rel="noreferrer">Rejoindre le Discord</a>
             )}
@@ -599,9 +603,10 @@ function PricingPage() {
 function DownloadPage() {
   return (
     <main>
-      <PageHead kicker="Télécharger" title="Kollab, partout où tu travailles." lead="Dans le navigateur dès maintenant, sur téléphone en l'installant depuis le navigateur, et bientôt en app de bureau." />
+      <PageHead kicker="Télécharger" title="Kollab, partout où tu travailles." lead="Dans le navigateur, sur téléphone en l'installant depuis le navigateur, et en app de bureau pour Windows, macOS et Linux." />
       <DownloadSection />
       <StepsSection />
+      <WaitlistSection source="telecharger" />
       <FinalSection />
     </main>
   )
@@ -740,13 +745,81 @@ const PAGES: Record<string, () => ReactNode> = {
 }
 
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+
+/**
+ * Inscription aux nouveautés par email. Le site peut seulement ajouter une adresse dans la table waitlist
+ * (jamais la lire). Une adresse déjà inscrite compte comme un succès.
+ */
+function WaitlistSection({ source }: { source: string }) {
+  const [email, setEmail] = useState('')
+  const [state, setState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle')
+  if (!SUPABASE_URL || !SUPABASE_KEY) return null
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    setState('sending')
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/waitlist`, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_KEY!,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal',
+        },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), source }),
+      })
+      setState(res.ok || res.status === 409 ? 'done' : 'error')
+    } catch {
+      setState('error')
+    }
+  }
+
+  return (
+    <section className="k-section k-section-tight">
+      <div className="k-wrap">
+        <div className="k-waitlist k-bg-yellow reveal">
+          <div>
+            <h2 className="k-h3">Reçois les nouveautés.</h2>
+            <p>Un email quand une grosse fonction arrive : relecture des PR, poker planning, documents partagés. Pas plus d'un par mois.</p>
+          </div>
+          {state === 'done' ? (
+            <p className="k-waitlist-ok" role="status">C'est noté. On t'écrit dès qu'il y a du nouveau.</p>
+          ) : (
+            <form onSubmit={submit} className="k-waitlist-form">
+              <label className="k-sr" htmlFor={`wl-${source}`}>Adresse email</label>
+              <input
+                id={`wl-${source}`}
+                type="email"
+                required
+                autoComplete="email"
+                placeholder="toi@exemple.fr"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <button className="k-btn k-btn-ink" disabled={state === 'sending'}>
+                {state === 'sending' ? 'Envoi…' : "M'inscrire"}
+              </button>
+              {state === 'error' && <p className="k-waitlist-err" role="alert">L'inscription n'a pas marché. Réessaie dans un instant.</p>}
+              <p className="k-waitlist-legal">Ton adresse sert uniquement à ces emails. Tu peux te désinscrire à tout moment. <a href="/confidentialite">Confidentialité</a></p>
+            </form>
+          )}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 type Release = { version: string; date: string; title: string; items: string[] }
 
 function News() {
   const releases = changelog as Release[]
   const fmt = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
   return (
-    <main className="k-wrap k-news">
+    <main>
+     <div className="k-wrap k-news">
       <p className="k-kicker">Nouveautés</p>
       <h1 className="k-display k-display-sm">Ce qui a changé dans Kollab.</h1>
       <ol className="k-releases">
@@ -766,6 +839,8 @@ function News() {
         ))}
       </ol>
       <p className="k-road-more"><a href="/fonctionnalites#feuille-de-route">Voir ce qui arrive ensuite →</a></p>
+     </div>
+      <WaitlistSection source="nouveautes" />
     </main>
   )
 }
@@ -775,6 +850,10 @@ export default function Site() {
   const legal = findLegal(path)
   const key = PAGES[path] ? path : ''
   useReveal()
+  // Statistiques de visite sans cookie (Vercel Web Analytics), seulement sur le site de présentation.
+  useEffect(() => {
+    inject({ mode: import.meta.env.PROD ? 'production' : 'development' })
+  }, [])
   useEffect(() => {
     const meta = SEO[key || '/'] ?? SEO['/']
     document.title = meta.title

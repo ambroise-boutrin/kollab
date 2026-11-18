@@ -295,3 +295,18 @@
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1; transform: none; }
 }
+
+/* Inscription aux nouveautés */
+.k-waitlist { border-radius: 28px; padding: clamp(28px, 4vw, 48px); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: center; color: var(--ink); }
+.k-waitlist p { margin: 8px 0 0; font-size: 17px; line-height: 1.5; }
+.k-waitlist-form { display: flex; flex-wrap: wrap; gap: 10px; }
+.k-waitlist-form input { flex: 1 1 220px; min-width: 0; height: 52px; padding: 0 20px; border: 1.5px solid var(--ink); border-radius: 999px; background: #fff; font: inherit; font-size: 16px; color: var(--ink); }
+.k-waitlist-form input:focus-visible { outline: 3px solid var(--indigo); outline-offset: 2px; }
+.k-waitlist-form .k-btn { height: 52px; }
+.k-waitlist-form .k-btn:disabled { opacity: .6; cursor: default; }
+.k-waitlist .k-waitlist-legal { flex-basis: 100%; margin: 0; font-size: 13px; opacity: .75; }
+.k-waitlist-legal a { color: inherit; }
+.k-waitlist .k-waitlist-err { flex-basis: 100%; margin: 0; font-size: 14px; font-weight: 600; color: #B42318; }
+.k-waitlist .k-waitlist-ok { margin: 0; font-size: 19px; font-weight: 700; }
+.k-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 860px) { .k-waitlist { grid-template-columns: minmax(0, 1fr); } }
