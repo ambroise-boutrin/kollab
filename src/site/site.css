@@ -530,3 +530,9 @@
   .k-compare thead th { border-bottom: 0; }
   .k-compare tbody td.me { background: none; }
 }
+
+/* Grands écrans : le site prend plus de largeur */
+@media (min-width: 981px) {
+  .k-wrap, .s-wrap { max-width: 1600px; padding: 0 clamp(32px, 3.5vw, 56px); }
+  .k-canvas-inner, .k-tabmedia > * { max-width: 1280px; }
+}
