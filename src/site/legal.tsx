@@ -226,6 +226,8 @@ export const LEGAL_DOCS: LegalDoc[] = [
             <li><strong>Contenus</strong> : groupes, tâches, messages, liens, documents et fichiers que tu ajoutes.</li>
             <li><strong>Données techniques</strong> : journaux de connexion et d'erreurs (adresse IP, date, navigateur), conservés pour la sécurité.</li>
             <li><strong>GitHub</strong> : si tu relies ton compte, les informations de dépôts et de PR nécessaires aux fonctions que tu utilises.</li>
+            <li><strong>Nouveautés par email</strong> : si tu t'inscris depuis le site, ton adresse email et la page où tu t'es inscrit.</li>
+            <li><strong>Statistiques du site</strong> : pages vues, pays, type d'appareil et site d'origine, de façon anonyme et sans cookie (Vercel Web Analytics).</li>
           </ul>
         ),
       },
@@ -236,6 +238,8 @@ export const LEGAL_DOCS: LegalDoc[] = [
             <li>Fournir le service (compte, groupes, chat, tableau) : exécution du contrat, c'est-à-dire les CGU.</li>
             <li>Sécuriser le service et prévenir les abus : intérêt légitime de l'éditeur.</li>
             <li>Envoyer les emails de connexion et les notifications que tu actives : exécution du contrat.</li>
+            <li>Envoyer les nouveautés aux personnes inscrites : consentement, retirable à tout moment.</li>
+            <li>Mesurer l'audience du site de présentation de façon anonyme : intérêt légitime de l'éditeur.</li>
             <li>Répondre aux obligations légales (conservation des données de connexion, réquisitions) : obligation légale.</li>
           </ul>
         ),
@@ -247,6 +251,7 @@ export const LEGAL_DOCS: LegalDoc[] = [
             <li>Données du compte et contenus : tant que le compte existe, puis suppression sous 30 jours après sa suppression.</li>
             <li>Compte inactif depuis 3 ans : prévenu par email, puis supprimé.</li>
             <li>Journaux techniques : 12 mois au plus.</li>
+            <li>Adresse inscrite aux nouveautés : jusqu'à ta désinscription, ou 3 ans sans ouverture d'email.</li>
             <li>Les messages publiés dans un groupe peuvent rester visibles par le groupe sous forme anonymisée après ton départ.</li>
           </ul>
         ),
@@ -258,7 +263,7 @@ export const LEGAL_DOCS: LegalDoc[] = [
             <p>Les données ne sont ni vendues ni utilisées pour de la publicité. Elles sont accessibles aux membres de ton groupe et aux prestataires suivants, pour le fonctionnement du service :</p>
             <ul>
               <li>Supabase : base de données, authentification et stockage des fichiers, hébergés dans l'Union européenne (Paris).</li>
-              <li>Vercel : hébergement du site et de l'application web.</li>
+              <li>Vercel : hébergement du site et de l'application web, et statistiques de visite anonymes du site de présentation (Vercel Web Analytics, sans cookie).</li>
               <li>GitHub, Google et Discord : connexion et intégrations, seulement si tu les relies ou les actives.</li>
               <li>LiveKit : appels vocaux et vidéo, quand cette fonction sera disponible.</li>
               <li><Fill>service d'envoi d'emails, si différent de Supabase</Fill></li>
@@ -308,8 +313,9 @@ export const LEGAL_DOCS: LegalDoc[] = [
         body: (
           <>
             <p>
-              Kollab n'utilise aucun cookie publicitaire, aucun outil de mesure d'audience et aucun traceur tiers. Les polices
-              sont hébergées par Kollab lui-même.
+              Kollab n'utilise aucun cookie publicitaire et aucun traceur tiers. Les polices sont hébergées par Kollab lui-même.
+              Le site de présentation compte ses visites avec Vercel Web Analytics, un outil qui ne dépose aucun cookie, ne
+              stocke rien sur ton appareil et ne permet pas de te suivre d'un site à l'autre (voir ci-dessous).
             </p>
             <p>Le site et l'application utilisent uniquement le stockage local du navigateur, pour :</p>
             <ul>
@@ -323,11 +329,18 @@ export const LEGAL_DOCS: LegalDoc[] = [
       {
         h: 'Pourquoi aucun bandeau de consentement',
         body: (
-          <p>
-            Ces éléments sont strictement nécessaires au service que tu demandes. Ils sont donc dispensés de consentement
-            (article 82 de la loi Informatique et Libertés et lignes directrices de la CNIL). Si Kollab ajoute un jour une mesure
-            d'audience ou un service tiers non essentiel, un bandeau te demandera ton accord avant tout dépôt.
-          </p>
+          <>
+            <p>
+              Ces éléments sont strictement nécessaires au service que tu demandes. Ils sont donc dispensés de consentement
+              (article 82 de la loi Informatique et Libertés et lignes directrices de la CNIL).
+            </p>
+            <p>
+              La mesure d'audience du site ne lit ni n'écrit rien sur ton appareil : elle compte les pages vues de façon
+              anonyme et agrégée, à partir d'un identifiant calculé côté serveur et renouvelé chaque jour. Elle ne sert qu'à
+              des statistiques du site de présentation et ne tourne pas dans l'application. Si Kollab ajoute un jour un service
+              tiers non essentiel qui dépose un traceur, un bandeau te demandera ton accord avant tout dépôt.
+            </p>
+          </>
         ),
       },
       {

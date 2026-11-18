@@ -1,25 +1,38 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react'
+import { inject } from '@vercel/analytics'
 import { LogoMark } from '../components/Logo'
 import { LegalPage, LEGAL_DOCS, findLegal } from './legal'
 import changelog from '../changelog.json'
 import seo from './seo.json'
+import { CHANGELOG_EN, COMPARE_CELLS, COPY, ROUTES, langOf, matchRoute, type Cell, type PageKey } from './copy'
 import './site.css'
 
 /** Lien d'invitation au serveur Discord de Kollab. Laisser vide pour masquer le bouton. */
 const DISCORD_URL = ''
 const APP_URL = '/app/'
+/** Démo sans compte : une équipe d'exemple, avec une visite guidée. */
+const DEMO_URL = '/app/?demo=1'
 /**
  * Passe à true dès que la première release GitHub contient les installeurs Tauri.
  * Les boutons pointent alors vers la dernière release.
  */
-const DESKTOP_READY = false
+const DESKTOP_READY = true
 const RELEASES_URL = 'https://github.com/ambroise-boutrin/kollab/releases/latest'
 const YEAR = new Date().getFullYear()
 
+/**
+ * Chaque lien du site recharge la page : la langue est donc fixée au chargement, d'après l'adresse
+ * (/en/… pour l'anglais, le reste en français).
+ */
+const PATH = window.location.pathname.replace(/\/+$/, '')
+const LANG = langOf(PATH)
+const t = COPY[LANG]
+const to = (key: PageKey) => ROUTES[key][LANG]
+
 const DOWNLOADS = [
-  { os: 'windows', name: 'Windows', detail: 'Windows 10 et 11 · .exe' },
-  { os: 'mac', name: 'macOS', detail: 'Puces Apple et Intel · .dmg' },
-  { os: 'linux', name: 'Linux', detail: 'AppImage et .deb' },
+  { os: 'windows', name: 'Windows' },
+  { os: 'mac', name: 'macOS' },
+  { os: 'linux', name: 'Linux' },
 ] as const
 
 function detectOs(): string {
@@ -29,37 +42,6 @@ function detectOs(): string {
   if (/Linux/i.test(ua) && !/Android/i.test(ua)) return 'linux'
   return ''
 }
-
-/** Les autres fonctions, présentées comme un index éditorial plutôt qu'en cartes à icônes. */
-const MORE: { title: string; text: string; soon?: boolean }[] = [
-  { title: 'Poker planning', text: 'Tout le monde vote en même temps, les cartes se retournent ensemble.', soon: true },
-  { title: 'Édition en direct', text: 'Specs et comptes rendus écrits à plusieurs, curseurs visibles.', soon: true },
-  { title: 'PDF partagés', text: 'Le sujet ou le cahier des charges ouvert à côté du tableau.', soon: true },
-  { title: 'Discord', text: 'Tâches, PR et mentions envoyées dans ton serveur.' },
-  { title: 'Liens importants', text: 'Le dépôt, la maquette, la doc : rangés au même endroit.' },
-  { title: 'Thèmes', text: 'Cinq thèmes, une couleur à toi et le mode sombre automatique.' },
-]
-
-const INTEGRATIONS = [
-  { name: 'GitHub', text: 'Connexion, cartes de PR dans le chat, et bientôt la relecture complète.', color: '#0F0F14' },
-  { name: 'Discord', text: 'Connexion, et notifications des tâches et mentions dans ton serveur.', color: '#5865F2' },
-  { name: 'Google', text: 'Connexion en un clic avec ton compte Google.', color: '#1F5FC4' },
-]
-
-const ROADMAP: { when: string; color: string; items: string[] }[] = [
-  { when: 'Disponible', color: 'k-bg-mint', items: ['Tableau kanban et attribution', 'Chat avec salons et mentions', 'Invitations et rôles', 'Notifications Discord', 'App téléphone et ordinateur'] },
-  { when: 'Ensuite', color: 'k-bg-yellow', items: ['Relecture des PR GitHub', 'Sprints, burndown et vélocité', 'Poker planning en direct', 'Salons vocaux'] },
-  { when: 'Plus tard', color: 'k-bg-lilac', items: ['Documents à plusieurs en direct', 'PDF annotés ensemble', 'Recherche globale Ctrl+K', 'Tableaux blancs'] },
-]
-
-const FAQ: { q: string; a: string }[] = [
-  { q: 'Kollab est-il gratuit ?', a: "Oui. Kollab est gratuit pendant toute la phase bêta, pour toutes les fonctions. Si une offre payante arrive un jour, elle sera annoncée à l'avance et la version gratuite restera utilisable." },
-  { q: "Faut-il installer quelque chose ?", a: "Non. Kollab marche dans le navigateur. Tu peux aussi l'installer sur ton téléphone depuis le navigateur, et bientôt sur ordinateur (Windows, macOS, Linux)." },
-  { q: 'Combien de personnes dans un groupe ?', a: "Il n'y a pas de limite fixe pendant la bêta. Kollab est pensé pour les équipes de 2 à 15 personnes, comme un projet étudiant ou une petite équipe de dev." },
-  { q: 'Où sont stockées mes données ?', a: 'Dans une base Supabase hébergée à Paris, dans l’Union européenne. Chaque groupe ne voit que ses propres données. Les détails sont dans la politique de confidentialité.' },
-  { q: 'Faut-il un compte GitHub ?', a: "Non. Tu peux te connecter avec Google, Discord ou un email. GitHub n'est utile que pour les fonctions liées aux PR." },
-  { q: 'Comment inviter mon équipe ?', a: "Depuis la page Groupe, crée un lien d'invitation en choisissant le rôle (admin, membre ou invité en lecture seule) et partage-le." },
-]
 
 /** Fait apparaître les blocs `.reveal` en fondu court quand ils entrent à l'écran. */
 function useReveal() {
@@ -85,6 +67,8 @@ function useReveal() {
   }, [])
 }
 
+const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+
 /** Un curseur de coéquipier, comme dans une session à plusieurs. */
 function Cursor({ name, color, style }: { name: string; color: string; style: CSSProperties }) {
   return (
@@ -106,7 +90,7 @@ function Shot({ src, alt, children, className = '' }: { src: string; alt: string
 
 /** Une vraie prise de l'app en boucle (sans son). Image fixe si l'utilisateur préfère moins d'animations. */
 function Demo({ name, label, children }: { name: string; label: string; children?: ReactNode }) {
-  const [still] = useState(() => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false)
+  const [still] = useState(reducedMotion)
   return (
     <div className="k-shot k-video">
       {still ? (
@@ -119,42 +103,57 @@ function Demo({ name, label, children }: { name: string; label: string; children
   )
 }
 
-function Soon() {
-  return <span className="k-soon">Bientôt</span>
+/** Vidéo de l'app sur téléphone, dans un cadre de téléphone. Image fixe si l'animation est réduite. */
+function PhoneDemo() {
+  const [still] = useState(reducedMotion)
+  const label = t.product.phone.video
+  return (
+    <div className="k-phone">
+      {still ? (
+        <img src="/vitrine/demo-telephone.webp" alt={label} loading="lazy" decoding="async" />
+      ) : (
+        <video src="/vitrine/demo-telephone.mp4" poster="/vitrine/demo-telephone.webp" autoPlay muted loop playsInline preload="metadata" aria-label={label} />
+      )}
+    </div>
+  )
 }
 
-const NAV = [
-  { href: '/fonctionnalites', label: 'Fonctionnalités' },
-  { href: '/pour-qui', label: 'Pour qui' },
-  { href: '/comparatif', label: 'Comparatif' },
-  { href: '/tarifs', label: 'Tarifs' },
-  { href: '/telecharger', label: 'Télécharger' },
-  { href: '/faq', label: 'FAQ' },
-]
+function Soon() {
+  return <span className="k-soon">{t.soon}</span>
+}
 
-function Header({ current }: { current: string }) {
+const NAV: PageKey[] = ['features', 'audience', 'compare', 'pricing', 'download', 'faq']
+
+/** Lien vers la même page dans l'autre langue (les pages légales n'existent qu'en français). */
+function LangSwitch({ current }: { current: PageKey | null }) {
+  const other = LANG === 'fr' ? 'en' : 'fr'
+  const href = ROUTES[current ?? 'home'][other]
+  return (
+    <a className="k-link k-lang" href={href} hrefLang={other} lang={other} title={t.langSwitch.title}>
+      {t.langSwitch.label}
+    </a>
+  )
+}
+
+function Header({ current }: { current: PageKey | null }) {
+  const links = NAV.map((k) => (
+    <a key={k} href={to(k)} aria-current={current === k ? 'page' : undefined}>{t.nav[k as keyof typeof t.nav]}</a>
+  ))
   return (
     <header className="k-header">
       <div className="k-wrap k-header-row">
-        <a href="/" className="k-brand" aria-label="Kollab, accueil">
+        <a href={to('home')} className="k-brand" aria-label={t.header.home}>
           <LogoMark size={28} />
           Kollab
         </a>
-        <nav className="k-nav" aria-label="Pages">
-          {NAV.map((n) => (
-            <a key={n.href} href={n.href} aria-current={current === n.href ? 'page' : undefined}>{n.label}</a>
-          ))}
-        </nav>
+        <nav className="k-nav" aria-label="Pages">{links}</nav>
         <div className="k-header-cta">
-          <a className="k-link" href={APP_URL}>Connexion</a>
-          <a className="k-btn k-btn-ink" href={APP_URL}>Essayer<span className="k-hide-sm"> gratuitement</span></a>
+          <LangSwitch current={current} />
+          <a className="k-link k-login" href={APP_URL}>{t.header.login}</a>
+          <a className="k-btn k-btn-ink" href={APP_URL}>{t.header.try}<span className="k-hide-sm">{t.header.trySuffix}</span></a>
         </div>
       </div>
-      <nav className="k-subnav" aria-label="Pages">
-        {NAV.map((n) => (
-          <a key={n.href} href={n.href} aria-current={current === n.href ? 'page' : undefined}>{n.label}</a>
-        ))}
-      </nav>
+      <nav className="k-subnav" aria-label="Pages">{links}</nav>
     </header>
   )
 }
@@ -165,30 +164,30 @@ function Footer() {
       <div className="k-wrap">
         <div className="k-footer-grid">
           <div>
-            <a href="/" className="k-brand">
+            <a href={to('home')} className="k-brand">
               <LogoMark size={26} />
               Kollab
             </a>
-            <p className="k-footer-tag">Le code, les sprints et l'équipe au même endroit.</p>
+            <p className="k-footer-tag">{t.footer.tag}</p>
           </div>
-          <nav aria-label="Produit">
-            <h4>Produit</h4>
-            <a href={APP_URL}>Ouvrir l'app</a>
-            <a href="/fonctionnalites">Fonctionnalités</a>
-            <a href="/pour-qui">Pour qui</a>
-            <a href="/comparatif">Comparatif</a>
-            <a href="/tarifs">Tarifs</a>
-            <a href="/telecharger">Télécharger</a>
-            <a href="/nouveautes">Nouveautés</a>
-            <a href="/faq">Questions fréquentes</a>
+          <nav aria-label={t.footer.product}>
+            <h4>{t.footer.product}</h4>
+            <a href={APP_URL}>{t.footer.openApp}</a>
+            <a href={DEMO_URL}>{t.footer.demo}</a>
+            {NAV.filter((k) => k !== 'faq').map((k) => (
+              <a key={k} href={to(k)}>{t.nav[k as keyof typeof t.nav]}</a>
+            ))}
+            <a href={to('news')}>{t.footer.news}</a>
+            <a href={to('faq')}>{t.footer.faq}</a>
             <a href="https://github.com/ambroise-boutrin/kollab" target="_blank" rel="noreferrer">GitHub</a>
             {DISCORD_URL && <a href={DISCORD_URL} target="_blank" rel="noreferrer">Discord</a>}
           </nav>
-          <nav aria-label="Informations légales">
-            <h4>Légal</h4>
+          <nav aria-label={t.footer.legal}>
+            <h4>{t.footer.legal}</h4>
             {LEGAL_DOCS.map((d) => (
-              <a key={d.path} href={d.path}>{d.title}</a>
+              <a key={d.path} href={d.path} hrefLang="fr">{d.title}</a>
             ))}
+            {t.footer.legalNote && <span className="k-footer-note">({t.footer.legalNote})</span>}
           </nav>
         </div>
         <p className="k-footer-copy">© {YEAR} Kollab</p>
@@ -198,28 +197,26 @@ function Footer() {
 }
 
 function HeroSection() {
+  const h = t.hero
   return (
     <>
       {/* Accroche : grande typo, puis le produit posé sur un aplat de couleur. */}
       <section className="k-hero">
         <div className="k-wrap">
           <h1 className="k-display fade-in">
-            Le code, les sprints <span className="k-hl">et l'équipe.</span> Au même endroit.
+            {h.titleA}<span className="k-hl">{h.titleHl}</span>{h.titleB}
           </h1>
           <div className="k-hero-foot fade-in d1">
-            <p className="k-lead">
-              Kollab réunit le tableau Scrum, le chat de groupe et bientôt la relecture des PR GitHub. Gratuit, dans le
-              navigateur, sur téléphone et sur ordinateur.
-            </p>
+            <p className="k-lead">{h.lead}</p>
             <div className="k-cta">
-              <a className="k-btn k-btn-ink k-btn-lg" href={APP_URL}>Essayer Kollab</a>
-              <a className="k-btn k-btn-line k-btn-lg" href="#produit">Voir le produit</a>
+              <a className="k-btn k-btn-ink k-btn-lg" href={APP_URL}>{h.signup}</a>
+              <a className="k-btn k-btn-line k-btn-lg" href={DEMO_URL}>{h.demo}</a>
             </div>
           </div>
         </div>
         <div className="k-wrap">
           <div className="k-stage k-bg-indigo fade-in d2">
-            <Demo name="tableau" label="Démonstration : une tâche glissée de colonne en colonne, puis attribuée à Léa">
+            <Demo name="tableau" label={h.video}>
               <Cursor name="Léa" color="#FF7262" style={{ left: '84%', top: '18%' }} />
               <Cursor name="Sami" color="#14AE5C" style={{ left: '30%', top: '78%' }} />
             </Demo>
@@ -231,71 +228,60 @@ function HeroSection() {
 }
 
 function ProductSection() {
+  const p = t.product
   return (
     <>
       {/* Le produit, en quatre aplats. */}
       <section id="produit" className="k-section">
         <div className="k-wrap">
-          <p className="k-kicker reveal">Le produit</p>
-          <h2 className="k-h2 reveal">Fait pour les équipes qui livrent du code ensemble.</h2>
+          <p className="k-kicker reveal">{p.kicker}</p>
+          <h2 className="k-h2 reveal">{p.title}</h2>
         </div>
 
         <div className="k-wrap k-blocks">
           <article className="k-block k-bg-yellow reveal">
             <div className="k-block-text">
               <span className="k-num">01</span>
-              <h3>Le sprint, visible d'un coup d'œil.</h3>
-              <p>
-                Glisse les tâches entre les colonnes, attribue-les en voyant la charge de chacun, estime en points. Personne
-                ne se retrouve avec tout le travail.
-              </p>
+              <h3>{p.board.title}</h3>
+              <p>{p.board.text}</p>
             </div>
-            <Shot className="k-shot-tilt" src="/vitrine/tableau-attribution.png" alt="Attribution d'une tâche avec la charge de chaque membre">
-              <Cursor name="Toi" color="#5546E0" style={{ left: '70%', top: '58%' }} />
+            <Shot className="k-shot-tilt" src="/vitrine/tableau-attribution.png" alt={p.board.alt}>
+              <Cursor name={t.hero.you} color="#5546E0" style={{ left: '70%', top: '58%' }} />
             </Shot>
           </article>
 
           <article className="k-block k-bg-coral reveal">
             <div className="k-block-text">
               <span className="k-num">02</span>
-              <h3>Une discussion qui reste liée au travail.</h3>
+              <h3>{p.chat.title}</h3>
               <p>
-                Salons, mentions @, cartes de PR dans la conversation et commande <code>/tache</code>. Les messages arrivent
-                en direct chez tout le monde, et sur Discord si tu veux.
+                {p.chat.textA}<code>{p.chat.code}</code>{p.chat.textB}
               </p>
             </div>
-            <Demo name="chat" label="Démonstration : un message avec une mention, puis une tâche créée avec /tache" />
+            <Demo name="chat" label={p.chat.video} />
           </article>
 
           <article className="k-block k-block-phone k-bg-mint reveal">
             <div className="k-block-text">
               <span className="k-num">03</span>
-              <h3>Dans ta poche aussi.</h3>
-              <p>
-                Kollab s'installe sur le téléphone comme une vraie app. Tes tâches et tes messages te suivent, même hors
-                ligne.
-              </p>
+              <h3>{p.phone.title}</h3>
+              <p>{p.phone.text}</p>
             </div>
-            <div className="k-phone">
-              <img src="/vitrine/telephone-accueil.png" alt="L'accueil de Kollab sur téléphone" loading="lazy" decoding="async" />
-            </div>
+            <PhoneDemo />
           </article>
 
           <article className="k-block k-bg-ink reveal">
             <div className="k-block-text">
               <span className="k-num">04</span>
               <h3>
-                Relire les PR sans quitter Kollab. <Soon />
+                {p.pr.title} <Soon />
               </h3>
-              <p>
-                Diff, commentaires par ligne, approbation et fusion. La tâche passe en « Terminé » toute seule quand sa PR
-                est fusionnée.
-              </p>
+              <p>{p.pr.text}</p>
             </div>
             <div className="k-diff" aria-hidden="true">
               <div className="k-diff-head">
-                <span className="k-diff-pr">#42</span> Tableau kanban glisser-déposer
-                <span className="k-diff-ok">Approuvée</span>
+                <span className="k-diff-pr">#42</span> {p.pr.prTitle}
+                <span className="k-diff-ok">{p.pr.approved}</span>
               </div>
               <div className="k-diff-file">src/pages/Board.tsx</div>
               <pre>
@@ -308,7 +294,7 @@ function ProductSection() {
                 {'   return <Board cols={cols} />'}
               </pre>
               <div className="k-diff-comment">
-                <b>Léa</b> Bien vu pour les capteurs, ça règle le souci sur iPhone.
+                <b>Léa</b> {p.pr.comment}
               </div>
             </div>
           </article>
@@ -324,9 +310,9 @@ function MoreSection() {
       {/* Le reste, en index typographique. */}
       <section id="fonctions" className="k-section k-section-tight">
         <div className="k-wrap">
-          <p className="k-kicker reveal">Et aussi</p>
+          <p className="k-kicker reveal">{t.more.kicker}</p>
           <ul className="k-index">
-            {MORE.map((m) => (
+            {t.more.items.map((m) => (
               <li key={m.title} className="reveal">
                 <h3>
                   {m.title}
@@ -348,10 +334,10 @@ function IntegrationsSection() {
       {/* Intégrations. */}
       <section className="k-section k-section-tight">
         <div className="k-wrap">
-          <p className="k-kicker reveal">Intégrations</p>
-          <h2 className="k-h2 reveal">Branché sur les outils que tu utilises déjà.</h2>
+          <p className="k-kicker reveal">{t.integrations.kicker}</p>
+          <h2 className="k-h2 reveal">{t.integrations.title}</h2>
           <ul className="k-integ">
-            {INTEGRATIONS.map((i) => (
+            {t.integrations.items.map((i) => (
               <li key={i.name} className="reveal">
                 <span className="k-integ-mark" style={{ background: i.color }}>{i.name[0]}</span>
                 <h3>{i.name}</h3>
@@ -367,6 +353,7 @@ function IntegrationsSection() {
 
 function DownloadSection() {
   const [os] = useState(detectOs)
+  const d = t.download
   return (
     <>
       {/* Téléchargement. */}
@@ -374,29 +361,25 @@ function DownloadSection() {
         <div className="k-wrap">
           <div className="k-download k-bg-lilac reveal">
             <div>
-              <p className="k-kicker">App de bureau</p>
-              <h2 className="k-h2">Kollab dans sa propre fenêtre.</h2>
-              <p className="k-download-note">
-                {DESKTOP_READY
-                  ? 'Raccourcis, notifications et mises à jour automatiques.'
-                  : 'Les installeurs arrivent bientôt. En attendant, Kollab marche déjà dans le navigateur.'}
-              </p>
+              <p className="k-kicker">{d.kicker}</p>
+              <h2 className="k-h2">{d.title}</h2>
+              <p className="k-download-note">{DESKTOP_READY ? d.ready : d.notReady}</p>
             </div>
             <ul className="k-os">
-              {DOWNLOADS.map((d) => {
-                const mine = d.os === os
+              {DOWNLOADS.map((x) => {
+                const mine = x.os === os
                 const inner = (
                   <>
                     <span className="k-os-name">
-                      {d.name}
-                      {mine && <span className="k-mine">Ton système</span>}
+                      {x.name}
+                      {mine && <span className="k-mine">{d.mine}</span>}
                     </span>
-                    <span className="k-os-detail">{d.detail}</span>
-                    <span className="k-os-go">{DESKTOP_READY ? 'Télécharger ↓' : 'Bientôt'}</span>
+                    <span className="k-os-detail">{d.os[x.os]}</span>
+                    <span className="k-os-go">{DESKTOP_READY ? d.go : t.soon}</span>
                   </>
                 )
                 return (
-                  <li key={d.os} className={mine ? 'mine' : undefined}>
+                  <li key={x.os} className={mine ? 'mine' : undefined}>
                     {DESKTOP_READY ? (
                       <a href={RELEASES_URL} target="_blank" rel="noreferrer">{inner}</a>
                     ) : (
@@ -419,11 +402,11 @@ function StepsSection() {
       {/* Démarrer. */}
       <section className="k-section k-section-tight">
         <div className="k-wrap">
-          <p className="k-kicker reveal">Démarrer</p>
+          <p className="k-kicker reveal">{t.steps.kicker}</p>
           <ol className="k-steps">
-            <li className="reveal"><span>1</span><b>Connecte-toi</b> avec GitHub, Google, Discord ou un email.</li>
-            <li className="reveal"><span>2</span><b>Invite ton équipe</b> avec le lien du groupe.</li>
-            <li className="reveal"><span>3</span><b>Lance le sprint</b> et suis tout depuis le tableau et le chat.</li>
+            {t.steps.items.map((s, n) => (
+              <li key={s.b} className="reveal"><span>{n + 1}</span><b>{s.b}</b>{s.t}</li>
+            ))}
           </ol>
         </div>
       </section>
@@ -432,25 +415,22 @@ function StepsSection() {
 }
 
 function PricingSection() {
+  const p = t.pricing
   return (
     <>
       {/* Tarifs. */}
       <section id="tarifs" className="k-section">
         <div className="k-wrap">
-          <p className="k-kicker reveal">Tarifs</p>
+          <p className="k-kicker reveal">{p.kicker}</p>
           <div className="k-price reveal">
             <div className="k-price-main">
-              <h2 className="k-h2">Gratuit pendant la bêta.</h2>
-              <p className="k-price-sub">Toutes les fonctions, pour toute l'équipe, sans carte bancaire.</p>
-              <div className="k-price-tag"><b>0 €</b><span>par personne, par mois</span></div>
-              <a className="k-btn k-btn-ink k-btn-lg" href={APP_URL}>Créer mon groupe</a>
+              <h2 className="k-h2">{p.title}</h2>
+              <p className="k-price-sub">{p.sub}</p>
+              <div className="k-price-tag"><b>{p.price}</b><span>{p.per}</span></div>
+              <a className="k-btn k-btn-ink k-btn-lg" href={APP_URL}>{p.cta}</a>
             </div>
             <ul className="k-price-list">
-              <li>Groupes et membres sans limite fixe</li>
-              <li>Tableau, chat, liens et notifications Discord</li>
-              <li>Web, téléphone et ordinateur</li>
-              <li>Les nouvelles fonctions dès leur sortie</li>
-              <li>Données hébergées dans l'Union européenne</li>
+              {p.list.map((it) => <li key={it}>{it}</li>)}
             </ul>
           </div>
         </div>
@@ -460,15 +440,16 @@ function PricingSection() {
 }
 
 function RoadmapSection() {
+  const r = t.roadmap
   return (
     <>
       {/* Feuille de route. */}
       <section id="feuille-de-route" className="k-section k-section-tight">
         <div className="k-wrap">
-          <p className="k-kicker reveal">Feuille de route</p>
-          <h2 className="k-h2 reveal">Ce qui arrive dans Kollab.</h2>
+          <p className="k-kicker reveal">{r.kicker}</p>
+          <h2 className="k-h2 reveal">{r.title}</h2>
           <div className="k-roadmap">
-            {ROADMAP.map((col) => (
+            {r.cols.map((col) => (
               <div key={col.when} className={`k-road ${col.color} reveal`}>
                 <h3>{col.when}</h3>
                 <ul>
@@ -477,7 +458,7 @@ function RoadmapSection() {
               </div>
             ))}
           </div>
-          <p className="k-road-more reveal"><a href="/nouveautes">Voir l'historique des versions →</a></p>
+          <p className="k-road-more reveal"><a href={to('news')}>{r.history}</a></p>
         </div>
       </section>
     </>
@@ -491,11 +472,11 @@ function FaqSection() {
       <section id="faq" className="k-section k-section-tight">
         <div className="k-wrap k-faq-wrap">
           <div>
-            <p className="k-kicker reveal">Questions fréquentes</p>
-            <h2 className="k-h2 reveal">Tu te demandes peut-être…</h2>
+            <p className="k-kicker reveal">{t.faq.kicker}</p>
+            <h2 className="k-h2 reveal">{t.faq.title}</h2>
           </div>
           <div className="k-faq">
-            {FAQ.map((f) => (
+            {t.faq.items.map((f) => (
               <details key={f.q} className="reveal">
                 <summary>{f.q}</summary>
                 <p>{f.a}</p>
@@ -513,11 +494,12 @@ function FinalSection() {
     <>
       <section className="k-final k-bg-indigo">
         <div className="k-wrap">
-          <h2 className="k-display k-display-sm reveal">Lance ton prochain sprint sur Kollab.</h2>
+          <h2 className="k-display k-display-sm reveal">{t.final.title}</h2>
           <div className="k-cta reveal">
-            <a className="k-btn k-btn-paper k-btn-lg" href={APP_URL}>Essayer gratuitement</a>
+            <a className="k-btn k-btn-paper k-btn-lg" href={APP_URL}>{t.final.try}</a>
+            <a className="k-btn k-btn-line-paper k-btn-lg" href={DEMO_URL}>{t.final.demo}</a>
             {DISCORD_URL && (
-              <a className="k-btn k-btn-line-paper k-btn-lg" href={DISCORD_URL} target="_blank" rel="noreferrer">Rejoindre le Discord</a>
+              <a className="k-btn k-btn-line-paper k-btn-lg" href={DISCORD_URL} target="_blank" rel="noreferrer">{t.final.discord}</a>
             )}
           </div>
         </div>
@@ -541,21 +523,84 @@ function PageHead({ kicker, title, lead }: { kicker: string; title: string; lead
 
 /** Raccourcis de l'accueil vers les autres pages. */
 function TeaserSection() {
-  const items = [
-    { href: '/fonctionnalites', title: 'Toutes les fonctionnalités', text: 'Le tableau, le chat, les intégrations et ce qui arrive ensuite.', bg: 'k-bg-yellow' },
-    { href: '/tarifs', title: 'Tarifs', text: 'Gratuit pendant la bêta, pour toute l’équipe.', bg: 'k-bg-mint' },
-    { href: '/telecharger', title: 'Télécharger', text: 'Kollab sur Windows, macOS, Linux et téléphone.', bg: 'k-bg-lilac' },
-  ]
   return (
     <section className="k-section k-section-tight">
       <div className="k-wrap k-teasers">
-        {items.map((i) => (
-          <a key={i.href} href={i.href} className={`k-teaser ${i.bg} reveal`}>
+        {t.teasers.items.map((i) => (
+          <a key={i.key} href={to(i.key)} className={`k-teaser ${i.bg} reveal`}>
             <h3>{i.title}</h3>
             <p>{i.text}</p>
-            <span className="k-teaser-go">Voir →</span>
+            <span className="k-teaser-go">{t.teasers.go}</span>
           </a>
         ))}
+      </div>
+    </section>
+  )
+}
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+
+/**
+ * Inscription aux nouveautés par email. Le site peut seulement ajouter une adresse dans la table waitlist
+ * (jamais la lire). Une adresse déjà inscrite compte comme un succès.
+ */
+function WaitlistSection({ source }: { source: string }) {
+  const [email, setEmail] = useState('')
+  const [state, setState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle')
+  if (!SUPABASE_URL || !SUPABASE_KEY) return null
+  const w = t.waitlist
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    setState('sending')
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/waitlist`, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_KEY!,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal',
+        },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), source: LANG === 'en' ? `${source}-en` : source }),
+      })
+      setState(res.ok || res.status === 409 ? 'done' : 'error')
+    } catch {
+      setState('error')
+    }
+  }
+
+  return (
+    <section className="k-section k-section-tight">
+      <div className="k-wrap">
+        <div className="k-waitlist k-bg-yellow reveal">
+          <div>
+            <h2 className="k-h3">{w.title}</h2>
+            <p>{w.text}</p>
+          </div>
+          {state === 'done' ? (
+            <p className="k-waitlist-ok" role="status">{w.done}</p>
+          ) : (
+            <form onSubmit={submit} className="k-waitlist-form">
+              <label className="k-sr" htmlFor={`wl-${source}`}>{w.label}</label>
+              <input
+                id={`wl-${source}`}
+                type="email"
+                required
+                autoComplete="email"
+                placeholder={w.placeholder}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <button className="k-btn k-btn-ink" disabled={state === 'sending'}>
+                {state === 'sending' ? w.sending : w.submit}
+              </button>
+              {state === 'error' && <p className="k-waitlist-err" role="alert">{w.error}</p>}
+              <p className="k-waitlist-legal">{w.legal} <a href="/confidentialite" hrefLang="fr">{w.privacy}</a></p>
+            </form>
+          )}
+        </div>
       </div>
     </section>
   )
@@ -573,9 +618,10 @@ function HomePage() {
 }
 
 function FeaturesPage() {
+  const p = t.pages.features
   return (
     <main>
-      <PageHead kicker="Fonctionnalités" title="Tout ce qu'il faut pour livrer à plusieurs." lead="Ce que Kollab fait déjà, les outils auxquels il se branche, et ce qui arrive ensuite." />
+      <PageHead kicker={p.kicker} title={p.title} lead={p.lead} />
       <ProductSection />
       <MoreSection />
       <IntegrationsSection />
@@ -586,9 +632,10 @@ function FeaturesPage() {
 }
 
 function PricingPage() {
+  const p = t.pages.pricing
   return (
     <main>
-      <PageHead kicker="Tarifs" title="Simple : c'est gratuit." lead="Pendant toute la bêta, Kollab est gratuit pour toutes les équipes, sans limite de fonctions." />
+      <PageHead kicker={p.kicker} title={p.title} lead={p.lead} />
       <PricingSection />
       <FaqSection />
       <FinalSection />
@@ -597,57 +644,37 @@ function PricingPage() {
 }
 
 function DownloadPage() {
+  const p = t.pages.download
   return (
     <main>
-      <PageHead kicker="Télécharger" title="Kollab, partout où tu travailles." lead="Dans le navigateur dès maintenant, sur téléphone en l'installant depuis le navigateur, et bientôt en app de bureau." />
+      <PageHead kicker={p.kicker} title={p.title} lead={p.lead} />
       <DownloadSection />
       <StepsSection />
+      <WaitlistSection source="telecharger" />
       <FinalSection />
     </main>
   )
 }
 
 function FaqPage() {
+  const p = t.pages.faq
   return (
     <main>
-      <PageHead kicker="Questions fréquentes" title="Les réponses aux questions qu'on nous pose." />
+      <PageHead kicker={p.kicker} title={p.title} />
       <FaqSection />
       <FinalSection />
     </main>
   )
 }
 
-const AUDIENCES = [
-  {
-    bg: 'k-bg-yellow',
-    who: 'Projets étudiants',
-    title: "Le projet de fin d'année, sans le chaos.",
-    story: "Quatre étudiants, six semaines, un rendu noté. Le sujet en PDF est rangé dans les liens, les tâches sont réparties en voyant la charge de chacun, et tout le monde sait qui fait quoi avant la soutenance.",
-    points: ['Invitations par lien en 10 secondes', 'Charge visible pour éviter qu’un seul fasse tout', 'Gratuit, sans carte bancaire'],
-  },
-  {
-    bg: 'k-bg-coral',
-    who: 'Petites équipes de dev',
-    title: 'Le sprint et les PR au même endroit.',
-    story: "Une startup de cinq devs qui jonglait entre Trello, GitHub et Discord. Les PR s'affichent en cartes dans le chat, les tâches suivent le sprint, et les notifications arrivent dans le serveur Discord de l'équipe.",
-    points: ['Cartes de PR dans les conversations', 'Notifications dans Discord', 'App sur ordinateur et téléphone'],
-  },
-  {
-    bg: 'k-bg-mint',
-    who: 'Associations tech',
-    title: 'Des bénévoles qui avancent ensemble.',
-    story: "Une asso qui organise un hackathon avec des bénévoles qui changent chaque année. Les rôles (admin, membre, invité en lecture seule) gardent l'organisation claire, et les nouveaux retrouvent tout dans l'historique.",
-    points: ['Rôles et invités en lecture seule', 'Salons par sujet', 'Liens importants épinglés'],
-  },
-]
-
 function AudiencePage() {
+  const p = t.pages.audience
   return (
     <main>
-      <PageHead kicker="Pour qui" title="Pensé pour les équipes qui codent ensemble." lead="De deux à quinze personnes, sur un projet court ou sur la durée. Trois exemples concrets." />
+      <PageHead kicker={p.kicker} title={p.title} lead={p.lead} />
       <section className="k-section">
         <div className="k-wrap k-aud">
-          {AUDIENCES.map((a) => (
+          {t.audiences.map((a) => (
             <article key={a.who} className={`k-aud-card ${a.bg} reveal`}>
               <p className="k-kicker">{a.who}</p>
               <h2 className="k-h3">{a.title}</h2>
@@ -664,18 +691,6 @@ function AudiencePage() {
   )
 }
 
-type Cell = boolean | 'soon' | 'part'
-const COMPARE: { feature: string; kollab: Cell; trello: Cell; jira: Cell; notion: Cell; discord: Cell }[] = [
-  { feature: 'Tableau kanban', kollab: true, trello: true, jira: true, notion: true, discord: false },
-  { feature: 'Attribution avec la charge de chacun', kollab: true, trello: false, jira: 'part', notion: false, discord: false },
-  { feature: 'Chat d’équipe en direct', kollab: true, trello: false, jira: false, notion: 'part', discord: true },
-  { feature: 'Cartes de PR GitHub dans le chat', kollab: true, trello: false, jira: false, notion: false, discord: 'part' },
-  { feature: 'Relecture des PR', kollab: 'soon', trello: false, jira: false, notion: false, discord: false },
-  { feature: 'Sprints et poker planning', kollab: 'soon', trello: false, jira: 'part', notion: false, discord: false },
-  { feature: 'Documents à plusieurs', kollab: 'soon', trello: false, jira: false, notion: true, discord: false },
-  { feature: 'Appels vocaux', kollab: 'soon', trello: false, jira: false, notion: false, discord: true },
-  { feature: 'Gratuit pour toute l’équipe', kollab: true, trello: 'part', jira: 'part', notion: 'part', discord: true },
-]
 const TOOLS = [
   { key: 'kollab', label: 'Kollab' },
   { key: 'trello', label: 'Trello' },
@@ -685,40 +700,39 @@ const TOOLS = [
 ] as const
 
 function Mark({ v }: { v: Cell }) {
-  if (v === true) return <span className="k-mk yes" aria-label="Oui">✓</span>
-  if (v === 'soon') return <span className="k-mk soon">Bientôt</span>
-  if (v === 'part') return <span className="k-mk part" aria-label="En partie">En partie</span>
-  return <span className="k-mk no" aria-label="Non">–</span>
+  const c = t.compare
+  if (v === true) return <span className="k-mk yes" aria-label={c.yes}>✓</span>
+  if (v === 'soon') return <span className="k-mk soon">{t.soon}</span>
+  if (v === 'part') return <span className="k-mk part">{c.part}</span>
+  return <span className="k-mk no" aria-label={c.no}>–</span>
 }
 
 function ComparePage() {
+  const p = t.pages.compare
   return (
     <main>
-      <PageHead kicker="Comparatif" title="Un seul outil à la place de quatre." lead="Beaucoup d'équipes combinent Trello ou Jira pour les tâches, Notion pour les docs et Discord pour parler. Kollab réunit l'essentiel." />
+      <PageHead kicker={p.kicker} title={p.title} lead={p.lead} />
       <section className="k-section">
         <div className="k-wrap">
           <div className="k-compare reveal">
             <table>
               <thead>
                 <tr>
-                  <th scope="col">Fonction</th>
-                  {TOOLS.map((t) => <th key={t.key} scope="col" className={t.key === 'kollab' ? 'me' : undefined}>{t.label}</th>)}
+                  <th scope="col">{t.compare.head}</th>
+                  {TOOLS.map((x) => <th key={x.key} scope="col" className={x.key === 'kollab' ? 'me' : undefined}>{x.label}</th>)}
                 </tr>
               </thead>
               <tbody>
-                {COMPARE.map((r) => (
-                  <tr key={r.feature}>
-                    <th scope="row">{r.feature}</th>
-                    {TOOLS.map((t) => <td key={t.key} className={t.key === 'kollab' ? 'me' : undefined}><Mark v={r[t.key]} /></td>)}
+                {t.compare.rows.map((feature, n) => (
+                  <tr key={feature}>
+                    <th scope="row">{feature}</th>
+                    {TOOLS.map((x) => <td key={x.key} className={x.key === 'kollab' ? 'me' : undefined}><Mark v={COMPARE_CELLS[n][x.key]} /></td>)}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <p className="k-note reveal">
-            « En partie » : disponible avec une extension, une offre payante ou de façon limitée. Comparatif établi en novembre 2026
-            d'après les offres gratuites de chaque outil. Trello, Jira, Notion et Discord sont des marques de leurs propriétaires respectifs.
-          </p>
+          <p className="k-note reveal">{t.compare.note}</p>
         </div>
       </section>
       <FinalSection />
@@ -726,63 +740,70 @@ function ComparePage() {
   )
 }
 
-/** Pages du site, par chemin. */
-const SEO = seo.pages as Record<string, { title: string; description: string }>
-const PAGES: Record<string, () => ReactNode> = {
-  '': () => <HomePage />,
-  '/fonctionnalites': () => <FeaturesPage />,
-  '/pour-qui': () => <AudiencePage />,
-  '/comparatif': () => <ComparePage />,
-  '/tarifs': () => <PricingPage />,
-  '/telecharger': () => <DownloadPage />,
-  '/nouveautes': () => <News />,
-  '/faq': () => <FaqPage />,
-}
-
-
 type Release = { version: string; date: string; title: string; items: string[] }
 
 function News() {
-  const releases = changelog as Release[]
-  const fmt = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  const releases = (changelog as Release[]).map((r) => (LANG === 'en' && CHANGELOG_EN[r.version] ? { ...r, ...CHANGELOG_EN[r.version] } : r))
+  const fmt = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(t.news.locale, { day: 'numeric', month: 'long', year: 'numeric' })
   return (
-    <main className="k-wrap k-news">
-      <p className="k-kicker">Nouveautés</p>
-      <h1 className="k-display k-display-sm">Ce qui a changé dans Kollab.</h1>
-      <ol className="k-releases">
-        {releases.map((r) => (
-          <li key={r.version}>
-            <div className="k-rel-meta">
-              <span className="k-rel-v">v{r.version}</span>
-              <time dateTime={r.date}>{fmt(r.date)}</time>
-            </div>
-            <div>
-              <h2>{r.title}</h2>
-              <ul>
-                {r.items.map((it) => <li key={it}>{it}</li>)}
-              </ul>
-            </div>
-          </li>
-        ))}
-      </ol>
-      <p className="k-road-more"><a href="/fonctionnalites#feuille-de-route">Voir ce qui arrive ensuite →</a></p>
+    <main>
+      <div className="k-wrap k-news">
+        <p className="k-kicker">{t.news.kicker}</p>
+        <h1 className="k-display k-display-sm">{t.news.title}</h1>
+        <ol className="k-releases">
+          {releases.map((r) => (
+            <li key={r.version}>
+              <div className="k-rel-meta">
+                <span className="k-rel-v">v{r.version}</span>
+                <time dateTime={r.date}>{fmt(r.date)}</time>
+              </div>
+              <div>
+                <h2>{r.title}</h2>
+                <ul>
+                  {r.items.map((it) => <li key={it}>{it}</li>)}
+                </ul>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <p className="k-road-more"><a href={`${to('features')}#feuille-de-route`}>{t.news.next}</a></p>
+      </div>
+      <WaitlistSection source="nouveautes" />
     </main>
   )
 }
 
+/** Pages du site, par clé. */
+const PAGES: Record<PageKey, () => ReactNode> = {
+  home: () => <HomePage />,
+  features: () => <FeaturesPage />,
+  audience: () => <AudiencePage />,
+  compare: () => <ComparePage />,
+  pricing: () => <PricingPage />,
+  download: () => <DownloadPage />,
+  news: () => <News />,
+  faq: () => <FaqPage />,
+}
+const SEO = seo.pages as Record<string, { title: string; description: string }>
+
 export default function Site() {
-  const path = window.location.pathname.replace(/\/+$/, '')
-  const legal = findLegal(path)
-  const key = PAGES[path] ? path : ''
+  const legal = findLegal(PATH)
+  const route = matchRoute(PATH)
+  const key: PageKey = route?.key ?? 'home'
   useReveal()
+  // Statistiques de visite sans cookie (Vercel Web Analytics), seulement sur le site de présentation.
   useEffect(() => {
-    const meta = SEO[key || '/'] ?? SEO['/']
+    inject({ mode: import.meta.env.PROD ? 'production' : 'development' })
+  }, [])
+  useEffect(() => {
+    const meta = SEO[legal ? legal.path : ROUTES[key][LANG]] ?? SEO['/']
     document.title = meta.title
+    document.documentElement.lang = LANG
     document.querySelector('meta[name="description"]')?.setAttribute('content', meta.description)
-  }, [key])
+  }, [key, legal])
   return (
     <div className="site">
-      <Header current={path} />
+      <Header current={legal ? null : key} />
       {legal ? <main><LegalPage doc={legal} /></main> : PAGES[key]()}
       <Footer />
     </div>
