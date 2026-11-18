@@ -19,7 +19,7 @@ export function Layout() {
 
   return (
     <div className="shell">
-      <nav className="sidebar" aria-label="Navigation principale">
+      <nav className="sidebar" aria-label="Navigation principale" data-tour="nav">
         <NavLink to="/" className="brand">
           <LogoMark size={30} />
           Kollab
@@ -57,7 +57,7 @@ export function Layout() {
         <Outlet />
       </main>
 
-      <nav className="tabbar" aria-label="Navigation">
+      <nav className="tabbar" aria-label="Navigation" data-tour="nav">
         {NAV.map((n) => (
           <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => (isActive ? 'active' : '')}>
             <Icon name={n.icon} size={22} />

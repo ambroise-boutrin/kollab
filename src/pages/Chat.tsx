@@ -127,7 +127,7 @@ export function Chat() {
 
   return (
     <div className="page chat">
-      <nav className="channels" aria-label="Salons">
+      <nav className="channels" aria-label="Salons" data-tour="channels">
         <h1 style={{ padding: '0 12px 10px' }}>Chat</h1>
         {channels.map((c) => (
           <button key={c.id} className={`channel${c.id === channelId ? ' active' : ''}`} onClick={() => setChannelId(c.id)}>
@@ -161,7 +161,7 @@ export function Chat() {
           })}
         </div>
 
-        <div className="composer">
+        <div className="composer" data-tour="composer">
           {suggestions.length > 0 && (
             <div className="suggest" role="listbox" aria-label="Mentionner">
               {suggestions.map((m, i) => (
