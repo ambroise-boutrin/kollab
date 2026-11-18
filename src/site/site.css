@@ -531,8 +531,7 @@
   .k-compare tbody td.me { background: none; }
 }
 
-/* Grands écrans : le site prend plus de largeur */
+/* Grands écrans : seule la barre du haut prend toute la largeur */
 @media (min-width: 981px) {
-  .k-wrap, .s-wrap { max-width: 1600px; padding: 0 clamp(32px, 3.5vw, 56px); }
-  .k-canvas-inner, .k-tabmedia > * { max-width: 1280px; }
+  .k-header .k-wrap { max-width: 1600px; padding: 0 clamp(32px, 3.5vw, 56px); }
 }
