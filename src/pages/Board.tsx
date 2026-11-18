@@ -34,7 +34,7 @@ function TaskCard({ task, onOpen, overlay = false }: { task: Task; onOpen?: () =
       <span className="task-title">{task.title}</span>
       <span className="task-meta">
         {task.points != null && <span>{task.points} pts</span>}
-        {task.prUrl && <span>PR liée</span>}
+        {task.prUrl && <span>PR #{task.prUrl.split('/').pop()}</span>}
         <Avatar member={assignee} size={24} online={!!assignee && online.includes(assignee.id)} />
       </span>
     </button>

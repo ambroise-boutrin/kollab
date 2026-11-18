@@ -1,3 +1,4 @@
+import { setGhToken } from './github'
 import { APP_BASE } from './base'
 import { createClient, type SupabaseClient, type User as SbUser } from '@supabase/supabase-js'
 import type { Backend, User, Workspace } from './backend'
@@ -62,6 +63,9 @@ function must<R extends { data: unknown; error: { message: string } | null }>(re
   return res.data as NonNullable<R['data']>
 }
 
+/** Lire les PR et checks, commenter, relancer la CI (dépôts privés compris). */
+const GITHUB_SCOPES = 'repo read:user user:email'
+
 export function createSupabaseBackend(url: string, anonKey: string): Backend {
   const sb: SupabaseClient = createClient(url, anonKey)
   let groupId: string | null = null
@@ -79,6 +83,10 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       const { data } = sb.auth.onAuthStateChange((event, session) => {
         // L'écran de connexion vaut acceptation des CGU : on enregistre la version acceptée.
         const u = session?.user
+        // Jeton GitHub : Supabase ne le donne qu'au retour de GitHub, on le garde pour l'API.
+        const latest = [...(u?.identities ?? [])].sort((a, b) => String(b.last_sign_in_at ?? '').localeCompare(String(a.last_sign_in_at ?? '')))[0]
+        if (session?.provider_token && latest?.provider === 'github') setGhToken(session.provider_token)
+        if (event === 'SIGNED_OUT') setGhToken(null)
         // Email de bienvenue, une seule fois après l'activation (la fonction vérifie elle-même).
         if (event === 'SIGNED_IN' && u?.email_confirmed_at && !u.app_metadata?.welcomed) {
           setTimeout(() => void sb.functions.invoke('welcome-email').catch(() => {}), 0)
@@ -97,7 +105,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         must(await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } }))
         return { emailSent: true }
       }
-      must(await sb.auth.signInWithOAuth({ provider, options: { redirectTo } }))
+      must(await sb.auth.signInWithOAuth({ provider, options: { redirectTo, ...(provider === 'github' ? { scopes: GITHUB_SCOPES } : {}) } }))
       return {}
     },
 
@@ -160,7 +168,14 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
 
     async link(provider) {
       if (provider === 'email') throw new Error("L'email se relie depuis la connexion par lien magique.")
-      must(await sb.auth.linkIdentity({ provider, options: { redirectTo: `${redirectTo}/reglages` } }))
+      must(await sb.auth.linkIdentity({ provider, options: { redirectTo: `${redirectTo}/reglages`, ...(provider === 'github' ? { scopes: GITHUB_SCOPES } : {}) } }))
+    },
+
+    async connectGitHub() {
+      const linked = (await sb.auth.getUserIdentities()).data?.identities.some((i) => i.provider === 'github')
+      const options = { redirectTo: window.location.href, scopes: GITHUB_SCOPES }
+      if (linked) must(await sb.auth.signInWithOAuth({ provider: 'github', options }))
+      else must(await sb.auth.linkIdentity({ provider: 'github', options }))
     },
 
     async unlink(provider) {

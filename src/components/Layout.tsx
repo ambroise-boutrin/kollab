@@ -13,6 +13,7 @@ import { Popover } from './Popover'
 const NAV: { to: string; label: string; icon: IconName }[] = [
   { to: '/', label: 'Accueil', icon: 'home' },
   { to: '/tableau', label: 'Tableau', icon: 'board' },
+  { to: '/revues', label: 'Revues', icon: 'pr' },
   { to: '/chat', label: 'Chat', icon: 'chat' },
   { to: '/equipe', label: 'Équipe', icon: 'group' },
 ]

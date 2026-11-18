@@ -8,6 +8,7 @@ import { Chat } from './pages/Chat'
 import { Group } from './pages/Group'
 import { Intro } from './pages/Intro'
 import { ProjectSettings } from './pages/ProjectSettings'
+import { Reviews } from './pages/Reviews'
 import { readIntro } from './lib/intro'
 import { Home } from './pages/Home'
 import { LoadError } from './pages/LoadError'
@@ -40,6 +41,7 @@ export function App() {
           <Route index element={<Home />} />
           <Route path="tableau" element={<Board />} />
           <Route path="chat" element={<Chat />} />
+          <Route path="revues" element={<Reviews />} />
           <Route path="equipe" element={<Group />} />
           <Route path="groupe" element={<Navigate to="/equipe" replace />} />
           <Route path="projet" element={<ProjectSettings />} />

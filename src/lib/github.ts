@@ -1,0 +1,139 @@
+import type { Workspace } from './backend'
+
+/**
+ * Accès à l'API GitHub depuis le navigateur. Le jeton vient de la connexion GitHub
+ * (Supabase le donne une fois, au retour de GitHub) ; sans jeton, seuls les dépôts publics répondent.
+ */
+const TOKEN_KEY = 'kollab-gh-token'
+const API = 'https://api.github.com'
+
+export function ghToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY)
+  } catch {
+    return null
+  }
+}
+export function setGhToken(token: string | null) {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token)
+    else localStorage.removeItem(TOKEN_KEY)
+  } catch {
+    /* ignoré */
+  }
+}
+
+export interface Repo { owner: string; repo: string }
+
+export function parseRepo(url: string): Repo | null {
+  const m = url.match(/^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)/)
+  return m ? { owner: m[1], repo: m[2] } : null
+}
+export function parsePrUrl(url: string | null): (Repo & { number: number }) | null {
+  const m = url?.match(/^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/(\d+)/)
+  return m ? { owner: m[1], repo: m[2], number: Number(m[3]) } : null
+}
+/** Le dépôt du projet : le premier lien GitHub vers un dépôt. */
+export function projectRepo(ws: Workspace | null): Repo | null {
+  for (const l of ws?.links ?? []) {
+    const r = parseRepo(l.url)
+    if (r) return r
+  }
+  return null
+}
+
+export class GitHubError extends Error {
+  status: number
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+  }
+}
+
+async function gh<T>(path: string, init: RequestInit = {}, accept = 'application/vnd.github+json'): Promise<T> {
+  const token = ghToken()
+  const res = await fetch(`${API}${path}`, {
+    ...init,
+    headers: { Accept: accept, 'X-GitHub-Api-Version': '2022-11-28', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(init.body ? { 'Content-Type': 'application/json' } : {}) },
+  })
+  if (res.status === 401) {
+    setGhToken(null)
+    throw new GitHubError('Connexion GitHub expirée : reconnecte GitHub', 401)
+  }
+  if (res.status === 403 && res.headers.get('x-ratelimit-remaining') === '0') throw new GitHubError('Limite GitHub atteinte : connecte GitHub pour continuer', 403)
+  if (res.status === 404) throw new GitHubError(token ? 'Introuvable sur GitHub' : 'Dépôt privé ou introuvable : connecte GitHub', 404)
+  if (!res.ok) {
+    const j = (await res.json().catch(() => ({}))) as { message?: string }
+    throw new GitHubError(j.message ?? `Erreur GitHub ${res.status}`, res.status)
+  }
+  if (res.status === 204 || res.headers.get('content-length') === '0') return undefined as T
+  return (await res.json()) as T
+}
+
+const base = (r: Repo) => `/repos/${r.owner}/${r.repo}`
+
+export interface Pull {
+  number: number
+  title: string
+  state: 'open' | 'closed'
+  merged: boolean
+  draft: boolean
+  author: string
+  avatar: string
+  url: string
+  sha: string
+  branch: string
+  updatedAt: string
+  body: string
+}
+type RawPull = {
+  number: number; title: string; state: 'open' | 'closed'; merged_at: string | null; merged?: boolean; draft: boolean
+  user: { login: string; avatar_url: string }; html_url: string; head: { sha: string; ref: string }; updated_at: string; body: string | null
+}
+const toPull = (p: RawPull): Pull => ({
+  number: p.number, title: p.title, state: p.state, merged: !!(p.merged ?? p.merged_at), draft: p.draft,
+  author: p.user.login, avatar: p.user.avatar_url, url: p.html_url, sha: p.head.sha, branch: p.head.ref, updatedAt: p.updated_at, body: p.body ?? '',
+})
+
+export async function listPulls(r: Repo, state: 'open' | 'closed' | 'all' = 'open'): Promise<Pull[]> {
+  return (await gh<RawPull[]>(`${base(r)}/pulls?state=${state}&per_page=50&sort=updated&direction=desc`)).map(toPull)
+}
+export async function getPull(r: Repo, n: number): Promise<Pull> {
+  return toPull(await gh<RawPull>(`${base(r)}/pulls/${n}`))
+}
+
+export interface PrFile { filename: string; status: string; additions: number; deletions: number; patch?: string }
+export const pullFiles = (r: Repo, n: number) => gh<PrFile[]>(`${base(r)}/pulls/${n}/files?per_page=100`)
+
+export interface ReviewComment { id: number; path: string; line: number | null; original_line: number | null; side: 'LEFT' | 'RIGHT'; body: string; user: { login: string; avatar_url: string }; created_at: string }
+export const reviewComments = (r: Repo, n: number) => gh<ReviewComment[]>(`${base(r)}/pulls/${n}/comments?per_page=100`)
+
+export interface IssueComment { id: number; body: string; user: { login: string; avatar_url: string }; created_at: string }
+export const issueComments = (r: Repo, n: number) => gh<IssueComment[]>(`${base(r)}/issues/${n}/comments?per_page=100`)
+export const postComment = (r: Repo, n: number, body: string) => gh<IssueComment>(`${base(r)}/issues/${n}/comments`, { method: 'POST', body: JSON.stringify({ body }) })
+
+export interface CheckRun {
+  id: number; name: string; status: 'queued' | 'in_progress' | 'completed'; conclusion: string | null; html_url: string
+  started_at: string | null; completed_at: string | null
+  output: { title: string | null; summary: string | null; annotations_count: number }
+}
+export async function checkRuns(r: Repo, sha: string): Promise<CheckRun[]> {
+  return (await gh<{ check_runs: CheckRun[] }>(`${base(r)}/commits/${sha}/check-runs?per_page=100`)).check_runs
+}
+export interface Annotation { path: string; start_line: number; annotation_level: 'notice' | 'warning' | 'failure'; message: string; title: string | null }
+export const annotations = (r: Repo, id: number) => gh<Annotation[]>(`${base(r)}/check-runs/${id}/annotations`)
+
+export interface WorkflowRun { id: number; name: string; status: string; conclusion: string | null; html_url: string; run_number: number }
+export async function workflowRuns(r: Repo, sha: string): Promise<WorkflowRun[]> {
+  return (await gh<{ workflow_runs: WorkflowRun[] }>(`${base(r)}/actions/runs?head_sha=${sha}&per_page=20`)).workflow_runs
+}
+/** Relance un pipeline (tous les jobs, ou seulement ceux en échec). */
+export const rerunWorkflow = (r: Repo, id: number, failedOnly: boolean) =>
+  gh<void>(`${base(r)}/actions/runs/${id}/${failedOnly ? 'rerun-failed-jobs' : 'rerun'}`, { method: 'POST' })
+
+/** Résumé des checks : réussis, en échec, en cours. */
+export function summarize(runs: CheckRun[]) {
+  const done = runs.filter((c) => c.status === 'completed')
+  const failed = done.filter((c) => c.conclusion && !['success', 'skipped', 'neutral'].includes(c.conclusion))
+  return { total: runs.length, passed: done.length - failed.length, failed: failed.length, running: runs.length - done.length }
+}
