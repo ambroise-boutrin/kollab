@@ -170,14 +170,24 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       must(await sb.auth.unlinkIdentity(identity))
     },
 
-    async loadWorkspace(): Promise<Workspace | null> {
+    async listGroups() {
+      const { data: auth } = await sb.auth.getUser()
+      if (!auth.user) return []
+      type Row = { group_id: string; role: Role; groups: { name: string } | null }
+      const rows = must(
+        await sb.from('group_members').select('group_id, role, groups(name)').eq('user_id', auth.user.id).order('joined_at'),
+      ) as unknown as Row[]
+      return rows.map((r) => ({ id: r.group_id, name: r.groups?.name ?? 'Projet', role: r.role }))
+    },
+
+    async loadWorkspace(wanted?: string | null): Promise<Workspace | null> {
       const { data: auth } = await sb.auth.getUser()
       if (!auth.user) return null
-      const membership = must(
-        await sb.from('group_members').select('group_id').eq('user_id', auth.user.id).order('joined_at').limit(1),
-      )
-      if (!membership.length) return null
-      groupId = membership[0].group_id as string
+      const memberships = must(
+        await sb.from('group_members').select('group_id').eq('user_id', auth.user.id).order('joined_at'),
+      ) as { group_id: string }[]
+      if (!memberships.length) return null
+      groupId = (memberships.find((m) => m.group_id === wanted) ?? memberships[0]).group_id
 
       const [group, members, tasks, channels, links] = await Promise.all([
         sb.from('groups').select('id, name, invite_code, discord_webhook_set').eq('id', groupId).single(),
@@ -211,12 +221,31 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       }
     },
 
-    async createGroup(name) {
-      must(await sb.rpc('create_group', { group_name: name }))
+    async createGroup(name, setup) {
+      const gid = must(
+        await sb.rpc('create_group', { group_name: name, ...(setup?.channels?.length ? { channel_names: setup.channels } : {}) }),
+      ) as string
+      const tasks = (setup?.tasks ?? []).map((t, i) => ({ ...t, group_id: gid, description: '', position: i }))
+      if (tasks.length) must(await sb.from('tasks').insert(tasks))
+      if (setup?.repoUrl) must(await sb.from('links').insert({ group_id: gid, title: 'Dépôt GitHub', url: setup.repoUrl }))
+      return gid
     },
 
     async joinGroup(code) {
-      must(await sb.rpc('join_group', { code }))
+      return must(await sb.rpc('join_group', { code })) as string
+    },
+
+    async renameGroup(name) {
+      must(await sb.from('groups').update({ name: name.trim() }).eq('id', groupId))
+    },
+
+    async leaveGroup() {
+      const { data: auth } = await sb.auth.getUser()
+      must(await sb.from('group_members').delete().eq('group_id', groupId).eq('user_id', auth.user!.id))
+    },
+
+    async deleteGroup() {
+      must(await sb.from('groups').delete().eq('id', groupId))
     },
 
     live(gid, h) {

@@ -10,7 +10,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { useToast } from '../components/Toast'
 import { useStore, useWorkspace } from '../lib/store'
@@ -94,6 +94,12 @@ export function Board() {
     const t = await createTask({ title: 'Nouvelle tâche', status })
     setOpenId(t.id)
   }
+
+  useEffect(() => {
+    const onNew = () => void add('todo')
+    window.addEventListener('kollab:new-task', onNew)
+    return () => window.removeEventListener('kollab:new-task', onNew)
+  })
 
   return (
     <div className="page" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

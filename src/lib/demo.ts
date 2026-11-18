@@ -1,4 +1,4 @@
-import { newId, type Backend, type LiveHandlers, type User, type Workspace } from './backend'
+import { newId, type Backend, type GroupSetup, type LiveHandlers, type User, type Workspace } from './backend'
 import type { Invite, LinkItem, Member, Message, Provider, Task } from './types'
 
 /**
@@ -15,6 +15,8 @@ interface DemoState {
   providers: Provider[]
   workspace: Workspace | null
   messages: Message[]
+  /** Les autres projets de l'utilisateur ; `workspace` est le projet ouvert. */
+  others?: { workspace: Workspace; messages: Message[] }[]
 }
 
 const ME: Member = { id: 'me', name: 'Moi', color: '#5546E0', role: 'admin', title: 'Product Owner', status: 'available', avatarUrl: null }
@@ -223,25 +225,84 @@ export const demoBackend: Backend = {
     })
   },
 
-  async loadWorkspace() {
+  async listGroups() {
+    const s = read()
+    const all = [s.workspace, ...(s.others ?? []).map((o) => o.workspace)].filter((w): w is Workspace => !!w)
+    return all
+      .map((w) => ({ id: w.group.id, name: w.group.name, role: w.members.find((m) => m.id === 'me')?.role ?? 'admin' }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+  },
+
+  async loadWorkspace(wanted) {
+    const s = read()
+    if (wanted && s.workspace && s.workspace.group.id !== wanted) {
+      const i = (s.others ?? []).findIndex((o) => o.workspace.group.id === wanted)
+      if (i >= 0) {
+        update((st) => {
+          const target = st.others!.splice(i, 1)[0]
+          if (st.workspace) st.others!.push({ workspace: st.workspace, messages: st.messages })
+          st.workspace = target.workspace
+          st.messages = target.messages
+        })
+      }
+    }
     return read().workspace
   },
 
-  async createGroup(name) {
+  async createGroup(name, setup?: GroupSetup) {
+    let id = ''
     update((s) => {
       if (!s.user) return
-      s.workspace = seed(s.user)
-      s.workspace.group.name = name
-      s.messages = seedMessages()
+      if (s.workspace) (s.others ??= []).push({ workspace: s.workspace, messages: s.messages })
+      const preset = !!setup
+      const w = seed(s.user)
+      id = w.group.id = newId()
+      w.group.name = name
+      w.group.inviteCode = `KOLLAB-${id.slice(0, 4).toUpperCase()}`
+      if (preset) {
+        // Un vrai nouveau projet : seulement toi, les salons et tâches du modèle.
+        w.members = w.members.filter((m) => m.id === 'me')
+        w.channels = (setup.channels?.length ? setup.channels : ['général']).map((n, i) => ({ id: i === 0 ? 'general' : newId(), name: n }))
+        const now = new Date().toISOString()
+        w.tasks = (setup.tasks ?? []).map((t, i) => ({ ...t, id: newId(), description: '', assigneeId: null, prUrl: null, position: i, createdAt: now }))
+        w.links = setup.repoUrl ? [{ id: newId(), title: 'Dépôt GitHub', url: setup.repoUrl }] : []
+      }
+      s.workspace = w
+      s.messages = preset ? [] : seedMessages()
     })
+    return id
   },
 
   async joinGroup() {
+    let id = ''
     update((s) => {
       if (!s.user) return
+      if (s.workspace) (s.others ??= []).push({ workspace: s.workspace, messages: s.messages })
       s.workspace = seed(s.user)
+      id = s.workspace.group.id = newId()
+      s.workspace.group.name = 'Équipe de démonstration'
+      s.workspace.members = s.workspace.members.map((m) => (m.id === 'me' ? { ...m, role: 'member' } : m))
       s.messages = seedMessages()
     })
+    return id
+  },
+
+  async renameGroup(name) {
+    update((s) => {
+      if (s.workspace) s.workspace.group.name = name.trim()
+    })
+  },
+
+  async leaveGroup() {
+    update((s) => {
+      const next = s.others?.shift()
+      s.workspace = next?.workspace ?? null
+      s.messages = next?.messages ?? []
+    })
+  },
+
+  async deleteGroup() {
+    await demoBackend.leaveGroup()
   },
 
   live(_groupId, h: LiveHandlers) {

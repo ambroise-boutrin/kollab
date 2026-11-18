@@ -27,7 +27,6 @@ export function Group() {
   const [role, setRole] = useState<Role>('member')
   const [days, setDays] = useState(7)
   const [single, setSingle] = useState(false)
-  const [hook, setHook] = useState('')
 
   const loadInvites = useCallback(async () => {
     if (isAdmin) setInvites(await backend.listInvites())
@@ -66,22 +65,13 @@ export function Group() {
     }
   }
 
-  async function saveHook(e: FormEvent) {
-    e.preventDefault()
-    try {
-      await backend.setDiscordWebhook(hook.trim() || null)
-      setHook('')
-      await reload()
-      toast(hook.trim() ? 'Discord est relié' : 'Discord est délié')
-    } catch (err) {
-      toast(err instanceof Error ? err.message : 'Impossible de relier Discord')
-    }
-  }
-
   return (
     <div className="page" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div className="page-head">
-        <h1>{ws.group.name}</h1>
+        <div>
+          <h1>Équipe</h1>
+          <p className="muted" style={{ margin: '2px 0 0' }}>{ws.members.length} membre{ws.members.length > 1 ? 's' : ''} dans {ws.group.name}</p>
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 18, alignItems: 'start' }}>
@@ -139,7 +129,7 @@ export function Group() {
               <button className="btn">Créer et copier le lien</button>
             </form>
           ) : (
-            <p className="muted" style={{ margin: 0 }}>Seul un admin du groupe peut inviter des personnes.</p>
+            <p className="muted" style={{ margin: 0 }}>Seuls les admins peuvent inviter.</p>
           )}
 
           {invites.length > 0 && (
@@ -161,31 +151,6 @@ export function Group() {
           )}
         </section>
 
-        <section className="card appear appear-3" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <h2>Notifications Discord</h2>
-            <span className="tag" style={{ marginLeft: 'auto', background: ws.group.discordWebhookSet ? 'color-mix(in srgb, var(--ok) 15%, transparent)' : 'var(--subtle)', color: ws.group.discordWebhookSet ? 'var(--ok)' : 'var(--muted)' }}>
-              {ws.group.discordWebhookSet ? 'Relié' : 'Non relié'}
-            </span>
-          </div>
-          <p className="muted" style={{ margin: 0 }}>
-            Kollab poste dans un salon de ton serveur quand une tâche est attribuée ou terminée, ou quand une PR est liée. Sur Discord : Paramètres du salon › Intégrations › Webhooks › Nouveau webhook, puis « Copier l'URL ».
-          </p>
-          {isAdmin ? (
-            <form onSubmit={saveHook} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <label className="field">
-                URL du webhook
-                <input className="input" type="url" placeholder="https://discord.com/api/webhooks/…" value={hook} onChange={(e) => setHook(e.target.value)} />
-              </label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn" style={{ background: '#5865F2' }} disabled={!hook.trim()}>Relier Discord</button>
-                {ws.group.discordWebhookSet && <button type="button" className="btn soft" onClick={() => { setHook(''); void backend.setDiscordWebhook(null).then(reload) }}>Délier</button>}
-              </div>
-            </form>
-          ) : (
-            <p className="muted" style={{ margin: 0 }}>Seul un admin du groupe peut relier Discord.</p>
-          )}
-        </section>
       </div>
     </div>
   )

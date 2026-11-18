@@ -1,18 +1,19 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { useStore, useWorkspace } from '../lib/store'
 import { KINDS, STATUSES } from '../lib/types'
 
 export function Home() {
   const ws = useWorkspace()
-  const { user, online, backend, reload } = useStore()
+  const { user, backend, reload } = useStore()
   const me = ws.members.find((m) => m.id === user?.id) ?? ws.members[0]
   const mine = ws.tasks.filter((t) => t.assigneeId === me?.id && t.status !== 'done')
   const total = ws.tasks.reduce((n, t) => n + (t.points ?? 0), 0)
   const done = ws.tasks.filter((t) => t.status === 'done').reduce((n, t) => n + (t.points ?? 0), 0)
   const pct = total ? Math.round((done / total) * 100) : 0
+  const open = ws.tasks.filter((t) => t.status !== 'done').length
+  const repo = ws.links.find((l) => /^https:\/\/github\.com\/[^/]+\/[^/]+/.test(l.url))
   const [title, setTitle] = useState('')
   const [url, setUrl] = useState('')
 
@@ -29,15 +30,10 @@ export function Home() {
     <div className="page" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div className="page-head">
         <div>
-          <h1>Bonjour {me?.name}</h1>
-          <p className="muted" style={{ margin: '2px 0 0' }}>{online.length} personne{online.length > 1 ? 's' : ''} en ligne dans {ws.group.name}.</p>
-        </div>
-        <div className="actions" style={{ display: 'flex' }}>
-          {ws.members.map((m, i) => (
-            <span key={m.id} style={{ marginLeft: i ? -8 : 0, borderRadius: '50%', boxShadow: '0 0 0 2px var(--bg)' }}>
-              <Avatar member={m} size={34} online={online.includes(m.id)} />
-            </span>
-          ))}
+          <h1>{ws.group.name}</h1>
+          <p className="muted" style={{ margin: '2px 0 0' }}>
+            {open} tâche{open > 1 ? 's' : ''} ouverte{open > 1 ? 's' : ''}{repo && <> · <a href={repo.url} target="_blank" rel="noreferrer">{repo.url.replace('https://github.com/', '')}</a></>}
+          </p>
         </div>
       </div>
 
