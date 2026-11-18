@@ -47,7 +47,7 @@ function render(path, { title, description }) {
     `<meta property="og:title" content="${esc(title)}" />`,
     `<meta property="og:description" content="${esc(description)}" />`,
     `<meta property="og:url" content="${url}" />`,
-    `<meta property="og:image" content="${site}/og.png" />`,
+    `<meta property="og:image" content="${site}/${en ? 'og-en.png' : 'og.png'}" />`,
     `<meta property="og:image:width" content="1200" />`,
     `<meta property="og:image:height" content="630" />`,
     `<meta name="twitter:card" content="summary_large_image" />`,
