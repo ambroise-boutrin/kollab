@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react'
 import { inject } from '@vercel/analytics'
 import { LogoMark } from '../components/Logo'
 import { LegalPage, LEGAL_DOCS, findLegal } from './legal'
@@ -122,7 +122,8 @@ function Soon() {
   return <span className="k-soon">{t.soon}</span>
 }
 
-const NAV: PageKey[] = ['features', 'audience', 'compare', 'pricing', 'download', 'faq']
+const NAV: PageKey[] = ['features', 'audience', 'pricing', 'download']
+const FOOTER_NAV: PageKey[] = ['features', 'audience', 'compare', 'pricing', 'download']
 
 /** Lien vers la même page dans l'autre langue (les pages légales n'existent qu'en français). */
 function LangSwitch({ current }: { current: PageKey | null }) {
@@ -143,13 +144,14 @@ function Header({ current }: { current: PageKey | null }) {
     <header className="k-header">
       <div className="k-wrap k-header-row">
         <a href={to('home')} className="k-brand" aria-label={t.header.home}>
-          <LogoMark size={28} />
+          <LogoMark size={26} />
           Kollab
         </a>
         <nav className="k-nav" aria-label="Pages">{links}</nav>
         <div className="k-header-cta">
           <LangSwitch current={current} />
           <a className="k-link k-login" href={APP_URL}>{t.header.login}</a>
+          <a className="k-btn k-btn-line k-hide-sm" href={DEMO_URL}>{t.final.demo}</a>
           <a className="k-btn k-btn-ink" href={APP_URL}>{t.header.try}<span className="k-hide-sm">{t.header.trySuffix}</span></a>
         </div>
       </div>
@@ -164,17 +166,14 @@ function Footer() {
       <div className="k-wrap">
         <div className="k-footer-grid">
           <div>
-            <a href={to('home')} className="k-brand">
-              <LogoMark size={26} />
-              Kollab
-            </a>
+            <a href={to('home')} className="k-footer-mark">Kollab</a>
             <p className="k-footer-tag">{t.footer.tag}</p>
           </div>
           <nav aria-label={t.footer.product}>
             <h4>{t.footer.product}</h4>
             <a href={APP_URL}>{t.footer.openApp}</a>
             <a href={DEMO_URL}>{t.footer.demo}</a>
-            {NAV.filter((k) => k !== 'faq').map((k) => (
+            {FOOTER_NAV.map((k) => (
               <a key={k} href={to(k)}>{t.nav[k as keyof typeof t.nav]}</a>
             ))}
             <a href={to('news')}>{t.footer.news}</a>
@@ -196,34 +195,214 @@ function Footer() {
   )
 }
 
+/** Titre de section en deux tons : l'idée en noir, la précision en gris. Lien optionnel à droite. */
+function SectionHead({ title, sub, link, as: Tag = 'h2' }: { title: string; sub?: string; link?: { href: string; label: string }; as?: 'h1' | 'h2' }) {
+  return (
+    <div className="k-head reveal">
+      <Tag className="k-head-title">
+        {title}
+        {sub && <span className="k-dim"> {sub}</span>}
+      </Tag>
+      {link && <a className="k-arrow" href={link.href}>{link.label}</a>}
+    </div>
+  )
+}
+
 function HeroSection() {
   const h = t.hero
   return (
     <>
-      {/* Accroche : grande typo, puis le produit posé sur un aplat de couleur. */}
+      {/* Accroche à gauche, grand bouton à droite, puis le produit en grand. */}
       <section className="k-hero">
-        <div className="k-wrap">
-          <h1 className="k-display fade-in">
-            {h.titleA}<span className="k-hl">{h.titleHl}</span>{h.titleB}
-          </h1>
-          <div className="k-hero-foot fade-in d1">
-            <p className="k-lead">{h.lead}</p>
-            <div className="k-cta">
-              <a className="k-btn k-btn-ink k-btn-lg" href={APP_URL}>{h.signup}</a>
-              <a className="k-btn k-btn-line k-btn-lg" href={DEMO_URL}>{h.demo}</a>
-            </div>
+        <div className="k-wrap k-hero-row">
+          <div>
+            <h1 className="k-hero-title fade-in">{h.titleA}{h.titleHl}{h.titleB}</h1>
+            <p className="k-hero-sub fade-in d1">{h.lead}</p>
+          </div>
+          <div className="k-hero-cta fade-in d1">
+            <a className="k-btn k-btn-ink k-btn-xl" href={APP_URL}>{h.signup}</a>
+            <a className="k-arrow" href={DEMO_URL}>{h.demo} →</a>
           </div>
         </div>
         <div className="k-wrap">
-          <div className="k-stage k-bg-indigo fade-in d2">
-            <Demo name="tableau" label={h.video}>
-              <Cursor name="Léa" color="#FF7262" style={{ left: '84%', top: '18%' }} />
-              <Cursor name="Sami" color="#14AE5C" style={{ left: '30%', top: '78%' }} />
-            </Demo>
+          <div className="k-canvas k-bg-indigo fade-in d2">
+            <div className="k-canvas-inner">
+              <Demo name="tableau" label={h.video}>
+                <Cursor name="Léa" color="#FF7262" style={{ left: '84%', top: '18%' }} />
+                <Cursor name="Sami" color="#14AE5C" style={{ left: '30%', top: '78%' }} />
+              </Demo>
+            </div>
           </div>
         </div>
       </section>
     </>
+  )
+}
+
+/** Bandeau de mots qui défile en continu, avec un bouton pause. Arrêté si l'animation est réduite. */
+function Marquee() {
+  const words = t.home.marquee
+  const [paused, setPaused] = useState(false)
+  return (
+    <section className="k-marquee" aria-label={t.home.marqueeLabel}>
+      <ul className="k-sr">{words.map((w) => <li key={w}>{w}</li>)}</ul>
+      <div className={`k-marquee-track${paused ? ' paused' : ''}`} aria-hidden="true">
+        {[...words, ...words].map((w, n) => <span key={n}>{w}</span>)}
+      </div>
+      <button className="k-marquee-btn" onClick={() => setPaused(!paused)} aria-label={paused ? t.home.play : t.home.pause}>
+        {paused ? '▶' : '❚❚'}
+      </button>
+    </section>
+  )
+}
+
+/** Faux diff pour la revue de PR, fonction à venir. */
+function DiffMock() {
+  const p = t.product.pr
+  return (
+    <div className="k-diff" aria-hidden="true">
+      <div className="k-diff-head">
+        <span className="k-diff-pr">#42</span> {p.prTitle}
+        <span className="k-diff-ok">{p.approved}</span>
+      </div>
+      <div className="k-diff-file">src/pages/Board.tsx</div>
+      <pre>
+        <span className="del">-  const [cols] = useState(DEFAULT)</span>
+        {'\n'}
+        <span className="add">+  const cols = useColumns(sprint)</span>
+        {'\n'}
+        <span className="add">+  const sensors = useSensors(pointer)</span>
+        {'\n'}
+        {'   return <Board cols={cols} />'}
+      </pre>
+      <div className="k-diff-comment">
+        <b>Léa</b> {p.comment}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Le produit en onglets. La page reste blanche ; la couleur vit dans le visuel et change avec l'onglet.
+ * Les onglets avancent seuls tant que la section est visible, sauf si on clique ou si l'animation est réduite.
+ */
+function ProductTabs() {
+  const p = t.product
+  const tabs = [
+    { bg: 'k-bg-yellow', title: p.board.title, text: <>{p.board.text}</>, media: <Shot src="/vitrine/tableau-attribution.png" alt={p.board.alt} /> },
+    { bg: 'k-bg-coral', title: p.chat.title, text: <>{p.chat.textA}<code>{p.chat.code}</code>{p.chat.textB}</>, media: <Demo name="chat" label={p.chat.video} /> },
+    { bg: 'k-bg-mint', title: p.phone.title, text: <>{p.phone.text}</>, media: <PhoneDemo /> },
+    { bg: 'k-bg-ink', title: p.pr.title, text: <>{p.pr.text}</>, media: <DiffMock />, soon: true },
+  ]
+  const [i, setI] = useState(0)
+  const [auto, setAuto] = useState(() => !reducedMotion())
+  const ref = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (!auto || !ref.current) return
+    let timer = 0
+    const io = new IntersectionObserver(([e]) => {
+      window.clearInterval(timer)
+      if (e.isIntersecting) timer = window.setInterval(() => setI((n) => (n + 1) % tabs.length), 7000)
+    }, { threshold: 0.4 })
+    io.observe(ref.current)
+    return () => { io.disconnect(); window.clearInterval(timer) }
+  }, [auto, tabs.length])
+  const tab = tabs[i]
+  return (
+    <section ref={ref} id="produit" className="k-section k-tabs">
+      <div className="k-wrap">
+        <SectionHead title={t.home.tabsTitle} sub={t.home.tabsSub} link={{ href: to('features'), label: t.home.explore }} />
+        <div className="k-tablist" role="tablist" aria-label={t.home.tabsKicker}>
+          {tabs.map((_, n) => (
+            <button
+              key={n}
+              role="tab"
+              id={`tab-${n}`}
+              aria-selected={n === i}
+              aria-controls="tab-panel"
+              className={n === i ? (auto ? 'on run' : 'on') : undefined}
+              onClick={() => { setAuto(false); setI(n) }}
+            >
+              {t.home.tabs[n]}
+              <span className="k-tab-bar" aria-hidden="true" />
+            </button>
+          ))}
+        </div>
+        <div className="k-tabpanel" id="tab-panel" role="tabpanel" aria-labelledby={`tab-${i}`}>
+          <div className={`k-tabmedia ${tab.bg}${i === 2 ? ' k-tabmedia-phone' : ''}`} key={i}>{tab.media}</div>
+          <div className="k-tabtext" key={`t${i}`}>
+            <h3>{tab.title}{tab.soon && <Soon />}</h3>
+            <p>{tab.text}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/** Grande phrase à gauche, chiffres vrais à droite, séparés par un filet. */
+function StatementSection() {
+  return (
+    <section className="k-section">
+      <div className="k-wrap k-statement">
+        <p className="k-quote reveal">
+          {t.home.statementA} <span className="k-dim">{t.home.statementB}</span>
+        </p>
+        <dl className="k-stats">
+          {t.home.stats.map((x) => (
+            <div key={x.l} className="reveal">
+              <dt>{x.n}</dt>
+              <dd>{x.l}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </section>
+  )
+}
+
+/** Exemples d'équipes en carrousel horizontal, avec compteur. */
+function CasesSection() {
+  const track = useRef<HTMLDivElement>(null)
+  const [n, setN] = useState(0)
+  const items = t.audiences
+  const go = (d: number) => {
+    const el = track.current
+    if (!el) return
+    const card = el.children[0] as HTMLElement | undefined
+    const step = card ? card.offsetWidth + 16 : el.clientWidth
+    el.scrollBy({ left: d * step, behavior: reducedMotion() ? 'auto' : 'smooth' })
+  }
+  const onScroll = () => {
+    const el = track.current
+    const card = el?.children[0] as HTMLElement | undefined
+    if (!el || !card) return
+    setN(Math.min(items.length - 1, Math.round(el.scrollLeft / (card.offsetWidth + 16))))
+  }
+  return (
+    <section className="k-section k-cases">
+      <div className="k-wrap">
+        <div className="k-cases-head">
+          <SectionHead title={t.home.casesTitle} sub={t.home.casesSub} />
+          <div className="k-cases-nav">
+            <span className="k-count" aria-live="polite">{n + 1} / {items.length}</span>
+            <button className="k-round" onClick={() => go(-1)} disabled={n === 0} aria-label={t.home.prev}>←</button>
+            <button className="k-round" onClick={() => go(1)} disabled={n === items.length - 1} aria-label={t.home.next}>→</button>
+          </div>
+        </div>
+      </div>
+      <div className="k-cases-track" ref={track} onScroll={onScroll}>
+        {items.map((a) => (
+          <article key={a.who} className="k-case">
+            <div className={`k-case-media ${a.bg}`}>
+              <h3>{a.title}</h3>
+            </div>
+            <p className="k-case-who"><a className="k-arrow" href={to('audience')}>{a.who} →</a></p>
+            <p className="k-case-story">{a.story}</p>
+          </article>
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -278,25 +457,7 @@ function ProductSection() {
               </h3>
               <p>{p.pr.text}</p>
             </div>
-            <div className="k-diff" aria-hidden="true">
-              <div className="k-diff-head">
-                <span className="k-diff-pr">#42</span> {p.pr.prTitle}
-                <span className="k-diff-ok">{p.pr.approved}</span>
-              </div>
-              <div className="k-diff-file">src/pages/Board.tsx</div>
-              <pre>
-                <span className="del">-  const [cols] = useState(DEFAULT)</span>
-                {'\n'}
-                <span className="add">+  const cols = useColumns(sprint)</span>
-                {'\n'}
-                <span className="add">+  const sensors = useSensors(pointer)</span>
-                {'\n'}
-                {'   return <Board cols={cols} />'}
-              </pre>
-              <div className="k-diff-comment">
-                <b>Léa</b> {p.pr.comment}
-              </div>
-            </div>
+            <DiffMock />
           </article>
         </div>
       </section>
@@ -489,22 +650,18 @@ function FaqSection() {
   )
 }
 
+/** Appel final : une phrase, puis un très grand bouton noir pleine largeur. */
 function FinalSection() {
   return (
-    <>
-      <section className="k-final k-bg-indigo">
-        <div className="k-wrap">
-          <h2 className="k-display k-display-sm reveal">{t.final.title}</h2>
-          <div className="k-cta reveal">
-            <a className="k-btn k-btn-paper k-btn-lg" href={APP_URL}>{t.final.try}</a>
-            <a className="k-btn k-btn-line-paper k-btn-lg" href={DEMO_URL}>{t.final.demo}</a>
-            {DISCORD_URL && (
-              <a className="k-btn k-btn-line-paper k-btn-lg" href={DISCORD_URL} target="_blank" rel="noreferrer">{t.final.discord}</a>
-            )}
-          </div>
-        </div>
-      </section>
-    </>
+    <section className="k-section k-final">
+      <div className="k-wrap">
+        <SectionHead title={t.final.title} sub={t.final.sub} link={{ href: DEMO_URL, label: `${t.final.demo} →` }} />
+        <a className="k-bar reveal" href={APP_URL}>{t.final.try}</a>
+        {DISCORD_URL && (
+          <p className="k-final-more"><a className="k-arrow" href={DISCORD_URL} target="_blank" rel="noreferrer">{t.final.discord} →</a></p>
+        )}
+      </div>
+    </section>
   )
 }
 
@@ -516,23 +673,6 @@ function PageHead({ kicker, title, lead }: { kicker: string; title: string; lead
         <p className="k-kicker fade-in">{kicker}</p>
         <h1 className="k-display k-display-sm fade-in d1">{title}</h1>
         {lead && <p className="k-lead fade-in d2">{lead}</p>}
-      </div>
-    </section>
-  )
-}
-
-/** Raccourcis de l'accueil vers les autres pages. */
-function TeaserSection() {
-  return (
-    <section className="k-section k-section-tight">
-      <div className="k-wrap k-teasers">
-        {t.teasers.items.map((i) => (
-          <a key={i.key} href={to(i.key)} className={`k-teaser ${i.bg} reveal`}>
-            <h3>{i.title}</h3>
-            <p>{i.text}</p>
-            <span className="k-teaser-go">{t.teasers.go}</span>
-          </a>
-        ))}
       </div>
     </section>
   )
@@ -610,8 +750,10 @@ function HomePage() {
   return (
     <main>
       <HeroSection />
-      <ProductSection />
-      <TeaserSection />
+      <Marquee />
+      <ProductTabs />
+      <StatementSection />
+      <CasesSection />
       <FinalSection />
     </main>
   )

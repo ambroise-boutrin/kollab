@@ -310,3 +310,136 @@
 @media (max-width: 860px) { .k-waitlist { grid-template-columns: minmax(0, 1fr); } }
 .k-lang { font-size: 13px; font-weight: 700; letter-spacing: .1em; }
 .k-footer-note { font-size: 13px; opacity: .6; }
+
+/* Accueil et style général, d'après les sites d'outils de design -------- */
+/* Titres fins en deux tons, boutons rectangulaires, page blanche, couleur dans les visuels. */
+.site .k-display, .site .k-h2, .site .k-h3, .site .k-block-text h3, .site .k-index h3, .site .k-integ h3,
+.site .k-road h3, .site .k-os-name, .site .k-price-tag b, .site .k-releases h2, .site .k-teaser h3, .site .k-faq summary, .site .k-steps span {
+  font-weight: 500; letter-spacing: -0.03em;
+}
+.site .k-display { font-size: clamp(42px, 6vw, 84px); line-height: 1.02; max-width: 16ch; }
+.site .k-display-sm { font-size: clamp(38px, 5vw, 68px); }
+.site .k-h2 { font-size: clamp(28px, 3.2vw, 44px); line-height: 1.1; max-width: 26ch; }
+.k-btn { border-radius: 8px; }
+.k-btn-ink:hover { background: #2B2B33; }
+.k-btn-line { box-shadow: inset 0 0 0 1px #C9C9D0; }
+.k-btn-line:hover { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.k-btn-xl { min-height: 64px; padding: 0 32px; font-size: 20px; font-weight: 500; border-radius: 10px; }
+.k-header-cta { gap: 14px; }
+.k-header-cta .k-btn { min-height: 38px; font-size: 14px; padding: 0 14px; }
+.k-nav a { font-size: 14px; }
+.k-dim { color: #8A8A94; }
+.k-arrow { color: var(--ink); font-weight: 500; font-size: 15px; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; white-space: nowrap; }
+
+/* Titre de section */
+.k-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px 40px; flex-wrap: wrap; margin-bottom: 40px; }
+.k-head-title { font-family: var(--display); font-weight: 500; font-size: clamp(26px, 2.6vw, 36px); line-height: 1.2; letter-spacing: -0.025em; margin: 0; max-width: 30ch; }
+
+/* Accroche */
+.k-hero { padding: 120px 0 0; }
+.k-hero-row { display: flex; align-items: center; justify-content: space-between; gap: 40px; flex-wrap: wrap; }
+.k-hero-title { font-family: var(--display); font-weight: 500; font-size: clamp(44px, 5.8vw, 84px); line-height: 1.04; letter-spacing: -0.04em; margin: 0; max-width: 13ch; }
+.k-hero-sub { margin: 20px 0 0; font-size: clamp(18px, 1.6vw, 22px); line-height: 1.4; color: #8A8A94; max-width: 28em; }
+.k-hero-cta { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.k-canvas { margin: 80px 0 0; border-radius: 16px; padding: clamp(20px, 5vw, 72px) clamp(16px, 6vw, 96px) 0; overflow: hidden; }
+.k-canvas-inner { max-width: 1040px; margin: 0 auto; }
+.k-canvas .k-shot { border-radius: 12px 12px 0 0; box-shadow: none; }
+
+/* Bandeau défilant, discret, avec pause */
+.k-marquee { position: relative; overflow: hidden; margin-top: 72px; padding: 22px 64px 22px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.k-marquee-track { display: flex; width: max-content; animation: k-marquee 50s linear infinite; }
+.k-marquee-track.paused { animation-play-state: paused; }
+.k-marquee-track span { font-family: var(--display); font-weight: 500; font-size: clamp(20px, 2vw, 28px); letter-spacing: -0.02em; color: #8A8A94; padding-right: 64px; white-space: nowrap; }
+.k-marquee-btn { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line); background: #fff; color: var(--ink); font-size: 10px; cursor: pointer; }
+@keyframes k-marquee { to { transform: translateX(-50%); } }
+
+/* Produit en onglets */
+.k-tablist { display: flex; gap: 0; border-top: 1px solid var(--line); margin-bottom: 24px; }
+.k-tablist button { position: relative; flex: 1 1 0; min-width: 0; padding: 16px 16px 4px 0; background: none; border: 0; color: var(--ink); font: inherit; font-family: var(--display); font-weight: 500; font-size: clamp(16px, 1.4vw, 19px); letter-spacing: -0.015em; text-align: left; cursor: pointer; opacity: .4; transition: opacity .2s; }
+.k-tablist button:hover, .k-tablist button.on { opacity: 1; }
+.k-tab-bar { position: absolute; left: 0; top: -1px; height: 2px; width: 0; background: var(--ink); }
+.k-tablist button.on .k-tab-bar { width: 100%; }
+.k-tablist button.run .k-tab-bar { animation: k-tabrun 7s linear both; }
+@keyframes k-tabrun { from { width: 0; } to { width: 100%; } }
+.k-tabpanel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+.k-tabmedia { border-radius: 16px; padding: clamp(20px, 5vw, 72px) clamp(16px, 6vw, 96px) 0; overflow: hidden; min-height: 300px; display: flex; align-items: flex-end; justify-content: center; animation: appear .35s var(--ease) both; }
+.k-tabmedia > * { width: 100%; max-width: 1040px; }
+.k-tabmedia .k-shot { border-radius: 12px 12px 0 0; box-shadow: none; }
+.k-tabmedia .k-diff { border-radius: 12px 12px 0 0; }
+.k-tabmedia-phone { padding-bottom: 0; }
+.k-tabmedia-phone .k-phone { width: min(300px, 70%); margin: 0 auto -120px; }
+.k-tabtext { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 40px; animation: appear .35s var(--ease) both; }
+.k-tabtext h3 { font-family: var(--display); font-weight: 500; font-size: clamp(22px, 2vw, 28px); line-height: 1.2; letter-spacing: -0.02em; margin: 0; }
+.k-tabtext p { margin: 0; font-size: 17px; line-height: 1.5; color: var(--mute); }
+.k-tabtext code { font-size: 15px; background: #F1F1F4; padding: 1px 6px; border-radius: 6px; }
+
+/* Phrase et chiffres */
+.k-statement { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 48px; align-items: start; }
+.k-quote { font-family: var(--display); font-weight: 500; font-size: clamp(30px, 3.6vw, 52px); line-height: 1.12; letter-spacing: -0.03em; margin: 0; }
+.k-stats { margin: 0; border-left: 1px solid var(--line); padding-left: 40px; display: grid; gap: 28px; }
+.k-stats dt { font-family: var(--display); font-weight: 500; font-size: clamp(44px, 4.6vw, 68px); letter-spacing: -0.04em; line-height: 1; }
+.k-stats dd { margin: 6px 0 0; color: var(--mute); font-size: 15px; }
+
+/* Carrousel d'exemples */
+.k-cases-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap; }
+.k-cases-head .k-head { margin-bottom: 40px; }
+.k-cases-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 40px; }
+.k-count { font-size: 14px; font-variant-numeric: tabular-nums; margin-right: 8px; color: var(--mute); }
+.k-round { width: 40px; height: 40px; border-radius: 50%; border: 1px solid #C9C9D0; background: #fff; color: var(--ink); font-size: 16px; cursor: pointer; transition: border-color .2s; }
+.k-round:hover:not(:disabled) { border-color: var(--ink); }
+.k-round:disabled { opacity: .35; cursor: default; }
+.k-cases-track { display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding: 0 max(32px, calc((100vw - 1240px) / 2 + 32px)); scroll-padding: 0 max(32px, calc((100vw - 1240px) / 2 + 32px)); }
+.k-cases-track::-webkit-scrollbar { display: none; }
+.k-case { flex: 0 0 min(460px, 80vw); scroll-snap-align: start; }
+.k-case-media { border-radius: 16px; aspect-ratio: 4 / 3; padding: 28px; display: flex; align-items: flex-end; }
+.k-case-media h3 { font-family: var(--display); font-weight: 500; font-size: clamp(26px, 2.4vw, 34px); line-height: 1.1; letter-spacing: -0.03em; margin: 0; max-width: 14ch; }
+.k-case-who { margin: 16px 0 6px; }
+.k-case-story { margin: 0; color: var(--mute); font-size: 15px; line-height: 1.5; max-width: 34em; }
+
+/* Appel final : très grand bouton pleine largeur */
+.k-final { margin: 0; padding-bottom: 120px; }
+.k-bar { display: flex; align-items: center; justify-content: center; min-height: clamp(80px, 9vw, 120px); border-radius: 16px; background: var(--ink); color: #fff; text-decoration: none; font-family: var(--display); font-weight: 500; font-size: clamp(26px, 3.4vw, 48px); letter-spacing: -0.03em; transition: background-color .2s; }
+.k-bar:hover { background: var(--indigo); }
+.k-final-more { margin: 20px 0 0; }
+
+/* Pied de page noir avec grand nom */
+.k-footer { background: var(--ink); color: #fff; padding: 72px 0 40px; }
+.k-footer-mark { font-family: var(--display); font-weight: 500; font-size: clamp(36px, 4vw, 56px); letter-spacing: -0.04em; color: #fff; text-decoration: none; }
+.k-footer-tag { color: rgba(255, 255, 255, .55); }
+.k-footer h4 { font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: .1em; color: rgba(255, 255, 255, .5); }
+.k-footer nav a { color: #fff; font-size: 14px; }
+.k-footer nav a:hover { color: #fff; }
+.k-footer-copy { border-top-color: rgba(255, 255, 255, .15); color: rgba(255, 255, 255, .5); }
+.k-footer-note { color: rgba(255, 255, 255, .5); }
+
+/* Le visuel d'accroche grandit en entrant à l'écran, quand le navigateur sait lier une animation au défilement. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .k-canvas-inner { animation: k-grow linear both; animation-timeline: view(); animation-range: entry 10% cover 45%; }
+  }
+}
+@keyframes k-grow { from { transform: scale(.9) translateY(32px); } to { transform: none; } }
+
+@media (max-width: 980px) {
+  .k-statement { grid-template-columns: minmax(0, 1fr); }
+  .k-stats { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: 28px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .k-tabtext { grid-template-columns: minmax(0, 1fr); }
+  .k-tablist { overflow-x: auto; scrollbar-width: none; }
+  .k-tablist::-webkit-scrollbar { display: none; }
+  .k-tablist button { flex: none; padding-right: 28px; }
+}
+@media (max-width: 600px) {
+  .k-hero { padding-top: 56px; }
+  .k-hero-cta { align-items: stretch; width: 100%; }
+  .k-hero-cta .k-btn-xl { width: 100%; }
+  .k-canvas { margin-top: 48px; }
+  .k-marquee { margin-top: 48px; }
+  .k-stats { grid-template-columns: minmax(0, 1fr); }
+  .k-cases-track { padding: 0 16px; scroll-padding: 0 16px; }
+  .k-tabmedia-phone .k-phone { margin-bottom: -80px; }
+  .k-footer-grid > div:first-child { grid-column: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .k-marquee-track { animation: none; }
+  .k-tablist button.run .k-tab-bar { animation: none; width: 100%; }
+}
