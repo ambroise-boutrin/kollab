@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEven
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Avatar, AvatarGroup } from '../components/Avatar'
 import { Icon } from '../components/Icon'
+import { VoiceJoin } from '../components/VoiceBar'
 import { Popover } from '../components/Popover'
 import { PrStatus } from '../components/PrLink'
 import { useToast } from '../components/Toast'
@@ -95,7 +96,7 @@ function dayLabel(iso: string) {
 
 type Suggestion = { key: string; label: string; hint: string; insert: string; member?: Member; icon?: 'board' | 'pr'; cls?: string }
 
-export function Chat() {
+export function Chat({ docked = false }: { docked?: boolean } = {}) {
   const ws = useWorkspace()
   const { channels, members, tasks } = ws
   const { backend, incoming, messageUpdate, reactionChange, online, createTask, user } = useStore()
@@ -103,7 +104,7 @@ export function Chat() {
   const navigate = useNavigate()
   const me = user?.id ?? 'me'
   const [params] = useSearchParams()
-  const wanted = params.get('salon')
+  const wanted = docked ? null : params.get('salon')
   const [channelId, setChannelId] = useState(channels.find((c) => c.id === wanted)?.id ?? channels[0]?.id ?? '')
   useEffect(() => {
     if (wanted && channels.some((c) => c.id === wanted)) setChannelId(wanted)
@@ -265,7 +266,14 @@ export function Chat() {
   const channel = channels.find((c) => c.id === channelId)
 
   return (
-    <div className="page chat">
+    <div className={docked ? 'chat docked' : 'page chat'}>
+      {docked ? (
+        <div className="dock-channels" role="tablist" aria-label="Salons">
+          {channels.map((c) => (
+            <button key={c.id} role="tab" aria-selected={c.id === channelId} className={`chip${c.id === channelId ? '' : ''}`} onClick={() => setChannelId(c.id)}># {c.name}</button>
+          ))}
+        </div>
+      ) : (
       <nav className="channels" aria-label="Salons" data-tour="channels">
         <h1 style={{ padding: '0 12px 10px' }}>Chat</h1>
         {channels.map((c) => (
@@ -274,11 +282,15 @@ export function Chat() {
           </button>
         ))}
       </nav>
+      )}
 
       <section className="card thread" aria-label={`Salon ${channel?.name ?? ''}`}>
         <header className="thread-head">
           <h2># {channel?.name}</h2>
-          <AvatarGroup members={members.filter((m) => online.includes(m.id))} size={26} max={5} online={online} />
+          <div className="thread-tools">
+            <VoiceJoin />
+            <AvatarGroup members={members.filter((m) => online.includes(m.id))} size={26} max={5} online={online} />
+          </div>
         </header>
 
         <div className="messages" ref={listRef} aria-live="polite">

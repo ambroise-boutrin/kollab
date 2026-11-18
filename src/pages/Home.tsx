@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AvatarGroup } from '../components/Avatar'
 import { LinksCard } from '../components/LinksCard'
@@ -7,6 +7,10 @@ import { NotificationBell } from '../components/Notifications'
 import { openInvite } from './Group'
 import { PrStatus } from '../components/PrLink'
 import { Avatar } from '../components/Avatar'
+import { DockToggle } from '../components/Dock'
+import { Icon } from '../components/Icon'
+import { HomeLayoutDialog, useHomeLayout, type WidgetId } from '../components/HomeLayout'
+import { boardTasks } from '../lib/sprints'
 import { useStore, useWorkspace } from '../lib/store'
 import { KINDS, STATUSES, type Task, type TaskStatus } from '../lib/types'
 
@@ -28,16 +32,19 @@ export function Home() {
   const { user, saveTask, notifications, online } = useStore()
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
+  const [layout, setLayout] = useHomeLayout(ws.group.id)
+  const [customizing, setCustomizing] = useState(false)
   const me = ws.members.find((m) => m.id === user?.id) ?? ws.members[0]
   const firstName = me?.name.split(/\s+/)[0] ?? ''
 
-  const total = ws.tasks.reduce((n, t) => n + (t.points ?? 0), 0)
-  const done = ws.tasks.filter((t) => t.status === 'done').reduce((n, t) => n + (t.points ?? 0), 0)
+  const sprintTasks = boardTasks(ws)
+  const total = sprintTasks.reduce((n, t) => n + (t.points ?? 0), 0)
+  const done = sprintTasks.filter((t) => t.status === 'done').reduce((n, t) => n + (t.points ?? 0), 0)
   const pct = total ? Math.round((done / total) * 100) : 0
   const open = ws.tasks.filter((t) => t.status !== 'done').length
 
   const q = query.trim().toLowerCase()
-  const shown = useMemo(() => (q ? ws.tasks.filter((t) => t.title.toLowerCase().includes(q)) : ws.tasks), [ws.tasks, q])
+  const shown = useMemo(() => (q ? ws.tasks.filter((t) => t.title.toLowerCase().includes(q)) : sprintTasks), [ws.tasks, sprintTasks, q])
   const toReview = ws.tasks.filter((t) => t.status === 'review')
   const mine = ws.tasks
     .filter((t) => me && t.assigneeIds.includes(me.id) && t.status !== 'done')
@@ -63,43 +70,8 @@ export function Home() {
     setTimeout(() => window.dispatchEvent(new Event('kollab:new-task')), 50)
   }
 
-  return (
-    <div className="page home">
-      <header className="home-head">
-        <div>
-          <h1>Bonjour {firstName}</h1>
-          <p className="muted">{ws.group.name} · {open} tâche{open > 1 ? 's' : ''} ouverte{open > 1 ? 's' : ''} · {pct} % des points terminés</p>
-        </div>
-        <div className="home-tools">
-          <label className="search">
-            <span className="sr-only">Rechercher une tâche</span>
-            <input type="search" placeholder="Rechercher une tâche" value={query} onChange={(e) => setQuery(e.target.value)} />
-          </label>
-          <MembersStack />
-          <NotificationBell />
-          <button className="btn" onClick={openInvite}>Inviter des membres</button>
-        </div>
-      </header>
-
-      <div className="home-strip">
-        <div className="strip-tile" style={{ ['--tile' as string]: 'var(--accent)' }}>
-          <b>{mine.length}</b><span>pour toi</span>
-        </div>
-        <div className="strip-tile" style={{ ['--tile' as string]: '#D98A1C' }}>
-          <b>{toReview.length}</b><span>en revue</span>
-        </div>
-        <div className="strip-tile sprint" style={{ ['--tile' as string]: 'var(--ok)' }}>
-          <b>{pct} %</b><span>du sprint</span>
-          <i><em style={{ width: `${pct}%` }} /></i>
-        </div>
-        <div className="strip-tile people" style={{ ['--tile' as string]: '#2F6FD0' }}>
-          {onlineMembers.length ? <AvatarGroup members={onlineMembers} size={28} /> : <b>0</b>}
-          <span>{onlineMembers.length ? `${onlineMembers.length} en ligne` : 'personne en ligne'}</span>
-        </div>
-      </div>
-
-      <div className="home-grid">
-        <div className="home-main">
+  const widgets: Record<WidgetId, ReactNode> = {
+    day: (
         <section className="card home-day">
           <div className="row-between">
             <h2>Ma journée</h2>
@@ -126,7 +98,8 @@ export function Home() {
             </ul>
           )}
         </section>
-
+    ),
+    board: (
         <section className="card home-board">
           <div className="row-between">
             <h2>Tableau du sprint</h2>
@@ -157,10 +130,8 @@ export function Home() {
             })}
           </div>
         </section>
-
-        </div>
-
-        <div className="home-side">
+    ),
+    activity: (
         <section className="card home-activity">
           <h2>Activité</h2>
           {activity.length === 0 && <p className="hint">Le projet démarre : invite l'équipe et crée les premières tâches.</p>}
@@ -178,7 +149,8 @@ export function Home() {
             })}
           </ul>
         </section>
-
+    ),
+    reviews: (
         <section className="card">
           <h2>PR à relire</h2>
           {toReview.length === 0 && <p className="hint">Aucune tâche en revue.</p>}
@@ -200,10 +172,55 @@ export function Home() {
             )
           })}
         </section>
+    ),
+    links: <LinksCard />,
+  }
 
-        <LinksCard />
+  return (
+    <div className="page home">
+      <header className="home-head">
+        <div>
+          <h1>Bonjour {firstName}</h1>
+          <p className="muted">{ws.group.name} · {open} tâche{open > 1 ? 's' : ''} ouverte{open > 1 ? 's' : ''} · {pct} % des points terminés</p>
+        </div>
+        <div className="home-tools">
+          <label className="search">
+            <span className="sr-only">Rechercher une tâche</span>
+            <input type="search" placeholder="Rechercher une tâche" value={query} onChange={(e) => setQuery(e.target.value)} />
+          </label>
+          <MembersStack />
+          <NotificationBell />
+          <DockToggle />
+          <button className="icon-btn" aria-label="Organiser l'accueil" title="Organiser l'accueil" onClick={() => setCustomizing(true)}><Icon name="layout" size={20} /></button>
+          <button className="btn" onClick={openInvite}>Inviter des membres</button>
+        </div>
+      </header>
+
+      <div className="home-strip">
+        <div className="strip-tile" style={{ ['--tile' as string]: 'var(--accent)' }}>
+          <b>{mine.length}</b><span>pour toi</span>
+        </div>
+        <div className="strip-tile" style={{ ['--tile' as string]: '#D98A1C' }}>
+          <b>{toReview.length}</b><span>en revue</span>
+        </div>
+        <div className="strip-tile sprint" style={{ ['--tile' as string]: 'var(--ok)' }}>
+          <b>{pct} %</b><span>du sprint</span>
+          <i><em style={{ width: `${pct}%` }} /></i>
+        </div>
+        <div className="strip-tile people" style={{ ['--tile' as string]: '#2F6FD0' }}>
+          {onlineMembers.length ? <AvatarGroup members={onlineMembers} size={28} /> : <b>0</b>}
+          <span>{onlineMembers.length ? `${onlineMembers.length} en ligne` : 'personne en ligne'}</span>
         </div>
       </div>
+
+      <div className="home-grid">
+        {(['main', 'side'] as const).map((col) => (
+          <div key={col} className={col === 'main' ? 'home-main' : 'home-side'}>
+            {layout[col].filter((id) => !layout.hidden.includes(id)).map((id) => <div key={id} className="home-widget">{widgets[id]}</div>)}
+          </div>
+        ))}
+      </div>
+      {customizing && <HomeLayoutDialog layout={layout} onChange={setLayout} onClose={() => setCustomizing(false)} />}
     </div>
   )
 }

@@ -51,6 +51,23 @@ export interface Task {
   prUrl: string | null
   position: number
   createdAt: string
+  /** Sprint de la tâche ; null = backlog. */
+  sprintId?: string | null
+  /** Passage en « Terminé » (pour le burndown). */
+  doneAt?: string | null
+}
+
+export type SprintStatus = 'planned' | 'active' | 'done'
+
+export interface Sprint {
+  id: string
+  name: string
+  goal: string
+  /** Dates au format AAAA-MM-JJ. */
+  startsOn: string
+  endsOn: string
+  status: SprintStatus
+  closedAt: string | null
 }
 
 export interface Channel {
@@ -127,4 +144,26 @@ export interface AppNotification {
   data: { code?: string }
   readAt: string | null
   createdAt: string
+}
+
+/** Fichier de l'espace documents (PDF, image, autre). */
+export interface DocumentItem {
+  id: string
+  name: string
+  mime: string
+  size: number
+  path: string
+  uploadedBy: string | null
+  createdAt: string
+}
+
+/** Document texte écrit à plusieurs (contenu chargé à l'ouverture). */
+export interface Note {
+  id: string
+  title: string
+  preview: string
+  createdBy: string | null
+  updatedBy: string | null
+  createdAt: string
+  updatedAt: string
 }

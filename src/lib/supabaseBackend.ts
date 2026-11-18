@@ -1,9 +1,10 @@
 import { setGhToken } from './github'
 import { APP_BASE } from './base'
 import { createClient, type SupabaseClient, type User as SbUser } from '@supabase/supabase-js'
-import type { Backend, User, Workspace } from './backend'
+import type { Backend, RoomEvent, User, Workspace } from './backend'
+import { disablePush } from './push'
 import { CGU_VERSION } from './legal'
-import type { AppNotification, Channel, Invite, ReactionChange, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
+import type { AppNotification, Channel, DocumentItem, Note, Sprint, Invite, ReactionChange, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
 
 interface TaskRow {
   id: string
@@ -18,7 +19,45 @@ interface TaskRow {
   pr_url: string | null
   position: number
   created_at: string
+  sprint_id?: string | null
+  done_at?: string | null
 }
+
+interface NoteRow {
+  id: string
+  title: string
+  preview: string
+  created_by: string | null
+  updated_by: string | null
+  created_at: string
+  updated_at: string
+}
+const NOTE_COLS = 'id, title, preview, created_by, updated_by, created_at, updated_at'
+const toNote = (r: NoteRow): Note => ({ id: r.id, title: r.title, preview: r.preview, createdBy: r.created_by, updatedBy: r.updated_by, createdAt: r.created_at, updatedAt: r.updated_at })
+
+interface SprintRow {
+  id: string
+  name: string
+  goal: string
+  starts_on: string
+  ends_on: string
+  status: Sprint['status']
+  closed_at: string | null
+}
+
+const toSprint = (r: SprintRow): Sprint => ({ id: r.id, name: r.name, goal: r.goal, startsOn: r.starts_on, endsOn: r.ends_on, status: r.status, closedAt: r.closed_at })
+
+interface DocumentRow {
+  id: string
+  name: string
+  mime: string
+  size: number
+  path: string
+  uploaded_by: string | null
+  created_at: string
+}
+
+const toDocument = (r: DocumentRow): DocumentItem => ({ id: r.id, name: r.name, mime: r.mime, size: Number(r.size), path: r.path, uploadedBy: r.uploaded_by, createdAt: r.created_at })
 
 interface MessageRow {
   id: string
@@ -41,6 +80,8 @@ const toTask = (r: TaskRow): Task => ({
   prUrl: r.pr_url,
   position: r.position,
   createdAt: r.created_at,
+  sprintId: r.sprint_id ?? null,
+  doneAt: r.done_at ?? null,
 })
 
 interface NotificationRow {
@@ -126,6 +167,8 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     },
 
     async signOut() {
+      // L'appareil ne doit plus recevoir les notifications de ce compte.
+      if (this.push) await disablePush(this.push).catch(() => undefined)
       await sb.auth.signOut()
     },
 
@@ -221,12 +264,15 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       if (!memberships.length) return null
       groupId = (memberships.find((m) => m.group_id === wanted) ?? memberships[0]).group_id
 
-      const [group, members, tasks, channels, links] = await Promise.all([
+      const [group, members, tasks, channels, links, documents, sprints, notes] = await Promise.all([
         sb.from('groups').select('id, name, invite_code, discord_webhook_set').eq('id', groupId).single(),
         sb.from('group_members').select('user_id, role, profiles(name, color, title, status, avatar_url)').eq('group_id', groupId),
         sb.from('tasks').select('*').eq('group_id', groupId).order('position'),
         sb.from('channels').select('id, name').eq('group_id', groupId).order('created_at'),
         sb.from('links').select('*').eq('group_id', groupId).order('created_at'),
+        sb.from('documents').select('*').eq('group_id', groupId).is('deleted_at', null).order('created_at', { ascending: false }),
+        sb.from('sprints').select('*').eq('group_id', groupId).is('deleted_at', null).order('starts_on'),
+        sb.from('notes').select(NOTE_COLS).eq('group_id', groupId).is('deleted_at', null).order('updated_at', { ascending: false }),
       ])
       const g = must(group)
       type MemberRow = {
@@ -250,6 +296,9 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         tasks: (must(tasks) as TaskRow[]).filter((r) => !r.deleted_at).map(toTask),
         channels: must(channels),
         links: (must(links) as (LinkItem & { deleted_at?: string | null })[]).filter((l) => !l.deleted_at).map(({ id, title, url }) => ({ id, title, url })),
+        documents: documents.error ? [] : (documents.data as DocumentRow[]).map(toDocument),
+        sprints: sprints.error ? [] : (sprints.data as SprintRow[]).map(toSprint),
+        notes: notes.error ? [] : (notes.data as NoteRow[]).map(toNote),
       }
     },
 
@@ -307,6 +356,10 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
           void sb.from('messages').select('*').eq('id', (payload as { id: string }).id).single().then(({ data }) => data && h.onMessageUpdated(toMessage(data as MessageRow)))
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'links', filter }, refresh)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'documents', filter }, refresh)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'sprints', filter }, refresh)
+        // Seulement les nouveaux documents : le contenu passe par la salle de l'éditeur.
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notes', filter }, refresh)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'channels', filter }, refresh)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'group_members', filter }, refresh)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'groups', filter: `id=eq.${gid}` }, refresh)
@@ -401,6 +454,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         assignee_id: task.assigneeIds[0] ?? null,
         pr_url: task.prUrl,
         position: task.position,
+        ...(task.sprintId !== undefined ? { sprint_id: task.sprintId } : {}),
       }
       return toTask(must(await sb.from('tasks').upsert(row).select().single()) as TaskRow)
     },
@@ -487,6 +541,110 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       return must(await sb.from('links').insert({ title, url, group_id: groupId }).select('id, title, url').single()) as LinkItem
     },
 
+    async uploadDocument(file) {
+      const { data: auth } = await sb.auth.getUser()
+      const safe = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w.-]+/g, '-').slice(-80) || 'fichier'
+      const path = `${groupId}/${crypto.randomUUID()}-${safe}`
+      const mime = file.type || 'application/octet-stream'
+      must(await sb.storage.from('documents').upload(path, file, { contentType: mime }))
+      const row = must(
+        await sb.from('documents').insert({ group_id: groupId, name: file.name.slice(0, 200), path, mime, size: file.size, uploaded_by: auth.user?.id }).select('*').single(),
+      ) as DocumentRow
+      return toDocument(row)
+    },
+
+    async documentUrl(doc) {
+      const { data, error } = await sb.storage.from('documents').createSignedUrl(doc.path, 3600)
+      if (error || !data) throw new Error('Fichier introuvable')
+      return data.signedUrl
+    },
+
+    async renameDocument(id, name) {
+      must(await sb.from('documents').update({ name: name.trim().slice(0, 200) }).eq('id', id))
+    },
+
+    async removeDocument(id) {
+      const { data: auth } = await sb.auth.getUser()
+      must(await sb.from('documents').update({ deleted_at: new Date().toISOString(), deleted_by: auth.user?.id ?? null }).eq('id', id))
+    },
+
+    joinRoom(room, h, opts) {
+      let me = ''
+      const ch = sb.channel(`room:${groupId}:${room}`, { config: { broadcast: { self: false }, presence: { key: crypto.randomUUID() } } })
+      const pending: Omit<RoomEvent, 'from'>[] = []
+      let tracked = !opts?.listen
+      let ready = false
+      ch.on('broadcast', { event: 'room' }, ({ payload }) => h.onEvent(payload as RoomEvent))
+        .on('presence', { event: 'sync' }, () => {
+          const state = ch.presenceState<{ userId: string }>()
+          h.onPeers([...new Set(Object.values(state).flat().map((s) => s.userId))])
+        })
+        .subscribe(async (status) => {
+          if (status !== 'SUBSCRIBED') return
+          const { data } = await sb.auth.getUser()
+          me = data.user?.id ?? ''
+          if (me && tracked) await ch.track({ userId: me })
+          ready = true
+          for (const e of pending.splice(0)) void ch.send({ type: 'broadcast', event: 'room', payload: { ...e, from: me } })
+        })
+      return {
+        send(e) {
+          if (!ready) pending.push(e)
+          else void ch.send({ type: 'broadcast', event: 'room', payload: { ...e, from: me } })
+        },
+        setPresent(on) {
+          tracked = on
+          if (!ready || !me) return
+          if (on) void ch.track({ userId: me })
+          else void ch.untrack()
+        },
+        leave() {
+          void sb.removeChannel(ch)
+        },
+      }
+    },
+
+    async createNote(title) {
+      const { data: auth } = await sb.auth.getUser()
+      return toNote(must(await sb.from('notes').insert({ group_id: groupId, title: title.trim() || 'Sans titre', created_by: auth.user?.id }).select(NOTE_COLS).single()) as NoteRow)
+    },
+
+    async loadNote(id) {
+      const row = must(await sb.from('notes').select('ystate').eq('id', id).single()) as { ystate: string }
+      return row.ystate
+    },
+
+    async saveNote(id, patch) {
+      const row: Record<string, string> = {}
+      if (patch.ystate !== undefined) row.ystate = patch.ystate
+      if (patch.preview !== undefined) row.preview = patch.preview.slice(0, 2000)
+      if (patch.title !== undefined) row.title = patch.title.trim().slice(0, 200) || 'Sans titre'
+      must(await sb.from('notes').update(row).eq('id', id))
+    },
+
+    async removeNote(id) {
+      const { data: auth } = await sb.auth.getUser()
+      must(await sb.from('notes').update({ deleted_at: new Date().toISOString(), deleted_by: auth.user?.id ?? null }).eq('id', id))
+    },
+
+    async createSprint(sp) {
+      const row = must(
+        await sb.from('sprints').insert({ group_id: groupId, name: sp.name, goal: sp.goal, starts_on: sp.startsOn, ends_on: sp.endsOn, status: sp.status }).select('*').single(),
+      ) as SprintRow
+      return toSprint(row)
+    },
+
+    async updateSprint(id, patch) {
+      const row: Record<string, unknown> = {}
+      if (patch.name !== undefined) row.name = patch.name
+      if (patch.goal !== undefined) row.goal = patch.goal
+      if (patch.startsOn !== undefined) row.starts_on = patch.startsOn
+      if (patch.endsOn !== undefined) row.ends_on = patch.endsOn
+      if (patch.status !== undefined) row.status = patch.status
+      if (patch.closedAt !== undefined) row.closed_at = patch.closedAt
+      must(await sb.from('sprints').update(row).eq('id', id))
+    },
+
     async removeLink(id) {
       const { data: auth } = await sb.auth.getUser()
       must(await sb.from('links').update({ deleted_at: new Date().toISOString(), deleted_by: auth.user?.id ?? null }).eq('id', id))
@@ -494,6 +652,26 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
 
     async setDiscordWebhook(webhook) {
       must(await sb.rpc('set_discord_webhook', { gid: groupId, webhook }))
+    },
+
+    push: {
+      async publicKey() {
+        const { data, error } = await sb.functions.invoke('send-push', { method: 'GET' })
+        if (error || !data?.publicKey) throw new Error('Notifications indisponibles pour le moment')
+        return data.publicKey as string
+      },
+      async subscribe(subscription) {
+        const { error } = await sb.functions.invoke('send-push', { body: { action: 'subscribe', subscription } })
+        if (error) throw new Error('Activation impossible')
+      },
+      async unsubscribe(endpoint) {
+        await sb.functions.invoke('send-push', { body: { action: 'unsubscribe', endpoint } }).catch(() => undefined)
+      },
+      async test() {
+        const { data, error } = await sb.functions.invoke('send-push', { body: { action: 'test' } })
+        if (error) throw new Error('Envoi impossible')
+        return (data?.sent as number) ?? 0
+      },
     },
 
     async notifyDiscord(event) {

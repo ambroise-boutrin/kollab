@@ -29,7 +29,9 @@ export default defineConfig({
       registerType: 'prompt',
       includeAssets: ['logo.svg'],
       // Polices et icônes en cache : chargement instantané et hors ligne.
-      workbox: { globPatterns: ['**/*.{js,css,html,svg,png,woff2}'], globIgnores: ['version.json', 'og*.png', 'vitrine/**'],
+      workbox: { globPatterns: ['**/*.{js,css,html,svg,png,woff2}'], globIgnores: ['version.json', 'push-sw.js', 'og*.png', 'vitrine/**'],
+        // Réception des notifications sur téléphone.
+        importScripts: ['/push-sw.js'],
         cleanupOutdatedCaches: true,
         // Le cache hors ligne ne sert que l'appli : le site vitrine se charge toujours depuis le réseau, donc toujours à jour.
         navigateFallbackAllowlist: [/^\/app(\/|$)/],

@@ -1,5 +1,5 @@
-import { newId, type Backend, type TrashItem, type GroupSetup, type LiveHandlers, type User, type Workspace } from './backend'
-import type { AppNotification, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task } from './types'
+import { newId, type Backend, type RoomEvent, type TrashItem, type GroupSetup, type LiveHandlers, type User, type Workspace } from './backend'
+import type { AppNotification, DocumentItem, Note, Sprint, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task } from './types'
 
 /**
  * Mode démo : tout est stocké dans le navigateur. Plusieurs onglets ouverts
@@ -20,7 +20,14 @@ interface DemoState {
   notifications?: AppNotification[]
   trash?: TrashItem[]
   trashedTasks?: Task[]
+  trashedDocs?: DocumentItem[]
+  trashedNotes?: Note[]
+  /** Contenu des documents texte (base64 Yjs). */
+  noteStates?: Record<string, string>
 }
+
+/** Fichiers envoyés en démo : gardés en mémoire le temps de la session. */
+const demoFiles = new Map<string, string>()
 
 const ME: Member = { id: 'me', name: 'Moi', color: '#5546E0', role: 'admin', title: 'Product Owner', status: 'available', avatarUrl: null }
 const TEAM: Member[] = [
@@ -29,14 +36,32 @@ const TEAM: Member[] = [
   { id: 'yo', name: 'Yohann Petit', color: '#B5462E', role: 'guest', title: 'Client', status: 'away', avatarUrl: null },
 ]
 
+const DAY = 86400e3
+const isoDay = (offset: number) => new Date(Date.now() + offset * DAY).toISOString().slice(0, 10)
+
 function seed(user: User): Workspace {
   let age = 0
-  const t = (title: string, status: Task['status'], kind: Task['kind'], points: number, assignees: string[], position: number): Task => ({
+  const s2 = newId()
+  const s3 = newId()
+  const s4 = newId()
+  const sprints: Sprint[] = [
+    { id: s2, name: 'Sprint 2', goal: 'Connexion et projets', startsOn: isoDay(-20), endsOn: isoDay(-7), status: 'done', closedAt: new Date(Date.now() - 7 * DAY).toISOString() },
+    { id: s3, name: 'Sprint 3', goal: 'Tableau, invitations et documents', startsOn: isoDay(-6), endsOn: isoDay(7), status: 'active', closedAt: null },
+    { id: s4, name: 'Sprint 4', goal: 'Poker planning et visio', startsOn: isoDay(8), endsOn: isoDay(21), status: 'planned', closedAt: null },
+  ]
+  /** sprint : 2, 3 ou null (backlog) ; doneDay : jour de fin, compté depuis aujourd'hui. */
+  const t = (title: string, status: Task['status'], kind: Task['kind'], points: number, assignees: string[], position: number, sprint: 2 | 3 | null = 3, doneDay?: number): Task => ({
     id: newId(), title, description: '', status, kind, points, assigneeIds: assignees, prUrl: null, position,
     // Créées au fil des derniers jours, pour un fil d'activité réaliste.
     createdAt: new Date(Date.now() - (age += 95) * 60000 * 7).toISOString(),
+    sprintId: sprint === 2 ? s2 : sprint === 3 ? s3 : null,
+    doneAt: status === 'done' ? new Date(Date.now() + (doneDay ?? -1) * DAY).toISOString() : null,
   })
   return {
+    sprints,
+    notes: [
+      { id: newId(), title: 'Compte rendu du daily', preview: 'Daily du matin\nLéa : tableau kanban terminé, passe aux invitations.\nSami : table des groupes, finie ce soir.\nMoi : relecture de la visionneuse PDF.\nBlocage : aucun.', createdBy: 'lm', updatedBy: 'sk', createdAt: new Date(Date.now() - 5 * 3600e3).toISOString(), updatedAt: new Date(Date.now() - 40 * 60e3).toISOString() },
+    ],
     group: { id: 'demo', name: 'Mon équipe', inviteCode: 'KOLLAB-DEMO', discordWebhookSet: false },
     members: [{ ...ME, name: user.name }, ...TEAM],
     tasks: [
@@ -46,7 +71,15 @@ function seed(user: User): Workspace {
       t('Tableau kanban glisser-déposer', 'doing', 'feature', 8, ['lm', 'me'], 0),
       t('Invitations par lien', 'doing', 'feature', 5, ['me'], 1),
       t('Visionneuse PDF', 'review', 'feature', 5, ['lm', 'me'], 0),
-      t('Choisir le stack', 'done', 'research', 2, ['me'], 0),
+      t('Choisir le stack', 'done', 'research', 2, ['me'], 0, 3, -5),
+      t('Schéma de la base', 'done', 'feature', 5, ['sk'], 1, 3, -3),
+      t('Connexion Google', 'done', 'feature', 3, ['lm'], 2, 3, -2),
+      t('Notifications sur téléphone', 'todo', 'feature', 8, [], 3, null),
+      t('Mode hors ligne', 'todo', 'research', 5, [], 4, null),
+      t('Export PDF du sprint', 'todo', 'feature', 3, [], 5, null),
+      t('Connexion GitHub', 'done', 'feature', 5, ['me'], 3, 2, -15),
+      t('Création de projet', 'done', 'feature', 8, ['sk', 'lm'], 4, 2, -11),
+      t('Thèmes de couleur', 'done', 'feature', 3, ['lm'], 5, 2, -8),
     ],
     channels: [
       { id: 'general', name: 'général' },
@@ -55,6 +88,10 @@ function seed(user: User): Workspace {
     ],
     links: [
       { id: newId(), title: 'Dépôt GitHub', url: 'https://github.com/ambroise-boutrin/kollab' },
+    ],
+    documents: [
+      { id: newId(), name: 'Cahier des charges.pdf', mime: 'application/pdf', size: 2820, path: '/demo/cahier-des-charges.pdf', uploadedBy: 'sk', createdAt: new Date(Date.now() - 26 * 3600e3).toISOString() },
+      { id: newId(), name: 'Maquette accueil.jpg', mime: 'image/jpeg', size: 66149, path: '/demo/maquette-accueil.jpg', uploadedBy: 'lm', createdAt: new Date(Date.now() - 3 * 3600e3).toISOString() },
     ],
   }
 }
@@ -86,6 +123,9 @@ function read(): DemoState {
           const old = t as Task & { assigneeId?: string | null }
           if (!old.assigneeIds) old.assigneeIds = old.assigneeId ? [old.assigneeId] : []
         }
+        if (w && !w.documents) w.documents = []
+        if (w && !w.sprints) w.sprints = []
+        if (w && !w.notes) w.notes = []
       }
       return s
     }
@@ -302,6 +342,9 @@ export const demoBackend: Backend = {
         const now = new Date().toISOString()
         w.tasks = (setup.tasks ?? []).map((t, i) => ({ ...t, id: newId(), description: '', assigneeIds: [], prUrl: null, position: i, createdAt: now }))
         w.links = setup.repoUrl ? [{ id: newId(), title: 'Dépôt GitHub', url: setup.repoUrl }] : []
+        w.documents = []
+        w.sprints = []
+        w.notes = []
       }
       s.workspace = w
       s.messages = preset ? [] : seedMessages()
@@ -516,6 +559,12 @@ export const demoBackend: Backend = {
       const task = (s.trashedTasks ?? []).find((t) => t.id === id)
       if (item && task && s.workspace) s.workspace.tasks.push(task)
       s.trashedTasks = (s.trashedTasks ?? []).filter((t) => t.id !== id)
+      const doc = (s.trashedDocs ?? []).find((d) => d.id === id)
+      if (doc && s.workspace) s.workspace.documents.unshift(doc)
+      s.trashedDocs = (s.trashedDocs ?? []).filter((d) => d.id !== id)
+      const note = (s.trashedNotes ?? []).find((n) => n.id === id)
+      if (note && s.workspace) s.workspace.notes.unshift(note)
+      s.trashedNotes = (s.trashedNotes ?? []).filter((n) => n.id !== id)
     })
     emit({ kind: 'refresh' })
   },
@@ -535,6 +584,126 @@ export const demoBackend: Backend = {
     return link
   },
 
+  async uploadDocument(file) {
+    const doc: DocumentItem = { id: newId(), name: file.name, mime: file.type || 'application/octet-stream', size: file.size, path: `demo:${newId()}`, uploadedBy: 'me', createdAt: new Date().toISOString() }
+    demoFiles.set(doc.path, URL.createObjectURL(file))
+    update((s) => {
+      s.workspace?.documents.unshift(doc)
+    })
+    emit({ kind: 'refresh' })
+    return doc
+  },
+
+  async documentUrl(doc) {
+    if (doc.path.startsWith('/')) return doc.path
+    const url = demoFiles.get(doc.path)
+    if (!url) throw new Error('En démo, les fichiers envoyés ne sont gardés que jusqu\'au rechargement.')
+    return url
+  },
+
+  async renameDocument(id, name) {
+    update((s) => {
+      const d = s.workspace?.documents.find((x) => x.id === id)
+      if (d) d.name = name.trim()
+    })
+    emit({ kind: 'refresh' })
+  },
+
+  async removeDocument(id) {
+    update((s) => {
+      const d = s.workspace?.documents.find((x) => x.id === id)
+      if (!d || !s.workspace) return
+      s.workspace.documents = s.workspace.documents.filter((x) => x.id !== id)
+      s.trashedDocs = [...(s.trashedDocs ?? []), d]
+      s.trash = [{ kind: 'document', id, title: d.name, deletedAt: new Date().toISOString(), deletedBy: 'me' }, ...(s.trash ?? [])]
+    })
+    emit({ kind: 'refresh' })
+  },
+
+  joinRoom(room, h, opts) {
+    // Démo : Léa et Sami sont là et votent quelques secondes après chaque nouvelle tâche.
+    const bots = ['lm', 'sk']
+    const timers: ReturnType<typeof setTimeout>[] = []
+    const bc = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(`kollab-room-${room}`) : null
+    if (bc) bc.onmessage = (m) => h.onEvent(m.data as RoomEvent)
+    if (!room.startsWith('voice')) setTimeout(() => h.onPeers(['me', ...bots]), 300)
+    else setTimeout(() => h.onPeers(opts?.listen ? [] : ['me']), 300)
+    const deck = [2, 3, 5, 5, 8]
+    const botsVote = () => {
+      for (const b of bots) {
+        timers.push(setTimeout(() => h.onEvent({ type: 'vote', from: b, value: String(deck[Math.floor(Math.random() * deck.length)]) }), 1200 + Math.random() * 2500))
+      }
+    }
+    return {
+      send(e) {
+        const ev = { ...e, from: 'me' } as RoomEvent
+        bc?.postMessage(ev)
+        if (room === 'poker' && (e.type === 'task' || e.type === 'reset')) botsVote()
+      },
+      setPresent(on) {
+        if (room.startsWith('voice')) h.onPeers(on ? ['me'] : [])
+      },
+      leave() {
+        timers.forEach(clearTimeout)
+        bc?.close()
+      },
+    }
+  },
+
+  async createNote(title) {
+    const now = new Date().toISOString()
+    const note: Note = { id: newId(), title: title.trim() || 'Sans titre', preview: '', createdBy: 'me', updatedBy: 'me', createdAt: now, updatedAt: now }
+    update((s) => {
+      s.workspace?.notes.unshift(note)
+    })
+    emit({ kind: 'refresh' })
+    return note
+  },
+
+  async loadNote(id) {
+    return read().noteStates?.[id] ?? ''
+  },
+
+  async saveNote(id, patch) {
+    update((s) => {
+      const n = s.workspace?.notes.find((x) => x.id === id)
+      if (!n) return
+      if (patch.ystate !== undefined) s.noteStates = { ...(s.noteStates ?? {}), [id]: patch.ystate }
+      if (patch.preview !== undefined) n.preview = patch.preview.slice(0, 2000)
+      if (patch.title !== undefined) n.title = patch.title.trim() || 'Sans titre'
+      n.updatedAt = new Date().toISOString()
+      n.updatedBy = 'me'
+    })
+  },
+
+  async removeNote(id) {
+    update((s) => {
+      const n = s.workspace?.notes.find((x) => x.id === id)
+      if (!n || !s.workspace) return
+      s.workspace.notes = s.workspace.notes.filter((x) => x.id !== id)
+      s.trashedNotes = [...(s.trashedNotes ?? []), n]
+      s.trash = [{ kind: 'note', id, title: n.title, deletedAt: new Date().toISOString(), deletedBy: 'me' }, ...(s.trash ?? [])]
+    })
+    emit({ kind: 'refresh' })
+  },
+
+  async createSprint(sp) {
+    const sprint: Sprint = { ...sp, id: newId(), closedAt: null }
+    update((s) => {
+      s.workspace?.sprints.push(sprint)
+    })
+    emit({ kind: 'refresh' })
+    return sprint
+  },
+
+  async updateSprint(id, patch) {
+    update((s) => {
+      const sp = s.workspace?.sprints.find((x) => x.id === id)
+      if (sp) Object.assign(sp, patch)
+    })
+    emit({ kind: 'refresh' })
+  },
+
   async removeLink(id) {
     update((s) => {
       if (s.workspace) s.workspace.links = s.workspace.links.filter((l) => l.id !== id)
@@ -547,6 +716,8 @@ export const demoBackend: Backend = {
       if (s.workspace) s.workspace.group.discordWebhookSet = !!url
     })
   },
+
+  push: null,
 
   async notifyDiscord() {
     // Rien à envoyer en mode démo.

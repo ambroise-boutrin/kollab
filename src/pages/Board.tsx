@@ -11,9 +11,10 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core'
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { AvatarGroup } from '../components/Avatar'
 import { useToast } from '../components/Toast'
+import { activeSprint, boardTasks, daysLeft, shortDate } from '../lib/sprints'
 import { useStore, useWorkspace } from '../lib/store'
 import { KINDS, STATUSES, type Task, type TaskStatus } from '../lib/types'
 import { TaskDrawer } from './TaskDrawer'
@@ -60,7 +61,9 @@ function Column({ status, label, tasks, onOpen, onAdd }: { status: TaskStatus; l
 }
 
 export function Board() {
-  const { tasks: all } = useWorkspace()
+  const ws = useWorkspace()
+  const all = boardTasks(ws)
+  const sprint = activeSprint(ws)
   const { saveTask, backend, user } = useStore()
   const toast = useToast()
   const [params, setParams] = useSearchParams()
@@ -90,7 +93,7 @@ export function Board() {
 
   const byStatus = (s: TaskStatus) => tasks.filter((t) => t.status === s).sort((a, b) => a.position - b.position)
   const dragged = tasks.find((t) => t.id === dragId)
-  const open = all.find((t) => t.id === openId)
+  const open = ws.tasks.find((t) => t.id === openId)
   const [fresh, setFresh] = useState<Task | null>(null)
 
   function onDragStart(e: DragStartEvent) {
@@ -112,7 +115,7 @@ export function Board() {
 
   function add(status: TaskStatus) {
     // Rien n'est créé avant « Créer la tâche » : pas de tâche vide si on ferme.
-    setFresh({ id: 'nouvelle', title: '', description: '', status, kind: 'feature', points: null, assigneeIds: mine ? [me] : [], prUrl: null, position: 0, createdAt: '' })
+    setFresh({ id: 'nouvelle', title: '', description: '', status, kind: 'feature', points: null, assigneeIds: mine ? [me] : [], prUrl: null, position: 0, createdAt: '', sprintId: sprint?.id ?? null })
   }
 
   useEffect(() => {
@@ -124,7 +127,16 @@ export function Board() {
   return (
     <div className="page" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div className="page-head">
-        <h1>Tableau</h1>
+        <div>
+          <h1>Tableau</h1>
+          {sprint ? (
+            <Link to="/sprints" className="board-sprint">
+              <b>{sprint.name}</b> · {shortDate(sprint.startsOn)} → {shortDate(sprint.endsOn)} · {daysLeft(sprint)} j restants
+            </Link>
+          ) : ws.sprints.length > 0 ? (
+            <Link to="/sprints" className="board-sprint idle">Pas de sprint en cours · planifier</Link>
+          ) : null}
+        </div>
         <div className="actions">
           <div className="tabs-seg compact" role="tablist" aria-label="Filtrer">
             <button role="tab" aria-selected={!mine} onClick={() => setMine(false)}>Toutes</button>

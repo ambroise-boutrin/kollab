@@ -1,4 +1,6 @@
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { pushEnabled, pushSupport, syncPush } from '../lib/push'
 import { useStore } from '../lib/store'
 import type { AppNotification } from '../lib/types'
 import { Avatar } from './Avatar'
@@ -13,6 +15,44 @@ function ago(iso: string) {
   const h = Math.round(min / 60)
   if (h < 24) return `${h} h`
   return `${Math.round(h / 24)} j`
+}
+
+/** Ouvre la notification touchée sur le téléphone (appli fermée : ?notif=…, appli ouverte : message du service worker). */
+export function usePushOpen() {
+  const { notifications, workspace, groups, switchGroup, backend } = useStore()
+  const navigate = useNavigate()
+  const [params, setParams] = useSearchParams()
+  const [wanted, setWanted] = useState<string | null>(() => params.get('notif'))
+
+  useEffect(() => {
+    if (backend.push) void syncPush(backend.push)
+  }, [backend])
+
+  useEffect(() => {
+    if (params.has('notif')) {
+      setWanted(params.get('notif'))
+      params.delete('notif')
+      setParams(params, { replace: true })
+    }
+  }, [params, setParams])
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    const onMsg = (e: MessageEvent) => e.data?.type === 'kollab:open-notification' && setWanted(e.data.id ?? '')
+    navigator.serviceWorker.addEventListener('message', onMsg)
+    return () => navigator.serviceWorker.removeEventListener('message', onMsg)
+  }, [])
+
+  useEffect(() => {
+    if (wanted == null) return
+    const n = notifications.find((x) => x.id === wanted)
+    if (!n) return
+    setWanted(null)
+    void (async () => {
+      if (n.groupId && n.groupId !== workspace?.group.id && groups.some((g) => g.id === n.groupId)) await switchGroup(n.groupId)
+      if (n.link) navigate(n.link)
+    })()
+  }, [wanted, notifications, workspace, groups, switchGroup, navigate])
 }
 
 /** Cloche avec le nombre de notifications non lues (attribution, mention, invitation, arrivée). */
@@ -40,6 +80,13 @@ export function NotificationBell() {
       toast(e instanceof Error ? e.message : 'Invitation invalide')
     }
   }
+
+  // Proposé seulement sur téléphone, tant que ce n'est pas activé.
+  const [pushOffer, setPushOffer] = useState(false)
+  useEffect(() => {
+    if (pushSupport() === 'no' || !window.matchMedia('(pointer: coarse)').matches) return
+    void pushEnabled().then((on) => setPushOffer(!on))
+  }, [])
 
   const actor = (n: AppNotification) => workspace?.members.find((m) => m.id === n.actorId)
 
@@ -87,6 +134,11 @@ export function NotificationBell() {
               </div>
             ))}
           </div>
+          {pushOffer && backend.push && (
+            <button className="notif-push" onClick={() => { close(); navigate('/reglages#notifications') }}>
+              <Icon name="bell" size={16} /> Recevoir aussi sur ce téléphone
+            </button>
+          )}
         </>
       )}
     </Popover>

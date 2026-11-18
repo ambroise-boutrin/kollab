@@ -9,16 +9,24 @@ import { Icon, type IconName } from './Icon'
 import { LogoMark } from './Logo'
 import { NewProjectDialog } from './NewProjectDialog'
 import { Popover } from './Popover'
-import { NotificationBell } from './Notifications'
+import { NotificationBell, usePushOpen } from './Notifications'
 import { InviteDialog } from './InviteDialog'
+import { CommandPalette, openSearch } from './CommandPalette'
+import { VoiceProvider } from '../lib/voice'
+import { VoiceBar } from './VoiceBar'
+import { Dock, DockToggle } from './Dock'
 
-const NAV: { to: string; label: string; icon: IconName }[] = [
+const NAV: { to: string; label: string; icon: IconName; more?: boolean }[] = [
   { to: '/', label: 'Accueil', icon: 'home' },
   { to: '/tableau', label: 'Tableau', icon: 'board' },
-  { to: '/revues', label: 'Revues', icon: 'pr' },
+  { to: '/sprints', label: 'Sprints', icon: 'sprint', more: true },
+  { to: '/revues', label: 'Revues', icon: 'pr', more: true },
   { to: '/chat', label: 'Chat', icon: 'chat' },
+  { to: '/documents', label: 'Documents', icon: 'doc', more: true },
   { to: '/equipe', label: 'Équipe', icon: 'group' },
 ]
+
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)
 
 const ROLE_LABEL = { admin: 'Admin', member: 'Membre', guest: 'Invité' } as const
 
@@ -186,6 +194,7 @@ function ProfileMenu({ compact = false }: { compact?: boolean }) {
 
 export function Layout() {
   const { workspace, user, backend } = useStore()
+  usePushOpen()
   const [creating, setCreating] = useState(false)
   const [inviting, setInviting] = useState(false)
   useEffect(() => {
@@ -194,14 +203,21 @@ export function Layout() {
     return () => window.removeEventListener('kollab:invite', on)
   }, [])
   const openNew = useCallback(() => setCreating(true), [])
-  const onHome = useLocation().pathname === '/'
+  const { pathname } = useLocation()
+  const onHome = pathname === '/'
   const myOpen = workspace?.tasks.filter((t) => t.assigneeIds.includes(user?.id ?? 'me') && t.status !== 'done').length ?? 0
 
   return (
+    <VoiceProvider>
     <div className="shell">
       <nav className="sidebar" aria-label="Navigation principale">
         <div className="brand"><LogoMark size={24} /> Kollab</div>
         <ProjectSwitcher onNew={() => setCreating(true)} />
+        <button className="nav-search" onClick={openSearch}>
+          <Icon name="search" size={18} />
+          Rechercher
+          <kbd>{IS_MAC ? '⌘' : 'Ctrl'} K</kbd>
+        </button>
         <div className="nav-list" data-tour="nav">
           {NAV.map((n) => (
             <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => `nav${isActive ? ' active' : ''}`}>
@@ -222,6 +238,8 @@ export function Layout() {
             <ProjectSwitcher onNew={() => setCreating(true)} compact />
           </div>
           <MembersStack />
+          <button className="icon-btn topbar-search" aria-label="Rechercher" onClick={openSearch}><Icon name="search" size={20} /></button>
+          <DockToggle />
           <NotificationBell />
           <div className="topbar-mobile">
             <ProfileMenu compact />
@@ -239,14 +257,38 @@ export function Layout() {
         )}
         <Outlet />
       </main>
+      <Dock />
+      <CommandPalette />
+      <VoiceBar />
 
       <nav className="tabbar" aria-label="Navigation" data-tour="nav">
-        {NAV.map((n) => (
+        {NAV.filter((n) => !n.more).map((n) => (
           <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => (isActive ? 'active' : '')}>
             <Icon name={n.icon} size={22} />
             {n.label}
           </NavLink>
         ))}
+        <Popover
+          label="Plus"
+          className="tab-more"
+          button={({ open, toggle }) => (
+            <button className={`tab-more-btn${NAV.some((n) => n.more && pathname.startsWith(n.to)) ? ' active' : ''}`} aria-expanded={open} onClick={toggle}>
+              <Icon name="grid" size={22} />
+              Plus
+            </button>
+          )}
+        >
+          {(close) => (
+            <div className="tab-more-grid">
+              {NAV.filter((n) => n.more).map((n) => (
+                <NavLink key={n.to} to={n.to} onClick={close} className={({ isActive }) => `tab-more-item${isActive ? ' active' : ''}`}>
+                  <span><Icon name={n.icon} size={22} /></span>
+                  {n.label}
+                </NavLink>
+              ))}
+            </div>
+          )}
+        </Popover>
       </nav>
 
       {creating && <NewProjectDialog onClose={() => setCreating(false)} />}
@@ -254,5 +296,6 @@ export function Layout() {
       {!DEMO_SESSION && <AppTour />}
       <DesktopMenu onNewProject={openNew} />
     </div>
+    </VoiceProvider>
   )
 }
