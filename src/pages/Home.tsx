@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Avatar } from '../components/Avatar'
 import { LinksCard } from '../components/LinksCard'
 import { MembersStack } from '../components/Layout'
-import { openExternal } from '../lib/links'
+import { PrStatus } from '../components/PrLink'
 import { useStore, useWorkspace } from '../lib/store'
 import { KINDS, STATUSES } from '../lib/types'
 
@@ -88,14 +88,15 @@ export function Home() {
             return (
               <div key={t.id} className="pr-row">
                 <span className="pr-title">{t.title}</span>
-                <span className="hint">{who?.name ?? 'Personne'}{t.prUrl ? ` · ${t.prUrl.replace(/^https:\/\/github\.com\//, '')}` : ' · pas de PR liée'}</span>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {t.prUrl ? (
-                    <button className="btn small" onClick={() => void openExternal(t.prUrl!)}>Relire</button>
-                  ) : (
-                    <Link className="btn soft small pr-link" to="/tableau">Lier une PR</Link>
-                  )}
-                </div>
+                <span className="hint">{who?.name ?? 'Personne'}</span>
+                {t.prUrl ? (
+                  <>
+                    <PrStatus url={t.prUrl} />
+                    <Link className="btn small" style={{ alignSelf: 'flex-start' }} to={`/revues?pr=${t.prUrl.split('/').pop()}`}>Relire</Link>
+                  </>
+                ) : (
+                  <Link className="btn soft small pr-link" style={{ alignSelf: 'flex-start' }} to="/tableau">Lier une PR</Link>
+                )}
               </div>
             )
           })}

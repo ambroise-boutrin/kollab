@@ -71,6 +71,8 @@ export interface Backend {
   linkedProviders(): Promise<Provider[]>
   link(provider: Provider): Promise<void>
   unlink(provider: Provider): Promise<void>
+  /** Connexion GitHub avec accès aux dépôts (pour les PR et la CI). */
+  connectGitHub(): Promise<void>
 
   /** Projets dont l'utilisateur est membre, du plus ancien au plus récent. */
   listGroups(): Promise<GroupSummary[]>

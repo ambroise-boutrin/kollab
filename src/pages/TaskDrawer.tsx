@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
+import { PrPicker } from '../components/PrLink'
 import { useToast } from '../components/Toast'
 import { useStore, useWorkspace } from '../lib/store'
 import { KINDS, STATUSES, type Task, type TaskKind, type TaskStatus } from '../lib/types'
@@ -95,16 +96,10 @@ export function TaskDrawer({ task, onClose }: { task: Task; onClose: () => void 
               {[1, 2, 3, 5, 8, 13, 21].map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
           </label>
-          <label className="field">
+          <div className="field" style={{ gridColumn: '1 / -1' }}>
             PR liée
-            <input
-              className="input"
-              type="url"
-              placeholder="https://github.com/…/pull/12"
-              defaultValue={draft.prUrl ?? ''}
-              onBlur={(e) => e.target.value !== (draft.prUrl ?? '') && linkPr(e.target.value.trim())}
-            />
-          </label>
+            <PrPicker value={draft.prUrl} onChange={(url) => linkPr(url ?? '')} onMerged={() => draft.status !== 'done' && commit({ ...draft, status: 'done' })} />
+          </div>
         </div>
 
         <label className="field">
