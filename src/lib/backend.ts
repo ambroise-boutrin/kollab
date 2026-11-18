@@ -181,9 +181,19 @@ export interface Backend {
   deleteNotification(id: string): Promise<void>
   /** Nouvelles notifications en direct. */
   watchNotifications(onNew: (n: AppNotification) => void): () => void
+  /** Notifications sur cet appareil (Web Push) : null en démo. */
+  push: PushApi | null
 
   setDiscordWebhook(url: string | null): Promise<void>
   notifyDiscord(event: DiscordEvent): Promise<void>
+}
+
+export interface PushApi {
+  publicKey(): Promise<string>
+  subscribe(sub: PushSubscriptionJSON): Promise<void>
+  unsubscribe(endpoint: string): Promise<void>
+  /** Envoie une notification d'essai ; renvoie le nombre d'appareils atteints. */
+  test(): Promise<number>
 }
 
 export function newId(): string {

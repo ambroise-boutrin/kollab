@@ -717,6 +717,8 @@ export const demoBackend: Backend = {
     })
   },
 
+  push: null,
+
   async notifyDiscord() {
     // Rien à envoyer en mode démo.
   },

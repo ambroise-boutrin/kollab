@@ -2,6 +2,7 @@ import { setGhToken } from './github'
 import { APP_BASE } from './base'
 import { createClient, type SupabaseClient, type User as SbUser } from '@supabase/supabase-js'
 import type { Backend, RoomEvent, User, Workspace } from './backend'
+import { disablePush } from './push'
 import { CGU_VERSION } from './legal'
 import type { AppNotification, Channel, DocumentItem, Note, Sprint, Invite, ReactionChange, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
 
@@ -166,6 +167,8 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     },
 
     async signOut() {
+      // L'appareil ne doit plus recevoir les notifications de ce compte.
+      if (this.push) await disablePush(this.push).catch(() => undefined)
       await sb.auth.signOut()
     },
 
@@ -649,6 +652,26 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
 
     async setDiscordWebhook(webhook) {
       must(await sb.rpc('set_discord_webhook', { gid: groupId, webhook }))
+    },
+
+    push: {
+      async publicKey() {
+        const { data, error } = await sb.functions.invoke('send-push', { method: 'GET' })
+        if (error || !data?.publicKey) throw new Error('Notifications indisponibles pour le moment')
+        return data.publicKey as string
+      },
+      async subscribe(subscription) {
+        const { error } = await sb.functions.invoke('send-push', { body: { action: 'subscribe', subscription } })
+        if (error) throw new Error('Activation impossible')
+      },
+      async unsubscribe(endpoint) {
+        await sb.functions.invoke('send-push', { body: { action: 'unsubscribe', endpoint } }).catch(() => undefined)
+      },
+      async test() {
+        const { data, error } = await sb.functions.invoke('send-push', { body: { action: 'test' } })
+        if (error) throw new Error('Envoi impossible')
+        return (data?.sent as number) ?? 0
+      },
     },
 
     async notifyDiscord(event) {
