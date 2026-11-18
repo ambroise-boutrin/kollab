@@ -79,6 +79,17 @@ function Cursor({ name, color, style }: { name: string; color: string; style: CS
   )
 }
 
+/** Une capture de l'app par public : tableau, chat, téléphone. */
+const AUD_SHOTS = ['/vitrine/tableau-attribution.png', '/vitrine/chat.png', '/vitrine/telephone-accueil.png']
+function AudShot({ i }: { i: number }) {
+  const src = AUD_SHOTS[i % AUD_SHOTS.length]
+  return (
+    <div className={`k-case-media${src.includes('telephone') ? ' is-phone' : ''}`}>
+      <img src={src} alt="" loading="lazy" decoding="async" />
+    </div>
+  )
+}
+
 function Shot({ src, alt, children, className = '' }: { src: string; alt: string; children?: ReactNode; className?: string }) {
   return (
     <div className={`k-shot ${className}`}>
@@ -418,11 +429,10 @@ function CasesSection() {
         </div>
       </div>
       <div className="k-cases-track" ref={track} onScroll={onScroll}>
-        {items.map((a) => (
+        {items.map((a, i) => (
           <article key={a.who} className="k-case">
-            <div className={`k-case-media ${a.bg}`}>
-              <h3>{a.title}</h3>
-            </div>
+            <AudShot i={i} />
+            <h3 className="k-case-title">{a.title}</h3>
             <p className="k-case-who"><a className="k-arrow" href={to('audience')}>{a.who} →</a></p>
             <p className="k-case-story">{a.story}</p>
           </article>
@@ -841,8 +851,9 @@ function AudiencePage() {
       <PageHead kicker={p.kicker} title={p.title} lead={p.lead} />
       <section className="k-section">
         <div className="k-wrap k-aud">
-          {t.audiences.map((a) => (
-            <article key={a.who} className={`k-aud-card ${a.bg} reveal`}>
+          {t.audiences.map((a, i) => (
+            <article key={a.who} className="k-aud-card reveal">
+              <AudShot i={i} />
               <p className="k-kicker">{a.who}</p>
               <h2 className="k-h3">{a.title}</h2>
               <p className="k-aud-story">{a.story}</p>
