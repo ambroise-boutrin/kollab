@@ -17,15 +17,33 @@ const site = (
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
 const base = readFileSync(join(dist, 'index.html'), 'utf8')
 
+const isEn = (p) => p === '/en' || p.startsWith('/en/')
+const abs = (p) => site + (p === '/' ? '/' : p)
+// Paires français / anglais pour les balises hreflang.
+const alternates = new Map()
+for (const [fr, en] of seo.alternates ?? []) {
+  alternates.set(fr, { fr, en })
+  alternates.set(en, { fr, en })
+}
+
 function render(path, { title, description }) {
-  const url = site + (path === '/' ? '/' : path)
+  const url = abs(path)
+  const en = isEn(path)
+  const alt = alternates.get(path)
   const tags = [
     `<title>${esc(title)}</title>`,
     `<meta name="description" content="${esc(description)}" />`,
     `<link rel="canonical" href="${url}" />`,
     `<meta property="og:type" content="website" />`,
     `<meta property="og:site_name" content="Kollab" />`,
-    `<meta property="og:locale" content="fr_FR" />`,
+    `<meta property="og:locale" content="${en ? 'en_GB' : 'fr_FR'}" />`,
+    ...(alt
+      ? [
+          `<link rel="alternate" hreflang="fr" href="${abs(alt.fr)}" />`,
+          `<link rel="alternate" hreflang="en" href="${abs(alt.en)}" />`,
+          `<link rel="alternate" hreflang="x-default" href="${abs(alt.fr)}" />`,
+        ]
+      : []),
     `<meta property="og:title" content="${esc(title)}" />`,
     `<meta property="og:description" content="${esc(description)}" />`,
     `<meta property="og:url" content="${url}" />`,
@@ -35,6 +53,7 @@ function render(path, { title, description }) {
     `<meta name="twitter:card" content="summary_large_image" />`,
   ].join('\n    ')
   return base
+    .replace('<html lang="fr">', `<html lang="${en ? 'en' : 'fr'}">`)
     .replace(/<title>.*?<\/title>/s, '')
     .replace(/<meta name="description"[^>]*>/, '')
     .replace('</head>', `    ${tags}\n  </head>`)

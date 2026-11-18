@@ -11,14 +11,14 @@ import { LogoMark } from './Logo'
 type Step = { path: string; target?: string; title: string; text: string }
 
 const STEPS: Step[] = [
-  { path: '/', title: 'Bienvenue dans Kollab', text: "Tu es dans une équipe de démonstration déjà remplie. On te fait faire le tour en une minute : suis les étapes ou passe quand tu veux." },
-  { path: '/', target: 'nav', title: 'Tout est à portée de main', text: "L'accueil, le tableau du sprint, le chat et le groupe. Sur téléphone, cette barre passe en bas de l'écran." },
-  { path: '/tableau', target: 'column', title: 'Les colonnes du sprint', text: "À faire, En cours, En revue, Terminé. Glisse une carte d'une colonne à l'autre pour la faire avancer." },
-  { path: '/tableau', target: 'task', title: 'Une tâche, un responsable', text: "Clique sur une carte pour l'ouvrir. Tu peux l'attribuer en voyant la charge de chacun, pour que personne ne fasse tout." },
-  { path: '/tableau', target: 'new-task', title: 'Ajouter du travail', text: 'Crée une tâche en un clic, puis donne-lui un type, une estimation en points et une PR liée.' },
-  { path: '/chat', target: 'channels', title: 'Des salons par sujet', text: 'Général, revues de code, sprint : chaque discussion a sa place, et les messages arrivent en direct.' },
-  { path: '/chat', target: 'composer', title: 'Mentionne, crée, avance', text: 'Tape @ pour mentionner un coéquipier, ou /tache suivi d’un titre pour créer une tâche sans quitter le chat.' },
-  { path: '/', title: 'À toi de jouer', text: 'Explore la démo librement. Quand tu es prêt, crée ton compte et invite ton équipe : c’est gratuit.' },
+  { path: '/', title: 'Bienvenue dans Kollab', text: "Une équipe d'exemple, déjà remplie. Le tour prend une minute." },
+  { path: '/', target: 'nav', title: 'La navigation', text: 'Accueil, tableau, chat et groupe.' },
+  { path: '/tableau', target: 'column', title: 'Les colonnes du sprint', text: 'Glisse une carte pour la faire avancer.' },
+  { path: '/tableau', target: 'task', title: 'Une tâche', text: "Ouvre-la pour l'attribuer en voyant la charge de chacun." },
+  { path: '/tableau', target: 'new-task', title: 'Nouvelle tâche', text: 'Type, estimation et PR liée.' },
+  { path: '/chat', target: 'channels', title: 'Les salons', text: 'Un salon par sujet, en direct.' },
+  { path: '/chat', target: 'composer', title: 'Le message', text: '@ pour mentionner, /tache pour créer une tâche.' },
+  { path: '/', title: 'À toi', text: 'Explore, puis crée ton compte. C’est gratuit.' },
 ]
 
 const DONE_KEY = 'kollab-demo-tour'
@@ -157,8 +157,8 @@ export function DemoTour() {
         <p className="tour-count">Étape {i + 1} sur {STEPS.length}</p>
         <h2 id="tour-title">{step.title}</h2>
         <p className="tour-text">{step.text}</p>
-        <div className="tour-dots" aria-hidden="true">
-          {STEPS.map((_, n) => <span key={n} className={n === i ? 'on' : n < i ? 'past' : undefined} />)}
+        <div className="tour-bar" aria-hidden="true">
+          <span style={{ width: `${((i + 1) / STEPS.length) * 100}%` }} />
         </div>
         <div className="tour-actions">
           {!last && <button className="tour-skip" onClick={close}>Passer</button>}
