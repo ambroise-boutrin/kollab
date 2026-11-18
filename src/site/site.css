@@ -96,7 +96,7 @@
 .k-block .k-shot { margin-top: auto; }
 .k-block-phone { align-items: stretch; }
 .k-phone { margin: auto auto -96px; width: min(280px, 72%); border-radius: 38px; padding: 9px; background: var(--ink); }
-.k-phone img { display: block; width: 100%; height: auto; border-radius: 30px; }
+.k-phone img, .k-phone video { display: block; width: 100%; height: auto; aspect-ratio: 560 / 1212; border-radius: 30px; background: #F5F6FA; }
 
 /* Faux diff (fonction à venir) --------------------------------------- */
 .k-diff { background: #1B1B22; border-radius: 16px; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .14); overflow: hidden; font-size: 14px; }

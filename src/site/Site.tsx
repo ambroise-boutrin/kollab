@@ -122,6 +122,21 @@ function Demo({ name, label, children }: { name: string; label: string; children
   )
 }
 
+/** Vidéo de l'app sur téléphone, dans un cadre de téléphone. Image fixe si l'animation est réduite. */
+function PhoneDemo() {
+  const [still] = useState(() => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false)
+  const label = "Démonstration sur téléphone : l'accueil, une tâche ouverte, puis un message envoyé dans le chat"
+  return (
+    <div className="k-phone">
+      {still ? (
+        <img src="/vitrine/demo-telephone.webp" alt={label} loading="lazy" decoding="async" />
+      ) : (
+        <video src="/vitrine/demo-telephone.mp4" poster="/vitrine/demo-telephone.webp" autoPlay muted loop playsInline preload="metadata" aria-label={label} />
+      )}
+    </div>
+  )
+}
+
 function Soon() {
   return <span className="k-soon">Bientôt</span>
 }
@@ -279,9 +294,7 @@ function ProductSection() {
                 ligne.
               </p>
             </div>
-            <div className="k-phone">
-              <img src="/vitrine/telephone-accueil.png" alt="L'accueil de Kollab sur téléphone" loading="lazy" decoding="async" />
-            </div>
+            <PhoneDemo />
           </article>
 
           <article className="k-block k-bg-ink reveal">
