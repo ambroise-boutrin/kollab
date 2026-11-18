@@ -92,6 +92,24 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       await sb.auth.signOut()
     },
 
+    async signInWithPassword(email, password) {
+      const { error } = await sb.auth.signInWithPassword({ email, password })
+      if (error) throw new Error(error.message === 'Invalid login credentials' ? 'Email ou mot de passe incorrect' : error.message)
+    },
+
+    async signUp(email, password, name) {
+      const data = must(await sb.auth.signUp({ email, password, options: { data: { full_name: name }, emailRedirectTo: redirectTo } }))
+      return { confirmEmail: !data.session }
+    },
+
+    async sendPasswordReset(email) {
+      must(await sb.auth.resetPasswordForEmail(email, { redirectTo: `${redirectTo}?nouveau-mot-de-passe=1` }))
+    },
+
+    async setPassword(password) {
+      must(await sb.auth.updateUser({ password }))
+    },
+
     async updateProfile(patch) {
       const { data } = await sb.auth.getUser()
       if (!data.user) return

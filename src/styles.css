@@ -205,6 +205,8 @@ textarea.input { resize: vertical; min-height: 90px; }
 .login-form { flex: 1 1 400px; display: grid; place-items: center; padding: 20px 0; }
 .login-form > div { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 18px; }
 .provider { width: 100%; min-height: 52px; border-radius: 16px; font-size: 15px; }
+.link-btn { border: 0; background: none; padding: 0; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
+.link-btn:hover { text-decoration: underline; }
 .or { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--muted); }
 .or::before, .or::after { content: ''; flex: 1; height: 1px; background: var(--line); }
 
