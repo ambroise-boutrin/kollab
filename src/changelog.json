@@ -1,5 +1,20 @@
 [
   {
+    "version": "0.4.0",
+    "date": "2026-11-18",
+    "title": "Plus vivant",
+    "items": [
+      "Fenêtre de tâche au centre, plus visuelle",
+      "Branche et PR créées toutes seules (feature/, fix/) avec choix de branche",
+      "Chat : réactions, références aux tâches et PR, modifier et supprimer ses messages",
+      "Invitations refaites : rôle, lien prêt à copier, emails",
+      "Réglages du projet détaillés : GitHub, intégrations, données",
+      "Dix modèles de projet",
+      "Accueil : ma journée et activité",
+      "Corbeille : rien n'est perdu pendant 30 jours"
+    ]
+  },
+  {
     "version": "0.3.0",
     "date": "2026-11-18",
     "title": "Équipe et revues",
