@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { LogoMark } from '../components/Logo'
 import { LegalPage, LEGAL_DOCS, findLegal } from './legal'
 import changelog from '../changelog.json'
+import seo from './seo.json'
 import './site.css'
 
 /** Lien d'invitation au serveur Discord de Kollab. Laisser vide pour masquer le bouton. */
@@ -124,9 +125,10 @@ function Soon() {
 
 const NAV = [
   { href: '/fonctionnalites', label: 'Fonctionnalités' },
+  { href: '/pour-qui', label: 'Pour qui' },
+  { href: '/comparatif', label: 'Comparatif' },
   { href: '/tarifs', label: 'Tarifs' },
   { href: '/telecharger', label: 'Télécharger' },
-  { href: '/nouveautes', label: 'Nouveautés' },
   { href: '/faq', label: 'FAQ' },
 ]
 
@@ -173,6 +175,8 @@ function Footer() {
             <h4>Produit</h4>
             <a href={APP_URL}>Ouvrir l'app</a>
             <a href="/fonctionnalites">Fonctionnalités</a>
+            <a href="/pour-qui">Pour qui</a>
+            <a href="/comparatif">Comparatif</a>
             <a href="/tarifs">Tarifs</a>
             <a href="/telecharger">Télécharger</a>
             <a href="/nouveautes">Nouveautés</a>
@@ -613,14 +617,126 @@ function FaqPage() {
   )
 }
 
+const AUDIENCES = [
+  {
+    bg: 'k-bg-yellow',
+    who: 'Projets étudiants',
+    title: "Le projet de fin d'année, sans le chaos.",
+    story: "Quatre étudiants, six semaines, un rendu noté. Le sujet en PDF est rangé dans les liens, les tâches sont réparties en voyant la charge de chacun, et tout le monde sait qui fait quoi avant la soutenance.",
+    points: ['Invitations par lien en 10 secondes', 'Charge visible pour éviter qu’un seul fasse tout', 'Gratuit, sans carte bancaire'],
+  },
+  {
+    bg: 'k-bg-coral',
+    who: 'Petites équipes de dev',
+    title: 'Le sprint et les PR au même endroit.',
+    story: "Une startup de cinq devs qui jonglait entre Trello, GitHub et Discord. Les PR s'affichent en cartes dans le chat, les tâches suivent le sprint, et les notifications arrivent dans le serveur Discord de l'équipe.",
+    points: ['Cartes de PR dans les conversations', 'Notifications dans Discord', 'App sur ordinateur et téléphone'],
+  },
+  {
+    bg: 'k-bg-mint',
+    who: 'Associations tech',
+    title: 'Des bénévoles qui avancent ensemble.',
+    story: "Une asso qui organise un hackathon avec des bénévoles qui changent chaque année. Les rôles (admin, membre, invité en lecture seule) gardent l'organisation claire, et les nouveaux retrouvent tout dans l'historique.",
+    points: ['Rôles et invités en lecture seule', 'Salons par sujet', 'Liens importants épinglés'],
+  },
+]
+
+function AudiencePage() {
+  return (
+    <main>
+      <PageHead kicker="Pour qui" title="Pensé pour les équipes qui codent ensemble." lead="De deux à quinze personnes, sur un projet court ou sur la durée. Trois exemples concrets." />
+      <section className="k-section">
+        <div className="k-wrap k-aud">
+          {AUDIENCES.map((a) => (
+            <article key={a.who} className={`k-aud-card ${a.bg} reveal`}>
+              <p className="k-kicker">{a.who}</p>
+              <h2 className="k-h3">{a.title}</h2>
+              <p className="k-aud-story">{a.story}</p>
+              <ul>
+                {a.points.map((pt) => <li key={pt}>{pt}</li>)}
+              </ul>
+            </article>
+          ))}
+        </div>
+      </section>
+      <FinalSection />
+    </main>
+  )
+}
+
+type Cell = boolean | 'soon' | 'part'
+const COMPARE: { feature: string; kollab: Cell; trello: Cell; jira: Cell; notion: Cell; discord: Cell }[] = [
+  { feature: 'Tableau kanban', kollab: true, trello: true, jira: true, notion: true, discord: false },
+  { feature: 'Attribution avec la charge de chacun', kollab: true, trello: false, jira: 'part', notion: false, discord: false },
+  { feature: 'Chat d’équipe en direct', kollab: true, trello: false, jira: false, notion: 'part', discord: true },
+  { feature: 'Cartes de PR GitHub dans le chat', kollab: true, trello: false, jira: false, notion: false, discord: 'part' },
+  { feature: 'Relecture des PR', kollab: 'soon', trello: false, jira: false, notion: false, discord: false },
+  { feature: 'Sprints et poker planning', kollab: 'soon', trello: false, jira: 'part', notion: false, discord: false },
+  { feature: 'Documents à plusieurs', kollab: 'soon', trello: false, jira: false, notion: true, discord: false },
+  { feature: 'Appels vocaux', kollab: 'soon', trello: false, jira: false, notion: false, discord: true },
+  { feature: 'Gratuit pour toute l’équipe', kollab: true, trello: 'part', jira: 'part', notion: 'part', discord: true },
+]
+const TOOLS = [
+  { key: 'kollab', label: 'Kollab' },
+  { key: 'trello', label: 'Trello' },
+  { key: 'jira', label: 'Jira' },
+  { key: 'notion', label: 'Notion' },
+  { key: 'discord', label: 'Discord' },
+] as const
+
+function Mark({ v }: { v: Cell }) {
+  if (v === true) return <span className="k-mk yes" aria-label="Oui">✓</span>
+  if (v === 'soon') return <span className="k-mk soon">Bientôt</span>
+  if (v === 'part') return <span className="k-mk part" aria-label="En partie">En partie</span>
+  return <span className="k-mk no" aria-label="Non">–</span>
+}
+
+function ComparePage() {
+  return (
+    <main>
+      <PageHead kicker="Comparatif" title="Un seul outil à la place de quatre." lead="Beaucoup d'équipes combinent Trello ou Jira pour les tâches, Notion pour les docs et Discord pour parler. Kollab réunit l'essentiel." />
+      <section className="k-section">
+        <div className="k-wrap">
+          <div className="k-compare reveal">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Fonction</th>
+                  {TOOLS.map((t) => <th key={t.key} scope="col" className={t.key === 'kollab' ? 'me' : undefined}>{t.label}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {COMPARE.map((r) => (
+                  <tr key={r.feature}>
+                    <th scope="row">{r.feature}</th>
+                    {TOOLS.map((t) => <td key={t.key} className={t.key === 'kollab' ? 'me' : undefined}><Mark v={r[t.key]} /></td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="k-note reveal">
+            « En partie » : disponible avec une extension, une offre payante ou de façon limitée. Comparatif établi en novembre 2026
+            d'après les offres gratuites de chaque outil. Trello, Jira, Notion et Discord sont des marques de leurs propriétaires respectifs.
+          </p>
+        </div>
+      </section>
+      <FinalSection />
+    </main>
+  )
+}
+
 /** Pages du site, par chemin. */
-const PAGES: Record<string, { title: string; render: () => ReactNode }> = {
-  '': { title: 'Kollab : gestion de projet et revues de code pour équipes de dev', render: () => <HomePage /> },
-  '/fonctionnalites': { title: 'Fonctionnalités · Kollab', render: () => <FeaturesPage /> },
-  '/tarifs': { title: 'Tarifs · Kollab', render: () => <PricingPage /> },
-  '/telecharger': { title: 'Télécharger · Kollab', render: () => <DownloadPage /> },
-  '/nouveautes': { title: 'Nouveautés · Kollab', render: () => <News /> },
-  '/faq': { title: 'Questions fréquentes · Kollab', render: () => <FaqPage /> },
+const SEO = seo.pages as Record<string, { title: string; description: string }>
+const PAGES: Record<string, () => ReactNode> = {
+  '': () => <HomePage />,
+  '/fonctionnalites': () => <FeaturesPage />,
+  '/pour-qui': () => <AudiencePage />,
+  '/comparatif': () => <ComparePage />,
+  '/tarifs': () => <PricingPage />,
+  '/telecharger': () => <DownloadPage />,
+  '/nouveautes': () => <News />,
+  '/faq': () => <FaqPage />,
 }
 
 
@@ -657,15 +773,17 @@ function News() {
 export default function Site() {
   const path = window.location.pathname.replace(/\/+$/, '')
   const legal = findLegal(path)
-  const page = PAGES[path] ?? PAGES['']
+  const key = PAGES[path] ? path : ''
   useReveal()
   useEffect(() => {
-    document.title = legal ? `${legal.title} · Kollab` : page.title
-  }, [legal, page])
+    const meta = SEO[key || '/'] ?? SEO['/']
+    document.title = meta.title
+    document.querySelector('meta[name="description"]')?.setAttribute('content', meta.description)
+  }, [key])
   return (
     <div className="site">
       <Header current={path} />
-      {legal ? <main><LegalPage doc={legal} /></main> : page.render()}
+      {legal ? <main><LegalPage doc={legal} /></main> : PAGES[key]()}
       <Footer />
     </div>
   )
