@@ -6,6 +6,8 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      // Enregistré à la main dans main.tsx, pour ne pas le faire dans l'appli bureau.
+      injectRegister: false,
       registerType: 'autoUpdate',
       includeAssets: ['logo.svg'],
       // Polices et icônes en cache : chargement instantané et hors ligne.

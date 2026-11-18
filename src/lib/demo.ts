@@ -133,6 +133,29 @@ export const demoBackend: Backend = {
     emit({ kind: 'auth' })
   },
 
+  async signInWithPassword(email, password) {
+    if (password.length < 8) throw new Error('Email ou mot de passe incorrect')
+    await demoBackend.signIn('email', email)
+  },
+
+  async signUp(email, password, name) {
+    if (password.length < 8) throw new Error('Le mot de passe doit faire au moins 8 caractères')
+    await demoBackend.signIn('email', email)
+    await demoBackend.updateProfile({ name })
+    update((s) => {
+      if (s.user) s.user.name = name
+    })
+    return { confirmEmail: false }
+  },
+
+  async sendPasswordReset() {
+    // Rien à envoyer en mode démo.
+  },
+
+  async setPassword(password) {
+    if (password.length < 8) throw new Error('Le mot de passe doit faire au moins 8 caractères')
+  },
+
   async updateProfile(patch) {
     update((s) => {
       const me = s.workspace?.members.find((m) => m.id === 'me')

@@ -1,15 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useToast } from '../components/Toast'
 import { useStore } from '../lib/store'
 import { applyTheme, loadThemeChoice, saveThemeChoice, THEMES, type ThemeChoice } from '../lib/themes'
 import type { Provider } from '../lib/types'
 import { PROVIDERS, ProviderIcon } from './Login'
+import { ProfileCard } from './ProfileCard'
 
 export function Settings() {
   const { backend } = useStore()
   const toast = useToast()
   const [choice, setChoice] = useState<ThemeChoice>(loadThemeChoice)
   const [linked, setLinked] = useState<Provider[]>([])
+  const [password, setPassword] = useState('')
+  const [editingPassword, setEditingPassword] = useState(false)
 
   useEffect(() => {
     applyTheme(choice)
@@ -34,12 +37,25 @@ export function Settings() {
     }
   }
 
+  async function savePassword(e: FormEvent) {
+    e.preventDefault()
+    try {
+      await backend.setPassword(password)
+      setPassword('')
+      setEditingPassword(false)
+      toast('Mot de passe enregistré')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Changement impossible')
+    }
+  }
+
   return (
     <div className="page" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <h1>Réglages</h1>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 18, alignItems: 'start' }}>
-        <section className="card appear" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <ProfileCard />
+        <section className="card appear appear-2" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
             <h2>Thème</h2>
             <p className="muted" style={{ margin: '2px 0 0', fontSize: 14 }}>Chaque membre choisit le sien.</p>
@@ -100,9 +116,20 @@ export function Settings() {
             <span className="logo-box" style={{ background: 'var(--accent)' }}>@</span>
             <span style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
               <strong style={{ fontWeight: 600 }}>Email</strong>
-              <span className="muted" style={{ fontSize: 13 }}>{linked.includes('email') ? 'Relié' : 'Connexion par lien magique'}</span>
+              <span className="muted" style={{ fontSize: 13 }}>Mot de passe ou lien magique</span>
             </span>
+            {!editingPassword && <button className="btn small soft" onClick={() => setEditingPassword(true)}>Mot de passe</button>}
           </div>
+          {editingPassword && (
+            <form onSubmit={savePassword} className="appear" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+              <label className="field" style={{ flex: '1 1 200px' }}>
+                Nouveau mot de passe
+                <input className="input" type="password" required minLength={8} autoComplete="new-password" placeholder="8 caractères minimum" value={password} onChange={(e) => setPassword(e.target.value)} />
+              </label>
+              <button className="btn">Enregistrer</button>
+              <button type="button" className="btn soft" onClick={() => { setEditingPassword(false); setPassword('') }}>Annuler</button>
+            </form>
+          )}
         </section>
       </div>
     </div>

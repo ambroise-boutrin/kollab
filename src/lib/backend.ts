@@ -39,6 +39,14 @@ export interface Backend {
   signIn(provider: Provider, email?: string): Promise<{ emailSent?: boolean }>
   signOut(): Promise<void>
 
+  /** Compte Kollab classique, sans GitHub, Google ni Discord. */
+  signInWithPassword(email: string, password: string): Promise<void>
+  /** Renvoie confirmEmail quand un lien de confirmation part par email avant la première connexion. */
+  signUp(email: string, password: string, name: string): Promise<{ confirmEmail: boolean }>
+  sendPasswordReset(email: string): Promise<void>
+  /** Change le mot de passe de l'utilisateur connecté (ou en crée un). */
+  setPassword(password: string): Promise<void>
+
   updateProfile(patch: ProfilePatch): Promise<void>
   /** Envoie une photo de profil (déjà redimensionnée) et renvoie son adresse. */
   uploadAvatar(file: Blob): Promise<string>

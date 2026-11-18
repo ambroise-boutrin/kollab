@@ -32,19 +32,31 @@ export function ProviderIcon({ path }: { path: string }) {
   )
 }
 
+type Mode = 'signin' | 'signup' | 'forgot' | 'magic'
+
+const HEADINGS: Record<Mode, { title: string; sub: string }> = {
+  signin: { title: 'Bon retour', sub: 'Connecte-toi pour retrouver ton groupe.' },
+  signup: { title: 'Créer un compte', sub: 'Un compte Kollab, sans GitHub, Google ni Discord.' },
+  forgot: { title: 'Mot de passe oublié', sub: 'On t’envoie un lien pour en choisir un nouveau.' },
+  magic: { title: 'Bon retour', sub: 'Connecte-toi pour retrouver ton groupe.' },
+}
+
 export function Login() {
   const { backend } = useStore()
+  const [mode, setMode] = useState<Mode>('signin')
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
-  const [sent, setSent] = useState(false)
+  const [password, setPassword] = useState('')
+  const [sent, setSent] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  async function go(provider: Provider) {
+  async function run(action: () => Promise<string | void>) {
     setError(null)
     setBusy(true)
     try {
-      const r = await backend.signIn(provider, email)
-      if (r.emailSent) setSent(true)
+      const msg = await action()
+      if (msg) setSent(msg)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Connexion impossible')
     } finally {
@@ -52,10 +64,32 @@ export function Login() {
     }
   }
 
-  function onEmail(e: FormEvent) {
-    e.preventDefault()
-    void go('email')
+  function switchTo(next: Mode) {
+    setMode(next)
+    setError(null)
+    setSent(null)
   }
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    void run(async () => {
+      if (mode === 'signin') return backend.signInWithPassword(email, password)
+      if (mode === 'signup') {
+        const r = await backend.signUp(email, password, name.trim())
+        if (r.confirmEmail) return `On t’a envoyé un lien à ${email} pour confirmer ton compte.`
+        return
+      }
+      if (mode === 'forgot') {
+        await backend.sendPasswordReset(email)
+        return `Si un compte existe pour ${email}, un lien pour changer le mot de passe vient de partir.`
+      }
+      const r = await backend.signIn('email', email)
+      if (r.emailSent) return `On t’a envoyé un lien de connexion à ${email}.`
+    })
+  }
+
+  const usesPassword = mode === 'signin' || mode === 'signup'
+  const submitLabel = { signin: 'Se connecter', signup: 'Créer mon compte', forgot: 'Envoyer le lien', magic: 'Recevoir un lien de connexion' }[mode]
 
   return (
     <div className="login page">
@@ -69,40 +103,80 @@ export function Login() {
       </section>
 
       <section className="login-form">
-        <div className="appear">
+        <div className="appear" key={mode}>
           <div>
-            <h1 style={{ fontSize: 32 }}>Bon retour</h1>
-            <p className="muted" style={{ margin: '4px 0 0' }}>Connecte-toi pour retrouver ton groupe.</p>
+            <h1 style={{ fontSize: 32 }}>{HEADINGS[mode].title}</h1>
+            <p className="muted" style={{ margin: '4px 0 0' }}>{HEADINGS[mode].sub}</p>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {PROVIDERS.map((p) => (
-              <button key={p.id} className="btn provider" style={{ background: p.bg }} disabled={busy} onClick={() => void go(p.id)}>
-                <ProviderIcon path={p.icon} />
-                Continuer avec {p.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="or">ou par email</div>
+          {(mode === 'signin' || mode === 'magic') && (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {PROVIDERS.map((p) => (
+                  <button key={p.id} className="btn provider" style={{ background: p.bg }} disabled={busy} onClick={() => void run(async () => void (await backend.signIn(p.id)))}>
+                    <ProviderIcon path={p.icon} />
+                    Continuer avec {p.label}
+                  </button>
+                ))}
+              </div>
+              <div className="or">ou par email</div>
+              <div className="seg" role="group" aria-label="Façon de se connecter" style={{ alignSelf: 'center' }}>
+                <button type="button" aria-pressed={mode === 'signin'} onClick={() => switchTo('signin')}>Mot de passe</button>
+                <button type="button" aria-pressed={mode === 'magic'} onClick={() => switchTo('magic')}>Lien magique</button>
+              </div>
+            </>
+          )}
 
           {sent ? (
             <div className="card appear" style={{ textAlign: 'center' }}>
               <strong>Regarde ta boîte mail</strong>
-              <p className="muted" style={{ margin: '4px 0 0' }}>On t'a envoyé un lien de connexion à {email}.</p>
+              <p className="muted" style={{ margin: '4px 0 0' }}>{sent}</p>
             </div>
           ) : (
-            <form onSubmit={onEmail} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {mode === 'signup' && (
+                <label className="field">
+                  Ton nom
+                  <input className="input" required maxLength={40} autoComplete="name" placeholder="ex. Léa" value={name} onChange={(e) => setName(e.target.value)} />
+                </label>
+              )}
               <label className="field">
                 Adresse email
-                <input className="input" type="email" required placeholder="toi@exemple.fr" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <input className="input" type="email" required autoComplete="email" placeholder="toi@exemple.fr" value={email} onChange={(e) => setEmail(e.target.value)} />
               </label>
-              <button className="btn provider" disabled={busy}>Recevoir un lien de connexion</button>
-              <span className="muted" style={{ fontSize: 13, textAlign: 'center' }}>Pas de mot de passe : un lien magique arrive par email.</span>
+              {usesPassword && (
+                <div className="field">
+                  <span style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <label htmlFor="password">Mot de passe</label>
+                    {mode === 'signin' && <button type="button" className="link-btn" onClick={() => switchTo('forgot')}>Oublié ?</button>}
+                  </span>
+                  <input
+                    id="password"
+                    className="input"
+                    type="password"
+                    required
+                    minLength={mode === 'signup' ? 8 : undefined}
+                    autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                    placeholder={mode === 'signup' ? '8 caractères minimum' : ''}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </div>
+              )}
+              <button className="btn provider" disabled={busy}>{submitLabel}</button>
+              {mode === 'magic' && <span className="muted" style={{ fontSize: 13, textAlign: 'center' }}>Pas de mot de passe : un lien magique arrive par email.</span>}
             </form>
           )}
 
           {error && <p role="alert" style={{ color: 'var(--danger)', margin: 0 }}>{error}</p>}
+
+          <p className="muted" style={{ margin: 0, textAlign: 'center', fontSize: 14 }}>
+            {mode === 'signup' || mode === 'forgot' ? (
+              <button type="button" className="link-btn" onClick={() => switchTo('signin')}>Retour à la connexion</button>
+            ) : (
+              <>Pas encore de compte ? <button type="button" className="link-btn" onClick={() => switchTo('signup')}>Créer un compte</button></>
+            )}
+          </p>
         </div>
       </section>
     </div>
