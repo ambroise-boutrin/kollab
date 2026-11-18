@@ -1,5 +1,5 @@
 import { newId, type Backend, type TrashItem, type GroupSetup, type LiveHandlers, type User, type Workspace } from './backend'
-import type { AppNotification, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task } from './types'
+import type { AppNotification, DocumentItem, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task } from './types'
 
 /**
  * Mode démo : tout est stocké dans le navigateur. Plusieurs onglets ouverts
@@ -20,7 +20,11 @@ interface DemoState {
   notifications?: AppNotification[]
   trash?: TrashItem[]
   trashedTasks?: Task[]
+  trashedDocs?: DocumentItem[]
 }
+
+/** Fichiers envoyés en démo : gardés en mémoire le temps de la session. */
+const demoFiles = new Map<string, string>()
 
 const ME: Member = { id: 'me', name: 'Moi', color: '#5546E0', role: 'admin', title: 'Product Owner', status: 'available', avatarUrl: null }
 const TEAM: Member[] = [
@@ -56,6 +60,10 @@ function seed(user: User): Workspace {
     links: [
       { id: newId(), title: 'Dépôt GitHub', url: 'https://github.com/ambroise-boutrin/kollab' },
     ],
+    documents: [
+      { id: newId(), name: 'Cahier des charges.pdf', mime: 'application/pdf', size: 2820, path: '/demo/cahier-des-charges.pdf', uploadedBy: 'sk', createdAt: new Date(Date.now() - 26 * 3600e3).toISOString() },
+      { id: newId(), name: 'Maquette accueil.jpg', mime: 'image/jpeg', size: 66149, path: '/demo/maquette-accueil.jpg', uploadedBy: 'lm', createdAt: new Date(Date.now() - 3 * 3600e3).toISOString() },
+    ],
   }
 }
 
@@ -86,6 +94,7 @@ function read(): DemoState {
           const old = t as Task & { assigneeId?: string | null }
           if (!old.assigneeIds) old.assigneeIds = old.assigneeId ? [old.assigneeId] : []
         }
+        if (w && !w.documents) w.documents = []
       }
       return s
     }
@@ -302,6 +311,7 @@ export const demoBackend: Backend = {
         const now = new Date().toISOString()
         w.tasks = (setup.tasks ?? []).map((t, i) => ({ ...t, id: newId(), description: '', assigneeIds: [], prUrl: null, position: i, createdAt: now }))
         w.links = setup.repoUrl ? [{ id: newId(), title: 'Dépôt GitHub', url: setup.repoUrl }] : []
+        w.documents = []
       }
       s.workspace = w
       s.messages = preset ? [] : seedMessages()
@@ -516,6 +526,9 @@ export const demoBackend: Backend = {
       const task = (s.trashedTasks ?? []).find((t) => t.id === id)
       if (item && task && s.workspace) s.workspace.tasks.push(task)
       s.trashedTasks = (s.trashedTasks ?? []).filter((t) => t.id !== id)
+      const doc = (s.trashedDocs ?? []).find((d) => d.id === id)
+      if (doc && s.workspace) s.workspace.documents.unshift(doc)
+      s.trashedDocs = (s.trashedDocs ?? []).filter((d) => d.id !== id)
     })
     emit({ kind: 'refresh' })
   },
@@ -533,6 +546,42 @@ export const demoBackend: Backend = {
     })
     emit({ kind: 'refresh' })
     return link
+  },
+
+  async uploadDocument(file) {
+    const doc: DocumentItem = { id: newId(), name: file.name, mime: file.type || 'application/octet-stream', size: file.size, path: `demo:${newId()}`, uploadedBy: 'me', createdAt: new Date().toISOString() }
+    demoFiles.set(doc.path, URL.createObjectURL(file))
+    update((s) => {
+      s.workspace?.documents.unshift(doc)
+    })
+    emit({ kind: 'refresh' })
+    return doc
+  },
+
+  async documentUrl(doc) {
+    if (doc.path.startsWith('/')) return doc.path
+    const url = demoFiles.get(doc.path)
+    if (!url) throw new Error('En démo, les fichiers envoyés ne sont gardés que jusqu\'au rechargement.')
+    return url
+  },
+
+  async renameDocument(id, name) {
+    update((s) => {
+      const d = s.workspace?.documents.find((x) => x.id === id)
+      if (d) d.name = name.trim()
+    })
+    emit({ kind: 'refresh' })
+  },
+
+  async removeDocument(id) {
+    update((s) => {
+      const d = s.workspace?.documents.find((x) => x.id === id)
+      if (!d || !s.workspace) return
+      s.workspace.documents = s.workspace.documents.filter((x) => x.id !== id)
+      s.trashedDocs = [...(s.trashedDocs ?? []), d]
+      s.trash = [{ kind: 'document', id, title: d.name, deletedAt: new Date().toISOString(), deletedBy: 'me' }, ...(s.trash ?? [])]
+    })
+    emit({ kind: 'refresh' })
   },
 
   async removeLink(id) {

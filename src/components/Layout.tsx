@@ -17,6 +17,7 @@ const NAV: { to: string; label: string; icon: IconName }[] = [
   { to: '/tableau', label: 'Tableau', icon: 'board' },
   { to: '/revues', label: 'Revues', icon: 'pr' },
   { to: '/chat', label: 'Chat', icon: 'chat' },
+  { to: '/documents', label: 'Documents', icon: 'doc' },
   { to: '/equipe', label: 'Équipe', icon: 'group' },
 ]
 

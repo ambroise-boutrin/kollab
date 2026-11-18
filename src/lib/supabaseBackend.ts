@@ -3,7 +3,7 @@ import { APP_BASE } from './base'
 import { createClient, type SupabaseClient, type User as SbUser } from '@supabase/supabase-js'
 import type { Backend, User, Workspace } from './backend'
 import { CGU_VERSION } from './legal'
-import type { AppNotification, Channel, Invite, ReactionChange, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
+import type { AppNotification, Channel, DocumentItem, Invite, ReactionChange, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
 
 interface TaskRow {
   id: string
@@ -19,6 +19,18 @@ interface TaskRow {
   position: number
   created_at: string
 }
+
+interface DocumentRow {
+  id: string
+  name: string
+  mime: string
+  size: number
+  path: string
+  uploaded_by: string | null
+  created_at: string
+}
+
+const toDocument = (r: DocumentRow): DocumentItem => ({ id: r.id, name: r.name, mime: r.mime, size: Number(r.size), path: r.path, uploadedBy: r.uploaded_by, createdAt: r.created_at })
 
 interface MessageRow {
   id: string
@@ -221,12 +233,13 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       if (!memberships.length) return null
       groupId = (memberships.find((m) => m.group_id === wanted) ?? memberships[0]).group_id
 
-      const [group, members, tasks, channels, links] = await Promise.all([
+      const [group, members, tasks, channels, links, documents] = await Promise.all([
         sb.from('groups').select('id, name, invite_code, discord_webhook_set').eq('id', groupId).single(),
         sb.from('group_members').select('user_id, role, profiles(name, color, title, status, avatar_url)').eq('group_id', groupId),
         sb.from('tasks').select('*').eq('group_id', groupId).order('position'),
         sb.from('channels').select('id, name').eq('group_id', groupId).order('created_at'),
         sb.from('links').select('*').eq('group_id', groupId).order('created_at'),
+        sb.from('documents').select('*').eq('group_id', groupId).is('deleted_at', null).order('created_at', { ascending: false }),
       ])
       const g = must(group)
       type MemberRow = {
@@ -250,6 +263,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         tasks: (must(tasks) as TaskRow[]).filter((r) => !r.deleted_at).map(toTask),
         channels: must(channels),
         links: (must(links) as (LinkItem & { deleted_at?: string | null })[]).filter((l) => !l.deleted_at).map(({ id, title, url }) => ({ id, title, url })),
+        documents: documents.error ? [] : (documents.data as DocumentRow[]).map(toDocument),
       }
     },
 
@@ -307,6 +321,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
           void sb.from('messages').select('*').eq('id', (payload as { id: string }).id).single().then(({ data }) => data && h.onMessageUpdated(toMessage(data as MessageRow)))
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'links', filter }, refresh)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'documents', filter }, refresh)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'channels', filter }, refresh)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'group_members', filter }, refresh)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'groups', filter: `id=eq.${gid}` }, refresh)
@@ -485,6 +500,33 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
 
     async addLink(title, url) {
       return must(await sb.from('links').insert({ title, url, group_id: groupId }).select('id, title, url').single()) as LinkItem
+    },
+
+    async uploadDocument(file) {
+      const { data: auth } = await sb.auth.getUser()
+      const safe = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w.-]+/g, '-').slice(-80) || 'fichier'
+      const path = `${groupId}/${crypto.randomUUID()}-${safe}`
+      const mime = file.type || 'application/octet-stream'
+      must(await sb.storage.from('documents').upload(path, file, { contentType: mime }))
+      const row = must(
+        await sb.from('documents').insert({ group_id: groupId, name: file.name.slice(0, 200), path, mime, size: file.size, uploaded_by: auth.user?.id }).select('*').single(),
+      ) as DocumentRow
+      return toDocument(row)
+    },
+
+    async documentUrl(doc) {
+      const { data, error } = await sb.storage.from('documents').createSignedUrl(doc.path, 3600)
+      if (error || !data) throw new Error('Fichier introuvable')
+      return data.signedUrl
+    },
+
+    async renameDocument(id, name) {
+      must(await sb.from('documents').update({ name: name.trim().slice(0, 200) }).eq('id', id))
+    },
+
+    async removeDocument(id) {
+      const { data: auth } = await sb.auth.getUser()
+      must(await sb.from('documents').update({ deleted_at: new Date().toISOString(), deleted_by: auth.user?.id ?? null }).eq('id', id))
     },
 
     async removeLink(id) {
