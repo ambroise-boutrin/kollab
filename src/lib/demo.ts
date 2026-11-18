@@ -620,13 +620,14 @@ export const demoBackend: Backend = {
     emit({ kind: 'refresh' })
   },
 
-  joinRoom(room, h) {
+  joinRoom(room, h, opts) {
     // Démo : Léa et Sami sont là et votent quelques secondes après chaque nouvelle tâche.
     const bots = ['lm', 'sk']
     const timers: ReturnType<typeof setTimeout>[] = []
     const bc = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(`kollab-room-${room}`) : null
     if (bc) bc.onmessage = (m) => h.onEvent(m.data as RoomEvent)
-    setTimeout(() => h.onPeers(['me', ...bots]), 300)
+    if (!room.startsWith('voice')) setTimeout(() => h.onPeers(['me', ...bots]), 300)
+    else setTimeout(() => h.onPeers(opts?.listen ? [] : ['me']), 300)
     const deck = [2, 3, 5, 5, 8]
     const botsVote = () => {
       for (const b of bots) {
@@ -637,7 +638,10 @@ export const demoBackend: Backend = {
       send(e) {
         const ev = { ...e, from: 'me' } as RoomEvent
         bc?.postMessage(ev)
-        if (e.type === 'task' || e.type === 'reset') botsVote()
+        if (room === 'poker' && (e.type === 'task' || e.type === 'reset')) botsVote()
+      },
+      setPresent(on) {
+        if (room.startsWith('voice')) h.onPeers(on ? ['me'] : [])
       },
       leave() {
         timers.forEach(clearTimeout)

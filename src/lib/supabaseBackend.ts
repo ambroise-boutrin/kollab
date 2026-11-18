@@ -565,10 +565,11 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       must(await sb.from('documents').update({ deleted_at: new Date().toISOString(), deleted_by: auth.user?.id ?? null }).eq('id', id))
     },
 
-    joinRoom(room, h) {
+    joinRoom(room, h, opts) {
       let me = ''
       const ch = sb.channel(`room:${groupId}:${room}`, { config: { broadcast: { self: false }, presence: { key: crypto.randomUUID() } } })
       const pending: Omit<RoomEvent, 'from'>[] = []
+      let tracked = !opts?.listen
       let ready = false
       ch.on('broadcast', { event: 'room' }, ({ payload }) => h.onEvent(payload as RoomEvent))
         .on('presence', { event: 'sync' }, () => {
@@ -579,7 +580,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
           if (status !== 'SUBSCRIBED') return
           const { data } = await sb.auth.getUser()
           me = data.user?.id ?? ''
-          if (me) await ch.track({ userId: me })
+          if (me && tracked) await ch.track({ userId: me })
           ready = true
           for (const e of pending.splice(0)) void ch.send({ type: 'broadcast', event: 'room', payload: { ...e, from: me } })
         })
@@ -587,6 +588,12 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         send(e) {
           if (!ready) pending.push(e)
           else void ch.send({ type: 'broadcast', event: 'room', payload: { ...e, from: me } })
+        },
+        setPresent(on) {
+          tracked = on
+          if (!ready || !me) return
+          if (on) void ch.track({ userId: me })
+          else void ch.untrack()
         },
         leave() {
           void sb.removeChannel(ch)

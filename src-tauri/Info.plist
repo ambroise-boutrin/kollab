@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Kollab utilise le micro pour les salons vocaux de ton équipe.</string>
+  <key>NSCameraUsageDescription</key>
+  <string>Kollab utilise la caméra pour la visio avec ton équipe.</string>
+</dict>
+</plist>

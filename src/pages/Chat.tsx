@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEven
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Avatar, AvatarGroup } from '../components/Avatar'
 import { Icon } from '../components/Icon'
+import { VoiceJoin } from '../components/VoiceBar'
 import { Popover } from '../components/Popover'
 import { PrStatus } from '../components/PrLink'
 import { useToast } from '../components/Toast'
@@ -278,7 +279,10 @@ export function Chat() {
       <section className="card thread" aria-label={`Salon ${channel?.name ?? ''}`}>
         <header className="thread-head">
           <h2># {channel?.name}</h2>
-          <AvatarGroup members={members.filter((m) => online.includes(m.id))} size={26} max={5} online={online} />
+          <div className="thread-tools">
+            <VoiceJoin />
+            <AvatarGroup members={members.filter((m) => online.includes(m.id))} size={26} max={5} online={online} />
+          </div>
         </header>
 
         <div className="messages" ref={listRef} aria-live="polite">
