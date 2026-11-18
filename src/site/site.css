@@ -151,7 +151,7 @@
 .k-integ p { margin: 0; color: var(--mute); }
 
 /* Tarifs -------------------------------------------------------------- */
-.k-price { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); border-radius: 28px; overflow: hidden; box-shadow: inset 0 0 0 1.5px var(--ink); }
+.k-price { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); border-radius: 28px; overflow: hidden; border: 1.5px solid var(--ink); }
 .k-price-main { padding: clamp(28px, 4vw, 56px); display: flex; flex-direction: column; align-items: flex-start; gap: 18px; }
 .k-price-sub { margin: 0; font-size: 18px; color: var(--mute); }
 .k-price-tag { display: flex; align-items: baseline; gap: 12px; margin: 8px 0; }
@@ -535,3 +535,21 @@
 @media (min-width: 981px) {
   .k-header .k-wrap { max-width: 1600px; padding: 0 clamp(32px, 3.5vw, 56px); }
 }
+.k-header-cta .k-btn-ink { gap: .3em; }
+
+/* Pas de cartes de couleur : fond neutre comme l'app, et des captures de l'app */
+.site .k-bg-indigo, .site .k-bg-yellow, .site .k-bg-coral, .site .k-bg-mint, .site .k-bg-lilac, .site .k-bg-ink { background: #F5F6FA; color: var(--ink); }
+.site .k-bg-ink .k-block-text p { color: var(--mute); }
+.site .k-bg-ink .k-soon, .site .k-bg-indigo .k-soon { color: var(--indigo); }
+.site .k-block-text code { background: #E9EAF2; }
+.k-price-list { background: #F5F6FA; }
+.k-road { background: #F5F6FA !important; }
+.k-case-media { background: #F5F6FA; padding: 24px 24px 0; align-items: flex-end; justify-content: center; overflow: hidden; }
+.k-case-media img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: left top; border-radius: 10px 10px 0 0; border: 1px solid var(--line); border-bottom: 0; }
+.k-case-media.is-phone img { width: auto; height: 100%; object-fit: contain; border-radius: 22px 22px 0 0; }
+.k-case-title { font-family: var(--display); font-weight: 500; font-size: clamp(22px, 2vw, 28px); line-height: 1.15; letter-spacing: -0.025em; margin: 18px 0 0; }
+.k-aud-card { background: #fff; border: 1px solid var(--line); padding: 0 0 28px; overflow: hidden; }
+.k-aud-card > :not(.k-case-media) { margin-left: 28px; margin-right: 28px; }
+.k-aud-card .k-case-media { border-radius: 0; margin-bottom: 10px; }
+.k-aud-card li { border-top-width: 1px; border-top-color: var(--line); }
+.site .k-diff { color: #fff; }
