@@ -1,24 +1,34 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { PrPicker } from '../components/PrLink'
 import { useToast } from '../components/Toast'
 import { useStore, useWorkspace } from '../lib/store'
-import { KINDS, STATUSES, type Task, type TaskKind, type TaskStatus } from '../lib/types'
+import { KINDS, STATUSES, type Task, type TaskKind } from '../lib/types'
 
 /** Charge d'un membre = points des tâches non terminées qui lui sont attribuées. */
 function load(tasks: Task[], memberId: string) {
   return tasks.filter((t) => t.assigneeIds.includes(memberId) && t.status !== 'done').reduce((n, t) => n + (t.points ?? 0), 0)
 }
 
-export function TaskDrawer({ task, onClose }: { task: Task; onClose: () => void }) {
+const POINTS = [1, 2, 3, 5, 8, 13, 21]
+
+/**
+ * Fenêtre de tâche, au centre de l'écran.
+ * `isNew` : rien n'est enregistré avant « Créer la tâche » (fermer = abandonner).
+ */
+export function TaskDrawer({ task, onClose, isNew = false }: { task: Task; onClose: () => void; isNew?: boolean }) {
   const { members, tasks } = useWorkspace()
-  const { saveTask, deleteTask, backend, online } = useStore()
+  const { saveTask, createTask, deleteTask, backend, online } = useStore()
   const toast = useToast()
   const [draft, setDraft] = useState(task)
+  const titleRef = useRef<HTMLTextAreaElement>(null)
 
   // Si quelqu'un d'autre modifie la tâche pendant qu'elle est ouverte.
-  useEffect(() => setDraft(task), [task])
+  useEffect(() => {
+    if (!isNew) setDraft(task)
+  }, [task, isNew])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -26,115 +36,172 @@ export function TaskDrawer({ task, onClose }: { task: Task; onClose: () => void 
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  // Le texte s'enregistre tout seul pendant la frappe : rien n'est perdu si l'app se ferme.
+  useEffect(() => {
+    if (isNew) return
+    if (draft.title === task.title && draft.description === task.description) return
+    if (!draft.title.trim()) return
+    const id = setTimeout(() => void saveTask(draft), 700)
+    return () => clearTimeout(id)
+  }, [draft.title, draft.description]) // eslint-disable-line react-hooks/exhaustive-deps
+
   function commit(next: Task) {
     setDraft(next)
-    void saveTask(next)
+    if (!isNew) void saveTask(next)
   }
 
-  /** Ajoute ou retire une personne ; une tâche peut en avoir plusieurs. */
   function toggleAssignee(memberId: string) {
     const on = draft.assigneeIds.includes(memberId)
     const next = { ...draft, assigneeIds: on ? draft.assigneeIds.filter((id) => id !== memberId) : [...draft.assigneeIds, memberId] }
     commit(next)
-    if (!on) {
+    if (!on && !isNew) {
       const name = members.find((m) => m.id === memberId)?.name ?? ''
       void backend.notifyDiscord({ type: 'task_assigned', taskTitle: next.title, assignee: name })
-      toast(`${name} ajouté à la tâche`)
     }
   }
 
   function linkPr(url: string) {
     const next = { ...draft, prUrl: url || null }
     commit(next)
-    if (url) void backend.notifyDiscord({ type: 'pr_linked', taskTitle: next.title, prUrl: url })
+    if (url && !isNew) void backend.notifyDiscord({ type: 'pr_linked', taskTitle: next.title, prUrl: url })
+  }
+
+  async function create() {
+    const title = draft.title.trim()
+    if (!title) {
+      titleRef.current?.focus()
+      return
+    }
+    await createTask({ title, status: draft.status, kind: draft.kind, points: draft.points, description: draft.description, assigneeIds: draft.assigneeIds, prUrl: draft.prUrl })
+    for (const id of draft.assigneeIds) {
+      const name = members.find((m) => m.id === id)?.name ?? ''
+      void backend.notifyDiscord({ type: 'task_assigned', taskTitle: title, assignee: name })
+    }
+    toast('Tâche créée')
+    onClose()
+  }
+
+  async function remove() {
+    onClose()
+    await deleteTask(task.id)
+    toast('Tâche supprimée')
   }
 
   const maxLoad = Math.max(13, ...members.map((m) => load(tasks, m.id)))
 
-  return (
-    <>
-      <div className="drawer-bg" onClick={onClose} />
-      <aside className="drawer" role="dialog" aria-label={`Tâche : ${draft.title}`}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span className={`tag ${draft.kind}`}>{KINDS[draft.kind]}</span>
-          <button className="icon-btn" style={{ marginLeft: 'auto' }} aria-label="Supprimer la tâche" onClick={() => { void deleteTask(task.id); onClose() }}>
-            <Icon name="trash" size={18} />
-          </button>
-          <button className="icon-btn" aria-label="Fermer" onClick={onClose}>
+  return createPortal(
+    <div className="modal-back task-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal task-modal" role="dialog" aria-modal="true" aria-label={isNew ? 'Nouvelle tâche' : `Tâche : ${draft.title}`}>
+        <div className="task-modal-top">
+          <span className="muted" style={{ fontSize: 13, fontWeight: 600 }}>{isNew ? 'Nouvelle tâche' : STATUSES.find((s) => s.id === draft.status)?.label}</span>
+          {!isNew && (
+            <button className="icon-btn" style={{ marginLeft: 'auto' }} aria-label="Supprimer la tâche" title="Supprimer" onClick={() => void remove()}>
+              <Icon name="trash" size={18} />
+            </button>
+          )}
+          <button className="icon-btn" style={isNew ? { marginLeft: 'auto' } : undefined} aria-label="Fermer" onClick={onClose}>
             <Icon name="close" size={18} />
           </button>
         </div>
 
-        <label className="field">
-          <span className="sr-only">Titre</span>
-          <input
-            className="input"
-            style={{ fontFamily: 'var(--display)', fontSize: 20, fontWeight: 700 }}
-            value={draft.title}
-            onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-            onBlur={() => draft.title.trim() && draft.title !== task.title && commit(draft)}
-            autoFocus={task.title === 'Nouvelle tâche'}
-            onFocus={(e) => task.title === 'Nouvelle tâche' && e.target.select()}
-          />
-        </label>
+        <textarea
+          ref={titleRef}
+          className="task-title-input"
+          rows={1}
+          placeholder="Titre de la tâche"
+          aria-label="Titre"
+          value={draft.title}
+          autoFocus={isNew}
+          onChange={(e) => setDraft({ ...draft, title: e.target.value.replace(/\n/g, ' ') })}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              if (isNew) void create()
+              else (e.target as HTMLTextAreaElement).blur()
+            }
+          }}
+        />
 
-        <div className="grid-2">
-          <label className="field">
-            Statut
-            <select className="input" value={draft.status} onChange={(e) => commit({ ...draft, status: e.target.value as TaskStatus })}>
-              {STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-            </select>
-          </label>
-          <label className="field">
-            Type
-            <select className="input" value={draft.kind} onChange={(e) => commit({ ...draft, kind: e.target.value as TaskKind })}>
-              {Object.entries(KINDS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-          </label>
-          <label className="field">
-            Estimation (points)
-            <select className="input" value={draft.points ?? ''} onChange={(e) => commit({ ...draft, points: e.target.value === '' ? null : Number(e.target.value) })}>
-              <option value="">Non estimée</option>
-              {[1, 2, 3, 5, 8, 13, 21].map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
-          </label>
-          <div className="field" style={{ gridColumn: '1 / -1' }}>
-            PR liée
-            <PrPicker value={draft.prUrl} onChange={(url) => linkPr(url ?? '')} onMerged={() => draft.status !== 'done' && commit({ ...draft, status: 'done' })} />
+        <div className="task-modal-grid">
+          <div className="task-main">
+            <div className="task-field">
+              <span className="task-label">Statut</span>
+              <div className="chips" role="radiogroup" aria-label="Statut">
+                {STATUSES.map((s) => (
+                  <button key={s.id} type="button" role="radio" aria-checked={draft.status === s.id} className={`chip status-${s.id}`} onClick={() => commit({ ...draft, status: s.id })}>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="task-field">
+              <span className="task-label">Type</span>
+              <div className="chips" role="radiogroup" aria-label="Type">
+                {(Object.entries(KINDS) as [TaskKind, string][]).map(([k, v]) => (
+                  <button key={k} type="button" role="radio" aria-checked={draft.kind === k} className={`chip kind-${k}`} onClick={() => commit({ ...draft, kind: k })}>
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="task-field">
+              <span className="task-label">Points</span>
+              <div className="chips" role="radiogroup" aria-label="Estimation en points">
+                {POINTS.map((p) => (
+                  <button key={p} type="button" role="radio" aria-checked={draft.points === p} className="chip num" onClick={() => commit({ ...draft, points: draft.points === p ? null : p })}>
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <label className="task-field">
+              <span className="task-label">Description</span>
+              <textarea
+                className="input task-desc"
+                value={draft.description}
+                placeholder="Ce qu'il faut faire, quand c'est fini…"
+                onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+              />
+            </label>
+
+            <div className="task-field">
+              <span className="task-label">Branche et PR</span>
+              <PrPicker task={draft} value={draft.prUrl} onChange={(url) => linkPr(url ?? '')} onMerged={() => draft.status !== 'done' && commit({ ...draft, status: 'done' })} />
+            </div>
+          </div>
+
+          <div className="task-side">
+            <span className="task-label">Pour qui</span>
+            <div className="people">
+              {members.map((m) => {
+                const l = load(tasks, m.id)
+                const selected = draft.assigneeIds.includes(m.id)
+                return (
+                  <button key={m.id} type="button" className={`person${selected ? ' selected' : ''}`} aria-pressed={selected} onClick={() => toggleAssignee(m.id)}>
+                    <Avatar member={m} size={34} online={online.includes(m.id)} />
+                    <span className="person-text">
+                      <span className="person-name">{m.name}</span>
+                      <span className="load" title={`${l} points en cours`}><span style={{ width: `${Math.min(100, (l / maxLoad) * 100)}%`, background: l >= 13 ? 'var(--danger)' : 'var(--ok)' }} /></span>
+                    </span>
+                    <span className={`check-box${selected ? ' on' : ''}`} aria-hidden="true">{selected && <Icon name="check" size={14} />}</span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </div>
 
-        <label className="field">
-          Description
-          <textarea
-            className="input"
-            value={draft.description}
-            placeholder="Ce qu'il faut faire, les critères pour dire que c'est fini…"
-            onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-            onBlur={() => draft.description !== task.description && commit(draft)}
-          />
-        </label>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <h2>Attribuer à</h2>
-          <p className="muted" style={{ margin: '0 0 4px', fontSize: 13 }}>Une ou plusieurs personnes. Elles sont prévenues.</p>
-          {members.map((m) => {
-            const l = load(tasks, m.id)
-            const selected = draft.assigneeIds.includes(m.id)
-            return (
-              <button key={m.id} className={`member-pick${selected ? ' selected' : ''}`} aria-pressed={selected} onClick={() => toggleAssignee(m.id)}>
-                <Avatar member={m} size={34} online={online.includes(m.id)} />
-                <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  <span style={{ fontWeight: 500 }}>{m.name}{m.role === 'guest' && <span className="muted"> · invité</span>}</span>
-                  <span className="load"><span style={{ width: `${Math.min(100, (l / maxLoad) * 100)}%`, background: l >= 13 ? 'var(--danger)' : 'var(--ok)' }} /></span>
-                </span>
-                <span className="muted" style={{ fontSize: 12 }}>{l} pts</span>
-                <span className={`check-box${selected ? ' on' : ''}`} aria-hidden="true">{selected && <Icon name="check" size={14} />}</span>
-              </button>
-            )
-          })}
-        </div>
-      </aside>
-    </>
+        {isNew && (
+          <div className="task-modal-foot">
+            <button className="btn soft" onClick={onClose}>Annuler</button>
+            <button className="btn" onClick={() => void create()}>Créer la tâche</button>
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body,
   )
 }

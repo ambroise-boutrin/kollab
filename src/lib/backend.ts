@@ -1,4 +1,4 @@
-import type { AppNotification, Channel, Group, Invite, LinkItem, Member, Message, ProfilePatch, Provider, Role, Task } from './types'
+import type { AppNotification, Channel, ReactionChange, Group, Invite, LinkItem, Member, Message, ProfilePatch, Provider, Role, Task } from './types'
 
 export interface User {
   id: string
@@ -38,6 +38,9 @@ export interface LiveHandlers {
   onTask(task: Task): void
   onTaskDeleted(id: string): void
   onMessage(message: Message): void
+  /** Message modifié ou supprimé. */
+  onMessageUpdated(message: Message): void
+  onReaction(change: ReactionChange): void
   onPresence(onlineIds: string[]): void
   /** Membres, liens, salons ou projet modifiés : on recharge. */
   onRefresh(): void
@@ -103,6 +106,13 @@ export interface Backend {
 
   listMessages(channelId: string): Promise<Message[]>
   sendMessage(channelId: string, body: string): Promise<Message>
+  /** Réactions, modification et suppression disponibles (base à jour). */
+  chatActions(): boolean
+  editMessage(id: string, body: string): Promise<void>
+  /** Supprime son message (récupérable par la base). */
+  deleteMessage(id: string): Promise<void>
+  /** Ajoute ou retire sa réaction. */
+  react(messageId: string, emoji: string, on: boolean): Promise<void>
 
   addLink(title: string, url: string): Promise<LinkItem>
   removeLink(id: string): Promise<void>

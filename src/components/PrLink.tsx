@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { checkRuns, getPull, ghToken, listPulls, parsePrUrl, projectRepo, summarize, type Pull } from '../lib/github'
+import { branchName, checkRuns, createTaskPr, getPull, ghToken, listBranches, listPulls, parsePrUrl, prFromBranch, projectRepo, summarize, type Pull } from '../lib/github'
 import { useStore } from '../lib/store'
 import { useAsync } from '../lib/useAsync'
 import { Icon } from './Icon'
+import { useToast } from './Toast'
 
 /** État lisible d'une PR. */
 export function prState(p: Pull): { label: string; cls: string } {
@@ -40,57 +41,108 @@ export function PrStatus({ url, onMerged }: { url: string; onMerged?: () => void
   )
 }
 
-/** Choisir la PR d'une tâche dans la liste des PR du dépôt du projet. */
-export function PrPicker({ value, onChange, onMerged }: { value: string | null; onChange: (url: string | null) => void; onMerged?: () => void }) {
-  const { workspace } = useStore()
+/**
+ * Branche et PR d'une tâche : liste déroulante des branches du dépôt du projet.
+ * Choisir une branche ouvre sa PR (ou la crée) ; « Nouvelle branche » crée feature/… ou fix/… et la PR.
+ */
+export function PrPicker({ value, onChange, onMerged, task }: {
+  value: string | null
+  onChange: (url: string | null) => void
+  onMerged?: () => void
+  task: { title: string; kind: string; description: string }
+}) {
+  const { workspace, backend } = useStore()
+  const toast = useToast()
   const repo = projectRepo(workspace)
   const [open, setOpen] = useState(false)
-  const [closed, setClosed] = useState(false)
   const [q, setQ] = useState('')
-  const pulls = useAsync(open && repo ? () => listPulls(repo, closed ? 'all' : 'open') : null, [open, closed, repo?.owner, repo?.repo])
+  const [busy, setBusy] = useState<string | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
+  const branches = useAsync(open && repo ? () => listBranches(repo) : null, [open, repo?.owner, repo?.repo])
+  const pulls = useAsync(open && repo ? () => listPulls(repo, 'open') : null, [open, repo?.owner, repo?.repo])
+  const prByBranch = useMemo(() => new Map((pulls.data ?? []).map((p) => [p.branch, p])), [pulls.data])
+  const fresh = branchName(task.kind, task.title)
   const shown = useMemo(() => {
     const s = q.trim().toLowerCase()
-    return (pulls.data ?? []).filter((p) => !s || p.title.toLowerCase().includes(s) || String(p.number).includes(s))
-  }, [pulls.data, q])
+    return (branches.data ?? []).filter((b) => !s || b.name.toLowerCase().includes(s))
+      .sort((a, b) => Number(prByBranch.has(b.name)) - Number(prByBranch.has(a.name)))
+  }, [branches.data, q, prByBranch])
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false)
+    document.addEventListener('pointerdown', onDown)
+    return () => document.removeEventListener('pointerdown', onDown)
+  }, [open])
 
   if (!repo) {
-    return <p className="hint">Aucun dépôt relié. <Link to="/projet#general">Relier un dépôt</Link></p>
+    return <p className="hint">Aucun dépôt relié. <Link to="/projet#github">Relier un dépôt</Link></p>
   }
 
+  async function run(key: string, fn: () => Promise<string>) {
+    setBusy(key)
+    try {
+      onChange(await fn())
+      setOpen(false)
+      toast('PR liée')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Action GitHub impossible')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  if (value) {
+    return (
+      <div className="pr-picked">
+        <PrStatus url={value} onMerged={onMerged} />
+        <button type="button" className="icon-btn" aria-label="Délier la PR" onClick={() => onChange(null)}><Icon name="close" size={16} /></button>
+      </div>
+    )
+  }
+
+  const canWrite = !!ghToken()
   return (
-    <div className="pr-picker">
-      {value ? (
-        <div className="pr-picked">
-          <PrStatus url={value} onMerged={onMerged} />
-          <button type="button" className="icon-btn" aria-label="Délier la PR" onClick={() => onChange(null)}><Icon name="close" size={16} /></button>
-        </div>
-      ) : (
-        !open && <button type="button" className="btn soft small" style={{ alignSelf: 'flex-start' }} onClick={() => setOpen(true)}>Choisir une PR</button>
-      )}
+    <div className="branch-picker" ref={ref}>
+      <button type="button" className="select-btn" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <Icon name="branch" size={16} />
+        <span>Choisir une branche</span>
+        <Icon name="chevron" size={16} />
+      </button>
       {open && (
-        <div className="pr-list">
-          <div className="row-between" style={{ flexWrap: 'nowrap' }}>
-            <input className="input" autoFocus placeholder={`PR de ${repo.owner}/${repo.repo}`} value={q} onChange={(e) => setQ(e.target.value)} aria-label="Chercher une PR" />
-            <button type="button" className="icon-btn" aria-label="Fermer" onClick={() => setOpen(false)}><Icon name="close" size={16} /></button>
-          </div>
-          <label className="check-row"><input type="checkbox" checked={closed} onChange={(e) => setClosed(e.target.checked)} />Inclure les PR fermées</label>
-          {pulls.loading && <p className="hint">Chargement…</p>}
-          {pulls.error && <p className="hint">{pulls.error}</p>}
-          {pulls.data && shown.length === 0 && <p className="hint">Aucune PR.</p>}
-          <ul>
-            {shown.map((p) => {
-              const st = prState(p)
+        <div className="branch-menu" role="listbox" aria-label={`Branches de ${repo.owner}/${repo.repo}`}>
+          <label className="branch-search">
+            <Icon name="search" size={16} />
+            <input autoFocus placeholder="Chercher une branche" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Chercher une branche" />
+          </label>
+          {canWrite ? (
+            <button type="button" role="option" aria-selected={false} className="branch-row new" disabled={!!busy || !task.title.trim()} onClick={() => void run('new', () => createTaskPr(repo, task))}>
+              <span className="branch-plus"><Icon name="plus" size={14} /></span>
+              <span className="branch-name">{busy === 'new' ? 'Création…' : <>Nouvelle branche <code>{fresh}</code></>}</span>
+              <span className="branch-badge">+ PR</span>
+            </button>
+          ) : (
+            <button type="button" className="branch-row new" onClick={() => void backend.connectGitHub().catch((e: Error) => toast(e.message))}>
+              <span className="branch-plus"><Icon name="plus" size={14} /></span>
+              <span className="branch-name">Connecter GitHub pour créer des branches</span>
+            </button>
+          )}
+          <div className="branch-list">
+            {branches.loading && <p className="hint">Chargement…</p>}
+            {branches.error && <p className="hint">{branches.error}</p>}
+            {branches.data && shown.length === 0 && <p className="hint">Aucune branche.</p>}
+            {shown.map((b) => {
+              const pr = prByBranch.get(b.name)
               return (
-                <li key={p.number}>
-                  <button type="button" onClick={() => { onChange(p.url); setOpen(false) }}>
-                    <span className={`pr-state ${st.cls}`}>{st.label}</span>
-                    <span className="pr-list-title">#{p.number} {p.title}</span>
-                    <small>{p.author}</small>
-                  </button>
-                </li>
+                <button key={b.name} type="button" role="option" aria-selected={false} className="branch-row" disabled={!!busy || (!pr && !canWrite)}
+                  onClick={() => void run(b.name, async () => pr?.url ?? prFromBranch(repo, b.name, task))}>
+                  <Icon name="branch" size={15} />
+                  <span className="branch-name">{busy === b.name ? 'Création de la PR…' : b.name}</span>
+                  {pr ? <span className={`pr-state ${prState(pr).cls}`}>#{pr.number}</span> : canWrite && <span className="branch-badge">+ PR</span>}
+                </button>
               )
             })}
-          </ul>
+          </div>
         </div>
       )}
     </div>

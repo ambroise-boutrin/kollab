@@ -1,9 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { newId, type Backend, type GroupSummary, type User, type Workspace } from './backend'
 import { APP_BASE, IS_TAURI } from './base'
 import { demoBackend, startDemoSession } from './demo'
 import { createSupabaseBackend } from './supabaseBackend'
-import type { AppNotification, Message, Task } from './types'
+import type { AppNotification, Message, ReactionChange, Task } from './types'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
@@ -54,6 +54,10 @@ interface Store {
   online: string[]
   /** Dernier message reçu, pour que le chat l'ajoute s'il est dans le bon salon. */
   incoming: Message | null
+  /** Dernier message modifié ou supprimé. */
+  messageUpdate: Message | null
+  /** Dernière réaction ajoutée ou retirée par quelqu'un d'autre. */
+  reactionChange: ReactionChange | null
   reload(): Promise<void>
   saveTask(task: Task): Promise<void>
   createTask(partial: Pick<Task, 'title' | 'status'> & Partial<Task>): Promise<Task>
@@ -77,6 +81,22 @@ function setAppBadge(count: number) {
   const nav = navigator as Navigator & { setAppBadge?: (n?: number) => Promise<void>; clearAppBadge?: () => Promise<void> }
   if (count) void nav.setAppBadge?.(count).catch(() => {})
   else void nav.clearAppBadge?.().catch(() => {})
+}
+
+/** Création automatique de la branche et de la PR quand une tâche passe « En cours » (réglage du projet, sur cet appareil). */
+export function autoPrEnabled(groupId: string): boolean {
+  try {
+    return localStorage.getItem(`kollab-auto-pr:${groupId}`) !== '0'
+  } catch {
+    return true
+  }
+}
+export function setAutoPr(groupId: string, on: boolean) {
+  try {
+    localStorage.setItem(`kollab-auto-pr:${groupId}`, on ? '1' : '0')
+  } catch {
+    /* ignoré */
+  }
 }
 
 const Ctx = createContext<Store | null>(null)
@@ -104,8 +124,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
   const [groups, setGroups] = useState<GroupSummary[]>([])
+  const workspaceRef = useRef<Workspace | null>(null)
+  workspaceRef.current = workspace
   const [online, setOnline] = useState<string[]>([])
   const [incoming, setIncoming] = useState<Message | null>(null)
+  const [messageUpdate, setMessageUpdate] = useState<Message | null>(null)
+  const [reactionChange, setReactionChange] = useState<ReactionChange | null>(null)
   const [notifications, setNotifications] = useState<AppNotification[]>([])
 
   const reload = useCallback(async () => {
@@ -145,6 +169,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }),
       onTaskDeleted: (id) => setWorkspace((w) => (w ? { ...w, tasks: w.tasks.filter((t) => t.id !== id) } : w)),
       onMessage: setIncoming,
+      onMessageUpdated: setMessageUpdate,
+      onReaction: setReactionChange,
       onPresence: setOnline,
       onRefresh: () => void reload(),
     })
@@ -205,10 +231,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [reload],
   )
 
+  const autoPrBusy = useRef(new Set<string>())
   const saveTask = useCallback(async (task: Task) => {
+    const before = workspaceRef.current?.tasks.find((t) => t.id === task.id)
     // Mise à jour optimiste : l'écran réagit tout de suite.
     setWorkspace((w) => (w ? { ...w, tasks: w.tasks.map((t) => (t.id === task.id ? task : t)) } : w))
     await backend.saveTask(task)
+    // Tâche qui passe « En cours » sans PR : on crée la branche et la PR toutes seules.
+    const ws = workspaceRef.current
+    if (task.status !== 'doing' || before?.status === 'doing' || task.prUrl || !ws || !autoPrEnabled(ws.group.id)) return
+    if (autoPrBusy.current.has(task.id)) return
+    const gh = await import('./github')
+    const repo = gh.projectRepo(ws)
+    if (!repo || !gh.ghToken()) return
+    autoPrBusy.current.add(task.id)
+    try {
+      const prUrl = await gh.createTaskPr(repo, task)
+      const latest = workspaceRef.current?.tasks.find((t) => t.id === task.id) ?? task
+      const next = { ...latest, prUrl }
+      setWorkspace((w) => (w ? { ...w, tasks: w.tasks.map((t) => (t.id === task.id ? next : t)) } : w))
+      await backend.saveTask(next)
+    } catch {
+      /* GitHub indisponible : la tâche reste sans PR, on peut la créer à la main */
+    } finally {
+      autoPrBusy.current.delete(task.id)
+    }
   }, [])
 
   const createTask = useCallback(
@@ -243,8 +290,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
 
   const value = useMemo<Store>(
-    () => ({ backend, user, ready, loadError, workspace, groups, switchGroup, online, incoming, reload, saveTask, createTask, deleteTask, memberName, notifications, unread, markAllRead, removeNotification }),
-    [user, ready, loadError, workspace, groups, switchGroup, online, incoming, reload, saveTask, createTask, deleteTask, memberName, notifications, unread, markAllRead, removeNotification],
+    () => ({ backend, user, ready, loadError, workspace, groups, switchGroup, online, incoming, messageUpdate, reactionChange, reload, saveTask, createTask, deleteTask, memberName, notifications, unread, markAllRead, removeNotification }),
+    [user, ready, loadError, workspace, groups, switchGroup, online, incoming, messageUpdate, reactionChange, reload, saveTask, createTask, deleteTask, memberName, notifications, unread, markAllRead, removeNotification],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

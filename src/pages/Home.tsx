@@ -4,6 +4,7 @@ import { AvatarGroup } from '../components/Avatar'
 import { LinksCard } from '../components/LinksCard'
 import { MembersStack } from '../components/Layout'
 import { NotificationBell } from '../components/Notifications'
+import { openInvite } from './Group'
 import { PrStatus } from '../components/PrLink'
 import { useStore, useWorkspace } from '../lib/store'
 import { KINDS, STATUSES } from '../lib/types'
@@ -45,7 +46,7 @@ export function Home() {
           </label>
           <MembersStack />
           <NotificationBell />
-          <button className="btn" onClick={() => navigate('/equipe')}>Inviter des membres</button>
+          <button className="btn" onClick={openInvite}>Inviter des membres</button>
         </div>
       </header>
 
@@ -65,7 +66,7 @@ export function Home() {
                     const who = ws.members.filter((m) => t.assigneeIds.includes(m.id))
                     return (
                       <Link key={t.id} to={`/tableau?tache=${t.id}`} className={`mini-task${s.id === 'done' ? ' is-done' : ''}`}>
-                        <span className={`tag ${t.kind}`}>{KINDS[t.kind]}</span>
+                        {t.kind !== 'feature' && <span className={`tag ${t.kind}`}>{KINDS[t.kind]}</span>}
                         <span>{t.title}</span>
                         <span className="mini-meta">
                           {t.points != null ? `${t.points} pts` : ''}

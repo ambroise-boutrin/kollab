@@ -63,8 +63,9 @@ async function gh<T>(path: string, init: RequestInit = {}, accept = 'application
   if (res.status === 403 && res.headers.get('x-ratelimit-remaining') === '0') throw new GitHubError('Limite GitHub atteinte : connecte GitHub pour continuer', 403)
   if (res.status === 404) throw new GitHubError(token ? 'Introuvable sur GitHub' : 'Dépôt privé ou introuvable : connecte GitHub', 404)
   if (!res.ok) {
-    const j = (await res.json().catch(() => ({}))) as { message?: string }
-    throw new GitHubError(j.message ?? `Erreur GitHub ${res.status}`, res.status)
+    const j = (await res.json().catch(() => ({}))) as { message?: string; errors?: { message?: string }[] }
+    const detail = (j.errors ?? []).map((e) => e.message).filter(Boolean).join(' ')
+    throw new GitHubError([j.message ?? `Erreur GitHub ${res.status}`, detail].filter(Boolean).join(' : '), res.status)
   }
   if (res.status === 204 || res.headers.get('content-length') === '0') return undefined as T
   return (await res.json()) as T
@@ -136,4 +137,81 @@ export function summarize(runs: CheckRun[]) {
   const done = runs.filter((c) => c.status === 'completed')
   const failed = done.filter((c) => c.conclusion && !['success', 'skipped', 'neutral'].includes(c.conclusion))
   return { total: runs.length, passed: done.length - failed.length, failed: failed.length, running: runs.length - done.length }
+}
+
+/* --- Créer la branche et la PR d'une tâche --- */
+
+const PREFIX: Record<string, string> = { feature: 'feature', bug: 'fix', research: 'research' }
+
+/** « Page de connexion GitHub » → feature/page-de-connexion-github */
+export function branchName(kind: string, title: string): string {
+  const slug = title
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48)
+    .replace(/-+$/, '')
+  return `${PREFIX[kind] ?? 'feature'}/${slug || 'tache'}`
+}
+
+export interface Branch { name: string; sha: string }
+export async function listBranches(r: Repo): Promise<Branch[]> {
+  const rows = await gh<{ name: string; commit: { sha: string } }[]>(`${base(r)}/branches?per_page=100`)
+  return rows.map((b) => ({ name: b.name, sha: b.commit.sha }))
+}
+export const defaultBranch = async (r: Repo) => (await gh<{ default_branch: string }>(base(r))).default_branch
+
+/** Ajoute un commit vide au bout d'une branche (une PR a besoin d'au moins un commit d'écart). */
+async function emptyCommit(r: Repo, branch: string, message: string, create: boolean, from?: string): Promise<void> {
+  const head = await gh<{ object: { sha: string } }>(`${base(r)}/git/ref/heads/${encodeURIComponent(from ?? branch)}`)
+  const parent = await gh<{ tree: { sha: string } }>(`${base(r)}/git/commits/${head.object.sha}`)
+  const commit = await gh<{ sha: string }>(`${base(r)}/git/commits`, {
+    method: 'POST',
+    body: JSON.stringify({ message, tree: parent.tree.sha, parents: [head.object.sha] }),
+  })
+  if (create) await gh(`${base(r)}/git/refs`, { method: 'POST', body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: commit.sha }) })
+  else await gh(`${base(r)}/git/refs/heads/${encodeURIComponent(branch)}`, { method: 'PATCH', body: JSON.stringify({ sha: commit.sha }) })
+}
+
+type TaskInfo = { title: string; kind: string; description: string }
+
+async function openPr(r: Repo, branch: string, main: string, task: TaskInfo): Promise<string> {
+  const body = `${task.description || ''}\n\n_Créée depuis Kollab._`.trim()
+  const open = (draft: boolean) =>
+    gh<{ html_url: string }>(`${base(r)}/pulls`, { method: 'POST', body: JSON.stringify({ title: task.title, head: branch, base: main, body, draft }) })
+  try {
+    return (await open(true)).html_url
+  } catch (e) {
+    if (!(e instanceof GitHubError) || e.status !== 422) throw e
+    if (/no commits/i.test(e.message)) {
+      await emptyCommit(r, branch, `Démarre : ${task.title}`, false)
+      return (await open(true).catch(() => open(false))).html_url
+    }
+    // Les brouillons ne sont pas disponibles sur tous les dépôts privés.
+    return (await open(false)).html_url
+  }
+}
+
+/** Ouvre une PR depuis une branche existante (ou renvoie celle déjà ouverte). */
+export async function prFromBranch(r: Repo, branch: string, task: TaskInfo): Promise<string> {
+  if (!ghToken()) throw new GitHubError('Connecte GitHub pour créer la PR', 401)
+  const existing = await gh<RawPull[]>(`${base(r)}/pulls?state=open&head=${encodeURIComponent(`${r.owner}:${branch}`)}`)
+  if (existing[0]) return existing[0].html_url
+  return openPr(r, branch, await defaultBranch(r), task)
+}
+
+/**
+ * Crée une branche depuis la branche principale, avec un premier commit vide
+ * (GitHub refuse une PR sans différence), puis ouvre la PR en brouillon. Renvoie l'adresse de la PR.
+ */
+export async function createTaskPr(r: Repo, task: TaskInfo): Promise<string> {
+  if (!ghToken()) throw new GitHubError('Connecte GitHub pour créer la PR', 401)
+  const main = await defaultBranch(r)
+  const taken = new Set((await listBranches(r)).map((b) => b.name))
+  let branch = branchName(task.kind, task.title)
+  for (let i = 2; taken.has(branch); i++) branch = `${branchName(task.kind, task.title)}-${i}`
+  await emptyCommit(r, branch, `Démarre : ${task.title}`, true, main)
+  return openPr(r, branch, main, task)
 }

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { DEMO_SESSION, leaveDemo, useStore } from '../lib/store'
 import { PRESENCE, type Member } from '../lib/types'
@@ -10,6 +10,7 @@ import { LogoMark } from './Logo'
 import { NewProjectDialog } from './NewProjectDialog'
 import { Popover } from './Popover'
 import { NotificationBell } from './Notifications'
+import { InviteDialog } from './InviteDialog'
 
 const NAV: { to: string; label: string; icon: IconName }[] = [
   { to: '/', label: 'Accueil', icon: 'home' },
@@ -124,8 +125,11 @@ export function MembersStack() {
           <p className="pop-title">{workspace.members.length} membre{workspace.members.length > 1 ? 's' : ''} · {onlineCount} en ligne</p>
           <div className="pop-scroll">{sorted.map(row)}</div>
           <hr />
+          <button role="menuitem" className="pop-item" onClick={() => { close(); window.dispatchEvent(new Event('kollab:invite')) }}>
+            <Icon name="plus" size={18} /> Inviter
+          </button>
           <button role="menuitem" className="pop-item" onClick={() => { close(); navigate('/equipe') }}>
-            <Icon name="plus" size={18} /> Inviter ou gérer l'équipe
+            <Icon name="group" size={18} /> Voir l'équipe
           </button>
         </>
       )}
@@ -183,6 +187,12 @@ function ProfileMenu({ compact = false }: { compact?: boolean }) {
 export function Layout() {
   const { workspace, user, backend } = useStore()
   const [creating, setCreating] = useState(false)
+  const [inviting, setInviting] = useState(false)
+  useEffect(() => {
+    const on = () => setInviting(true)
+    window.addEventListener('kollab:invite', on)
+    return () => window.removeEventListener('kollab:invite', on)
+  }, [])
   const openNew = useCallback(() => setCreating(true), [])
   const onHome = useLocation().pathname === '/'
   const myOpen = workspace?.tasks.filter((t) => t.assigneeIds.includes(user?.id ?? 'me') && t.status !== 'done').length ?? 0
@@ -240,6 +250,7 @@ export function Layout() {
       </nav>
 
       {creating && <NewProjectDialog onClose={() => setCreating(false)} />}
+      {inviting && workspace && <InviteDialog onClose={() => setInviting(false)} />}
       {!DEMO_SESSION && <AppTour />}
       <DesktopMenu onNewProject={openNew} />
     </div>

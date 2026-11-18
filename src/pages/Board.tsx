@@ -31,7 +31,7 @@ function TaskCard({ task, onOpen, overlay = false }: { task: Task; onOpen?: () =
       {...(overlay ? {} : attributes)}
       {...(overlay ? {} : listeners)}
     >
-      <span className={`tag ${task.kind}`}>{KINDS[task.kind]}</span>
+      {task.kind !== 'feature' && <span className={`tag ${task.kind}`}>{KINDS[task.kind]}</span>}
       <span className="task-title">{task.title}</span>
       <span className="task-meta">
         {task.points != null && <span>{task.points} pts</span>}
@@ -61,7 +61,7 @@ function Column({ status, label, tasks, onOpen, onAdd }: { status: TaskStatus; l
 
 export function Board() {
   const { tasks: all } = useWorkspace()
-  const { saveTask, createTask, backend, user } = useStore()
+  const { saveTask, backend, user } = useStore()
   const toast = useToast()
   const [params, setParams] = useSearchParams()
   const mine = params.get('moi') === '1'
@@ -91,6 +91,7 @@ export function Board() {
   const byStatus = (s: TaskStatus) => tasks.filter((t) => t.status === s).sort((a, b) => a.position - b.position)
   const dragged = tasks.find((t) => t.id === dragId)
   const open = all.find((t) => t.id === openId)
+  const [fresh, setFresh] = useState<Task | null>(null)
 
   function onDragStart(e: DragStartEvent) {
     setDragId(String(e.active.id))
@@ -109,9 +110,9 @@ export function Board() {
     }
   }
 
-  async function add(status: TaskStatus) {
-    const t = await createTask({ title: 'Nouvelle tâche', status, ...(mine ? { assigneeIds: [me] } : {}) })
-    setOpenId(t.id)
+  function add(status: TaskStatus) {
+    // Rien n'est créé avant « Créer la tâche » : pas de tâche vide si on ferme.
+    setFresh({ id: 'nouvelle', title: '', description: '', status, kind: 'feature', points: null, assigneeIds: mine ? [me] : [], prUrl: null, position: 0, createdAt: '' })
   }
 
   useEffect(() => {
@@ -143,6 +144,7 @@ export function Board() {
       </DndContext>
 
       {open && <TaskDrawer task={open} onClose={() => setOpenId(null)} />}
+      {fresh && <TaskDrawer task={fresh} isNew onClose={() => setFresh(null)} />}
     </div>
   )
 }
