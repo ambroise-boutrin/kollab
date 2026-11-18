@@ -462,3 +462,21 @@ html.restarting body { opacity: 0; transition: opacity .6s cubic-bezier(.4, 0, .
   .settings-nav button { flex: none; padding: 8px 12px; background: var(--subtle); }
   .settings-nav button svg { display: none; }
 }
+
+/* Liens du projet */
+.links-card { display: flex; flex-direction: column; gap: 8px; }
+.links-head { display: flex; align-items: center; justify-content: space-between; margin: -6px -8px 0 0; }
+.links { list-style: none; margin: 0 -8px; padding: 0; display: flex; flex-direction: column; }
+.links li { display: flex; align-items: center; border-radius: 10px; }
+.links li:hover { background: var(--subtle); }
+.links a { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 7px 8px; color: var(--text); text-decoration: none; }
+.link-mark { flex: none; width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; background: var(--subtle); color: var(--muted); font-size: 12px; font-weight: 600; box-shadow: inset 0 0 0 1px var(--line); }
+.links li:hover .link-mark { background: var(--surface); }
+.link-text { min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.link-text span, .link-text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.link-text span { font-size: 14px; font-weight: 500; }
+.link-text small { font-size: 12px; color: var(--muted); }
+.link-del { width: 28px; height: 28px; margin-right: 4px; opacity: 0; transition: opacity .15s; }
+.links li:hover .link-del, .link-del:focus-visible { opacity: 1; }
+@media (hover: none) { .link-del { opacity: 1; } }
+.input.invalid { box-shadow: inset 0 0 0 2px var(--danger); }

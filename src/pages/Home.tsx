@@ -1,12 +1,11 @@
-import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { Icon } from '../components/Icon'
+import { LinksCard } from '../components/LinksCard'
 import { useStore, useWorkspace } from '../lib/store'
 import { KINDS, STATUSES } from '../lib/types'
 
 export function Home() {
   const ws = useWorkspace()
-  const { user, backend, reload } = useStore()
+  const { user } = useStore()
   const me = ws.members.find((m) => m.id === user?.id) ?? ws.members[0]
   const mine = ws.tasks.filter((t) => t.assigneeId === me?.id && t.status !== 'done')
   const total = ws.tasks.reduce((n, t) => n + (t.points ?? 0), 0)
@@ -14,17 +13,6 @@ export function Home() {
   const pct = total ? Math.round((done / total) * 100) : 0
   const open = ws.tasks.filter((t) => t.status !== 'done').length
   const repo = ws.links.find((l) => /^https:\/\/github\.com\/[^/]+\/[^/]+/.test(l.url))
-  const [title, setTitle] = useState('')
-  const [url, setUrl] = useState('')
-
-  async function addLink(e: FormEvent) {
-    e.preventDefault()
-    if (!title.trim() || !/^https?:\/\//.test(url)) return
-    await backend.addLink(title.trim(), url.trim())
-    setTitle('')
-    setUrl('')
-    await reload()
-  }
 
   return (
     <div className="page" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -67,24 +55,7 @@ export function Home() {
           ))}
         </section>
 
-        <section className="card appear appear-3" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <h2>Liens importants</h2>
-          {ws.links.map((l) => (
-            <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <a className="ref-card" style={{ flex: 1, maxWidth: 'none' }} href={l.url} target="_blank" rel="noreferrer">
-                <Icon name="link" size={18} /> {l.title}
-              </a>
-              <button className="icon-btn" aria-label={`Retirer ${l.title}`} onClick={() => void backend.removeLink(l.id).then(reload)}>
-                <Icon name="trash" size={16} />
-              </button>
-            </div>
-          ))}
-          <form onSubmit={addLink} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <input className="input" aria-label="Nom du lien" placeholder="Nom (ex. Maquettes)" value={title} onChange={(e) => setTitle(e.target.value)} />
-            <input className="input" aria-label="Adresse du lien" type="url" placeholder="https://…" value={url} onChange={(e) => setUrl(e.target.value)} />
-            <button className="btn soft">Ajouter le lien</button>
-          </form>
-        </section>
+        <LinksCard />
       </div>
     </div>
   )
