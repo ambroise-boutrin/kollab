@@ -94,6 +94,24 @@ a.s-dl:hover { box-shadow: var(--shadow-hover); transform: translateY(-2px); }
 .s-footer nav a { color: var(--muted); text-decoration: none; }
 .s-footer nav a:hover { color: var(--text); }
 
+/* Pages juridiques -------------------------------------------------- */
+.s-footer-legal { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 14px; font-size: 13px; }
+.s-footer-legal a { color: var(--muted); text-decoration: none; }
+.s-footer-legal a:hover { color: var(--text); text-decoration: underline; }
+.s-legal { max-width: 760px; padding-top: 40px; padding-bottom: 72px; }
+.s-legal-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 28px; }
+.s-legal-tabs a { font-size: 14px; font-weight: 600; color: var(--muted); text-decoration: none; padding: 7px 13px; border-radius: 999px; background: var(--subtle); transition: background-color .2s, color .2s; }
+.s-legal-tabs a:hover { color: var(--text); }
+.s-legal-tabs a[aria-current='page'] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.s-legal h1 { font-size: clamp(30px, 4vw, 40px); font-weight: 800; letter-spacing: -0.03em; }
+.s-legal-meta { color: var(--muted); font-size: 14px; margin: 8px 0 8px; }
+.s-legal section { margin-top: 30px; }
+.s-legal h2 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+.s-legal p, .s-legal li { color: color-mix(in srgb, var(--text) 85%, var(--muted)); font-size: 16px; line-height: 1.7; }
+.s-legal p { margin: 8px 0; }
+.s-legal ul { padding-left: 20px; margin: 8px 0; display: flex; flex-direction: column; gap: 4px; }
+.s-fill { background: color-mix(in srgb, #F5B400 28%, transparent); color: inherit; padding: 0 4px; border-radius: 5px; font-weight: 600; }
+
 /* Animations sobres : fondus courts --------------------------------- */
 .fade-in { animation: appear .5s var(--ease) both; }
 .fade-in.d1 { animation-delay: .06s; }

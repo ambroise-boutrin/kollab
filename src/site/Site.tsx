@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { LogoMark } from '../components/Logo'
+import { LegalPage, LEGAL_DOCS, findLegal } from './legal'
 import './site.css'
 
 /** Lien d'invitation au serveur Discord de Kollab. Laisser vide pour masquer le bouton. */
@@ -138,15 +139,9 @@ function Section({ id, children, className = '' }: { id?: string; children: Reac
   )
 }
 
-export default function Site() {
-  useReveal()
-  const [os] = useState(detectOs)
-  useEffect(() => {
-    document.title = 'Kollab : gestion de projet et revues de code pour équipes de dev'
-  }, [])
-
+function Header({ home }: { home: boolean }) {
+  const h = (id: string) => (home ? `#${id}` : `/#${id}`)
   return (
-    <div className="site">
       <header className="s-header">
         <div className="s-wrap s-header-row">
           <a href="/" className="s-brand" aria-label="Kollab, accueil">
@@ -154,10 +149,10 @@ export default function Site() {
             Kollab
           </a>
           <nav className="s-nav" aria-label="Sections">
-            <a href="#fonctionnalites">Fonctionnalités</a>
-            <a href="#equipe">En équipe</a>
-            <a href="#partout">Partout</a>
-            <a href="#telecharger">Télécharger</a>
+            <a href={h('fonctionnalites')}>Fonctionnalités</a>
+            <a href={h('equipe')}>En équipe</a>
+            <a href={h('partout')}>Partout</a>
+            <a href={h('telecharger')}>Télécharger</a>
           </nav>
           <div className="s-header-cta">
             <a className="btn soft small" href={APP_URL}>Connexion</a>
@@ -166,6 +161,39 @@ export default function Site() {
         </div>
       </header>
 
+  )
+}
+
+function Footer() {
+  return (
+      <footer className="s-footer">
+        <div className="s-wrap s-footer-row">
+          <a href="/" className="s-brand small">
+            <LogoMark size={22} />
+            Kollab
+          </a>
+          <nav aria-label="Liens du pied de page">
+            <a href={APP_URL}>Ouvrir l'app</a>
+            <a href="https://github.com/ambroise-boutrin/kollab" target="_blank" rel="noreferrer">GitHub</a>
+            {DISCORD_URL && <a href={DISCORD_URL} target="_blank" rel="noreferrer">Discord</a>}
+          </nav>
+          <span className="muted">© {YEAR} Kollab</span>
+        </div>
+        <div className="s-wrap s-footer-legal">
+          {LEGAL_DOCS.map((d) => (
+            <a key={d.path} href={d.path}>{d.title}</a>
+          ))}
+        </div>
+      </footer>
+  )
+}
+
+function Home() {
+  useReveal()
+  const [os] = useState(detectOs)
+
+  return (
+    <>
       <main>
         <section className="s-hero">
           <div className="s-wrap">
@@ -307,21 +335,20 @@ export default function Site() {
           </div>
         </Section>
       </main>
+    </>
+  )
+}
 
-      <footer className="s-footer">
-        <div className="s-wrap s-footer-row">
-          <a href="/" className="s-brand small">
-            <LogoMark size={22} />
-            Kollab
-          </a>
-          <nav aria-label="Liens du pied de page">
-            <a href={APP_URL}>Ouvrir l'app</a>
-            <a href="https://github.com/ambroise-boutrin/kollab" target="_blank" rel="noreferrer">GitHub</a>
-            {DISCORD_URL && <a href={DISCORD_URL} target="_blank" rel="noreferrer">Discord</a>}
-          </nav>
-          <span className="muted">© {YEAR} Kollab</span>
-        </div>
-      </footer>
+export default function Site() {
+  const legal = findLegal(window.location.pathname)
+  useEffect(() => {
+    document.title = legal ? `${legal.title} · Kollab` : 'Kollab : gestion de projet et revues de code pour équipes de dev'
+  }, [legal])
+  return (
+    <div className="site">
+      <Header home={!legal} />
+      {legal ? <main><LegalPage doc={legal} /></main> : <Home />}
+      <Footer />
     </div>
   )
 }
