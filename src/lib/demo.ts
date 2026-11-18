@@ -1,5 +1,5 @@
 import { newId, type Backend, type GroupSetup, type LiveHandlers, type User, type Workspace } from './backend'
-import type { AppNotification, Invite, LinkItem, Member, Message, Provider, Task } from './types'
+import type { AppNotification, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task } from './types'
 
 /**
  * Mode démo : tout est stocké dans le navigateur. Plusieurs onglets ouverts
@@ -55,11 +55,19 @@ function seed(user: User): Workspace {
   }
 }
 
-function seedMessages(): Message[] {
+function seedMessages(w?: Workspace): Message[] {
   const at = (min: number) => new Date(Date.now() - min * 60000).toISOString()
+  const ref = (title: string) => {
+    const t = w?.tasks.find((x) => x.title === title)
+    return t ? `[#${t.title}](tache:${t.id})` : `#${title}`
+  }
   return [
-    { id: newId(), channelId: 'general', authorId: 'lm', body: 'Salut ! La visionneuse PDF est prête, @Moi tu peux relire ?', createdAt: at(42) },
-    { id: newId(), channelId: 'general', authorId: 'sk', body: 'Je prends la table des groupes cet après-midi.', createdAt: at(30) },
+    { id: newId(), channelId: 'general', authorId: 'sk', body: 'Bonjour tout le monde, point rapide à 10 h ?', createdAt: at(60 * 20) },
+    { id: newId(), channelId: 'general', authorId: 'me', body: 'Ok pour moi 👍', createdAt: at(60 * 20 - 3), reactions: [{ emoji: '👍', userIds: ['sk', 'lm'] }] },
+    { id: newId(), channelId: 'general', authorId: 'lm', body: `Salut ! ${ref('Visionneuse PDF')} est prête, @Moi tu peux relire ?`, createdAt: at(42), reactions: [{ emoji: '🎉', userIds: ['sk'] }, { emoji: '👀', userIds: ['me'] }] },
+    { id: newId(), channelId: 'general', authorId: 'sk', body: `Je prends ${ref('Table des groupes')} cet après-midi.`, createdAt: at(30) },
+    { id: newId(), channelId: 'general', authorId: 'me', body: 'Parfait, je relis la PDF juste après le déjeuner.', createdAt: at(12) },
+    { id: newId(), channelId: 'code', authorId: 'lm', body: `Le glisser-déposer marche sur mobile, reste ${ref('Le menu se ferme mal sur iPhone')}.`, createdAt: at(90) },
   ]
 }
 
@@ -98,6 +106,8 @@ type BusEvent =
   | { kind: 'auth' }
   | { kind: 'profile' }
   | { kind: 'refresh' }
+  | { kind: 'messageUpdated'; message: Message }
+  | { kind: 'reaction'; change: ReactionChange }
   | { kind: 'notification'; notification: AppNotification }
 
 function emit(event: BusEvent) {
@@ -131,7 +141,7 @@ export function startDemoSession() {
     { id: newId(), kind: 'mention', title: 'Léa Martin t\'a mentionné dans #général', body: 'Salut ! La visionneuse PDF est prête, @Moi tu peux relire ?', link: '/chat?salon=general', groupId: 'demo', actorId: 'lm', data: {}, readAt: null, createdAt: at(42) },
     { id: newId(), kind: 'assigned', title: 'Visionneuse PDF', body: 'Léa Martin t\'a attribué cette tâche', link: `/tableau?tache=${workspace.tasks.find((t) => t.title === 'Visionneuse PDF')?.id}`, groupId: 'demo', actorId: 'lm', data: {}, readAt: null, createdAt: at(50) },
   ]
-  write({ ...s, user, providers: ['email'], workspace, messages: seedMessages(), notifications })
+  write({ ...s, user, providers: ['email'], workspace, messages: seedMessages(workspace), notifications })
 }
 
 export const demoBackend: Backend = {
@@ -334,6 +344,8 @@ export const demoBackend: Backend = {
       else if (ev.kind === 'taskDeleted') h.onTaskDeleted(ev.id)
       else if (ev.kind === 'message') h.onMessage(ev.message)
       else if (ev.kind === 'refresh') h.onRefresh()
+      else if (ev.kind === 'messageUpdated') h.onMessageUpdated(ev.message)
+      else if (ev.kind === 'reaction') h.onReaction(ev.change)
     }
     bus?.addEventListener('message', onBus)
     // Faux membres en ligne, pour voir la présence s'animer.
@@ -422,7 +434,7 @@ export const demoBackend: Backend = {
   },
 
   async listMessages(channelId) {
-    return read().messages.filter((m) => m.channelId === channelId)
+    return read().messages.filter((m) => m.channelId === channelId).map((m) => (m.deletedAt ? { ...m, body: '' } : m))
   },
 
   async sendMessage(channelId, body) {
@@ -432,6 +444,47 @@ export const demoBackend: Backend = {
     })
     emit({ kind: 'message', message })
     return message
+  },
+
+  chatActions: () => true,
+
+  async editMessage(id, body) {
+    let changed: Message | undefined
+    update((s) => {
+      const m = s.messages.find((x) => x.id === id && x.authorId === 'me')
+      if (m) {
+        m.body = body
+        m.editedAt = new Date().toISOString()
+        changed = { ...m }
+      }
+    })
+    if (changed) emit({ kind: 'messageUpdated', message: changed })
+  },
+
+  async deleteMessage(id) {
+    let changed: Message | undefined
+    update((s) => {
+      const m = s.messages.find((x) => x.id === id && x.authorId === 'me')
+      if (m) {
+        m.deletedAt = new Date().toISOString()
+        changed = { ...m, body: '' }
+      }
+    })
+    if (changed) emit({ kind: 'messageUpdated', message: changed })
+  },
+
+  async react(messageId, emoji, on) {
+    update((s) => {
+      const m = s.messages.find((x) => x.id === messageId)
+      if (!m) return
+      const list = m.reactions ?? []
+      const r = list.find((x) => x.emoji === emoji)
+      if (on && !r) list.push({ emoji, userIds: ['me'] })
+      else if (on && r && !r.userIds.includes('me')) r.userIds.push('me')
+      else if (!on && r) r.userIds = r.userIds.filter((u) => u !== 'me')
+      m.reactions = list.filter((x) => x.userIds.length)
+    })
+    emit({ kind: 'reaction', change: { messageId, emoji, userId: 'me', on } })
   },
 
   async addLink(title, url) {

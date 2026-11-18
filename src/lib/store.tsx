@@ -3,7 +3,7 @@ import { newId, type Backend, type GroupSummary, type User, type Workspace } fro
 import { APP_BASE, IS_TAURI } from './base'
 import { demoBackend, startDemoSession } from './demo'
 import { createSupabaseBackend } from './supabaseBackend'
-import type { AppNotification, Message, Task } from './types'
+import type { AppNotification, Message, ReactionChange, Task } from './types'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
@@ -54,6 +54,10 @@ interface Store {
   online: string[]
   /** Dernier message reçu, pour que le chat l'ajoute s'il est dans le bon salon. */
   incoming: Message | null
+  /** Dernier message modifié ou supprimé. */
+  messageUpdate: Message | null
+  /** Dernière réaction ajoutée ou retirée par quelqu'un d'autre. */
+  reactionChange: ReactionChange | null
   reload(): Promise<void>
   saveTask(task: Task): Promise<void>
   createTask(partial: Pick<Task, 'title' | 'status'> & Partial<Task>): Promise<Task>
@@ -124,6 +128,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   workspaceRef.current = workspace
   const [online, setOnline] = useState<string[]>([])
   const [incoming, setIncoming] = useState<Message | null>(null)
+  const [messageUpdate, setMessageUpdate] = useState<Message | null>(null)
+  const [reactionChange, setReactionChange] = useState<ReactionChange | null>(null)
   const [notifications, setNotifications] = useState<AppNotification[]>([])
 
   const reload = useCallback(async () => {
@@ -163,6 +169,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }),
       onTaskDeleted: (id) => setWorkspace((w) => (w ? { ...w, tasks: w.tasks.filter((t) => t.id !== id) } : w)),
       onMessage: setIncoming,
+      onMessageUpdated: setMessageUpdate,
+      onReaction: setReactionChange,
       onPresence: setOnline,
       onRefresh: () => void reload(),
     })
@@ -282,8 +290,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
 
   const value = useMemo<Store>(
-    () => ({ backend, user, ready, loadError, workspace, groups, switchGroup, online, incoming, reload, saveTask, createTask, deleteTask, memberName, notifications, unread, markAllRead, removeNotification }),
-    [user, ready, loadError, workspace, groups, switchGroup, online, incoming, reload, saveTask, createTask, deleteTask, memberName, notifications, unread, markAllRead, removeNotification],
+    () => ({ backend, user, ready, loadError, workspace, groups, switchGroup, online, incoming, messageUpdate, reactionChange, reload, saveTask, createTask, deleteTask, memberName, notifications, unread, markAllRead, removeNotification }),
+    [user, ready, loadError, workspace, groups, switchGroup, online, incoming, messageUpdate, reactionChange, reload, saveTask, createTask, deleteTask, memberName, notifications, unread, markAllRead, removeNotification],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

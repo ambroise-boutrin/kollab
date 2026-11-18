@@ -3,7 +3,7 @@ import { APP_BASE } from './base'
 import { createClient, type SupabaseClient, type User as SbUser } from '@supabase/supabase-js'
 import type { Backend, User, Workspace } from './backend'
 import { CGU_VERSION } from './legal'
-import type { AppNotification, Invite, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
+import type { AppNotification, Invite, ReactionChange, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
 
 interface TaskRow {
   id: string
@@ -14,6 +14,7 @@ interface TaskRow {
   kind: Task['kind']
   points: number | null
   assignee_ids: string[] | null
+  deleted_at?: string | null
   pr_url: string | null
   position: number
   created_at: string
@@ -25,6 +26,8 @@ interface MessageRow {
   author_id: string
   body: string
   created_at: string
+  edited_at?: string | null
+  deleted_at?: string | null
 }
 
 const toTask = (r: TaskRow): Task => ({
@@ -53,8 +56,10 @@ const toMessage = (r: MessageRow): Message => ({
   id: r.id,
   channelId: r.channel_id,
   authorId: r.author_id,
-  body: r.body,
+  body: r.deleted_at ? '' : r.body,
   createdAt: r.created_at,
+  editedAt: r.edited_at ?? null,
+  deletedAt: r.deleted_at ?? null,
 })
 
 function toUser(u: SbUser | null | undefined): User | null {
@@ -78,6 +83,8 @@ const GITHUB_SCOPES = 'repo read:user user:email'
 export function createSupabaseBackend(url: string, anonKey: string): Backend {
   const sb: SupabaseClient = createClient(url, anonKey)
   let groupId: string | null = null
+  let liveChannel: ReturnType<typeof sb.channel> | null = null
+  let chatReady = false
   const redirectTo = `${window.location.origin}${APP_BASE}`
 
   return {
@@ -218,7 +225,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         sb.from('group_members').select('user_id, role, profiles(name, color, title, status, avatar_url)').eq('group_id', groupId),
         sb.from('tasks').select('*').eq('group_id', groupId).order('position'),
         sb.from('channels').select('id, name').eq('group_id', groupId).order('created_at'),
-        sb.from('links').select('id, title, url').eq('group_id', groupId).order('created_at'),
+        sb.from('links').select('*').eq('group_id', groupId).order('created_at'),
       ])
       const g = must(group)
       type MemberRow = {
@@ -239,9 +246,9 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
             avatarUrl: m.profiles?.avatar_url ?? null,
           }),
         ),
-        tasks: (must(tasks) as TaskRow[]).map(toTask),
+        tasks: (must(tasks) as TaskRow[]).filter((r) => !r.deleted_at).map(toTask),
         channels: must(channels),
-        links: must(links) as LinkItem[],
+        links: (must(links) as (LinkItem & { deleted_at?: string | null })[]).filter((l) => !l.deleted_at).map(({ id, title, url }) => ({ id, title, url })),
       }
     },
 
@@ -282,13 +289,21 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       const ch = sb
         .channel(`group:${gid}`, { config: { presence: { key: gid } } })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter }, (p) => {
-          if (p.eventType !== 'DELETE') h.onTask(toTask(p.new as TaskRow))
+          if (p.eventType === 'DELETE') return
+          const row = p.new as TaskRow
+          if (row.deleted_at) h.onTaskDeleted(row.id)
+          else h.onTask(toTask(row))
         })
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter }, (p) =>
           h.onMessage(toMessage(p.new as MessageRow)),
         )
-        // Les suppressions ne sont pas filtrables : on reçoit l'id seul et on l'ignore s'il n'est pas chez nous.
-        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tasks' }, (p) => h.onTaskDeleted((p.old as { id: string }).id))
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter }, (p) => h.onMessageUpdated(toMessage(p.new as MessageRow)))
+        // Suppressions et réactions : diffusées par la personne qui agit (les suppressions ne sont pas filtrables côté base).
+        .on('broadcast', { event: 'task-deleted' }, ({ payload }) => h.onTaskDeleted((payload as { id: string }).id))
+        .on('broadcast', { event: 'reaction' }, ({ payload }) => h.onReaction(payload as ReactionChange))
+        .on('broadcast', { event: 'message-updated' }, ({ payload }) => {
+          void sb.from('messages').select('*').eq('id', (payload as { id: string }).id).single().then(({ data }) => data && h.onMessageUpdated(toMessage(data as MessageRow)))
+        })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'links', filter }, refresh)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'channels', filter }, refresh)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'group_members', filter }, refresh)
@@ -303,8 +318,10 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
           const { data } = await sb.auth.getUser()
           if (data.user) await ch.track({ userId: data.user.id })
         })
+      liveChannel = ch
       return () => {
         clearTimeout(timer)
+        if (liveChannel === ch) liveChannel = null
         void sb.removeChannel(ch)
       }
     },
@@ -388,13 +405,26 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
 
     async deleteTask(id) {
       must(await sb.from('tasks').delete().eq('id', id))
+      liveChannel?.send({ type: 'broadcast', event: 'task-deleted', payload: { id } })
     },
 
     async listMessages(channelId) {
-      const rows = must(
-        await sb.from('messages').select('*').eq('channel_id', channelId).order('created_at').limit(200),
-      )
-      return (rows as MessageRow[]).map(toMessage)
+      // Les 200 derniers, du plus ancien au plus récent.
+      const rows = (must(
+        await sb.from('messages').select('*').eq('channel_id', channelId).order('created_at', { ascending: false }).limit(200),
+      ) as MessageRow[]).reverse()
+      const messages = rows.map(toMessage)
+      const ids = messages.map((m) => m.id)
+      if (!ids.length) return messages
+      const { data, error } = await sb.from('message_reactions').select('message_id, user_id, emoji').in('message_id', ids).order('created_at')
+      chatReady = !error
+      const byMsg = new Map<string, Map<string, string[]>>()
+      for (const r of (data ?? []) as { message_id: string; user_id: string; emoji: string }[]) {
+        const m = byMsg.get(r.message_id) ?? new Map<string, string[]>()
+        m.set(r.emoji, [...(m.get(r.emoji) ?? []), r.user_id])
+        byMsg.set(r.message_id, m)
+      }
+      return messages.map((m) => ({ ...m, reactions: [...(byMsg.get(m.id) ?? new Map()).entries()].map(([emoji, userIds]) => ({ emoji, userIds })) }))
     },
 
     async sendMessage(channelId, body) {
@@ -402,6 +432,26 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         await sb.from('messages').insert({ channel_id: channelId, group_id: groupId, body }).select().single(),
       )
       return toMessage(row as MessageRow)
+    },
+
+    chatActions: () => chatReady,
+
+    async editMessage(id, body) {
+      must(await sb.from('messages').update({ body }).eq('id', id))
+      liveChannel?.send({ type: 'broadcast', event: 'message-updated', payload: { id } })
+    },
+
+    async deleteMessage(id) {
+      must(await sb.from('messages').delete().eq('id', id))
+      liveChannel?.send({ type: 'broadcast', event: 'message-updated', payload: { id } })
+    },
+
+    async react(messageId, emoji, on) {
+      const { data: auth } = await sb.auth.getUser()
+      if (!auth.user) return
+      if (on) must(await sb.from('message_reactions').upsert({ message_id: messageId, group_id: groupId, user_id: auth.user.id, emoji }, { ignoreDuplicates: true }))
+      else must(await sb.from('message_reactions').delete().eq('message_id', messageId).eq('user_id', auth.user.id).eq('emoji', emoji))
+      liveChannel?.send({ type: 'broadcast', event: 'reaction', payload: { messageId, emoji, userId: auth.user.id, on } })
     },
 
     async addLink(title, url) {

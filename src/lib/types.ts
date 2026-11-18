@@ -64,6 +64,23 @@ export interface Message {
   authorId: string
   body: string
   createdAt: string
+  editedAt?: string | null
+  /** Message supprimé : on garde sa place (« Message supprimé »). */
+  deletedAt?: string | null
+  reactions?: Reaction[]
+}
+
+export interface Reaction {
+  emoji: string
+  userIds: string[]
+}
+
+/** Changement de réaction diffusé en direct. */
+export interface ReactionChange {
+  messageId: string
+  emoji: string
+  userId: string
+  on: boolean
 }
 
 export interface LinkItem {
