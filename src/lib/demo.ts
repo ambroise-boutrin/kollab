@@ -727,6 +727,14 @@ export const demoBackend: Backend = {
     emit({ kind: 'refresh' })
   },
 
+  async updateLink(id, patch) {
+    update((s) => {
+      const l = s.workspace?.links.find((x) => x.id === id)
+      if (l) Object.assign(l, patch)
+    })
+    emit({ kind: 'refresh' })
+  },
+
   async removeLink(id) {
     update((s) => {
       const l = s.workspace?.links.find((x) => x.id === id)
