@@ -192,7 +192,7 @@ export function Home() {
           <NotificationBell />
           <DockToggle />
           <button className="icon-btn" aria-label="Organiser l'accueil" title="Organiser l'accueil" onClick={() => setCustomizing(true)}><Icon name="layout" size={20} /></button>
-          <button className="btn" onClick={openInvite}>Inviter des membres</button>
+          <button className="btn" onClick={openInvite}>Inviter<span className="hide-phone"> des membres</span></button>
         </div>
       </header>
 
