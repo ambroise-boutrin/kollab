@@ -1690,3 +1690,50 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 2px 6px; border
 .invite-link-opts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .invite-active { margin-top: 12px; }
 @media (max-width: 520px) { .invite-send { flex-direction: column; } .invite-send .role-select select { width: 100%; } .invite-send .role-select { width: 100%; } }
+
+/* Téléphone : les fenêtres suivent la zone visible, donc restent au-dessus du clavier. */
+html:has(.modal-back) body { overflow: hidden; }
+@media (max-width: 760px) {
+  .modal-back { top: var(--vv-top, 0px); bottom: auto; height: var(--vv-h, 100dvh); }
+  .modal, .modal.sheet, .task-modal { max-height: calc(var(--vv-h, 100dvh) - 24px - env(safe-area-inset-top)); overflow-y: auto; overscroll-behavior: contain; }
+  /* Écrans complets, comme une page : nouvelle tâche, invitation. */
+  .task-back .task-modal, .modal.sheet.full { height: 100%; max-height: none; border-radius: 0; padding-top: calc(env(safe-area-inset-top) + 6px); box-shadow: none; animation: sheet-in .22s var(--ease) both; }
+  .task-modal-top, .modal.full .modal-head { position: sticky; top: calc(-1 * (env(safe-area-inset-top) + 6px)); z-index: 3; margin-top: calc(-1 * (env(safe-area-inset-top) + 6px)); padding: calc(env(safe-area-inset-top) + 6px) 0 8px; background: var(--surface); box-shadow: 0 1px 0 var(--line); margin-bottom: 4px; }
+  .modal.full .modal-head h2 { font-size: 18px; }
+  html.kb-open .modal, html.kb-open .task-modal { padding-bottom: var(--pad); }
+  html.kb-open .sheet-foot, html.kb-open .task-modal-foot { bottom: calc(-1 * var(--pad)); margin-bottom: calc(-1 * var(--pad)); padding-bottom: 10px; }
+  .input, input, textarea, select { font-size: 16px; }
+}
+@keyframes sheet-in { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Liens : favicon, fenêtre d'édition et de retrait */
+.link-mark.fav { background: #fff; box-shadow: inset 0 0 0 1px var(--line); }
+.link-mark.fav img { width: 18px; height: 18px; display: block; }
+.links .link-del + .link-del { margin-left: -6px; }
+.link-confirm { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--line); }
+.link-confirm .link-text { display: flex; flex-direction: column; min-width: 0; font-weight: 600; }
+.link-confirm .link-text small { color: var(--muted); font-weight: 400; }
+.link-form { display: flex; flex-direction: column; gap: 14px; }
+.link-form-foot { display: flex; justify-content: space-between; gap: 8px; padding-top: 4px; }
+.link-remove { display: inline-flex; align-items: center; gap: 6px; color: var(--danger); }
+@media (max-width: 760px) { .link-form-foot .btn { flex: 1; min-height: 48px; } }
+
+/* Profil, façon appli mobile : grande photo, statut en liste, champs en lignes */
+.profile-card { display: flex; flex-direction: column; gap: 18px; max-width: 560px; }
+.profile-hero { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; padding: 6px 0 2px; }
+.profile-photo { position: relative; border: 0; padding: 0; background: none; border-radius: 50%; cursor: pointer; margin-bottom: 8px; }
+.profile-photo:disabled { opacity: .6; }
+.profile-photo-edit { position: absolute; right: -2px; bottom: -2px; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; box-shadow: 0 0 0 3px var(--surface); }
+.profile-name { font-family: var(--display); font-size: 22px; }
+.profile-sub { color: var(--muted); font-size: 14px; }
+.profile-group { display: flex; flex-direction: column; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; }
+.profile-row { display: flex; align-items: center; gap: 12px; min-height: 50px; padding: 0 14px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 15px; text-align: left; cursor: pointer; }
+.profile-row + .profile-row { box-shadow: 0 -1px 0 var(--line); }
+.profile-row:hover { background: var(--subtle); }
+.profile-row[aria-pressed='true'] { font-weight: 600; }
+.profile-row > svg { color: var(--accent); }
+.profile-row .presence { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.profile-row-label { flex: 1; }
+label.profile-row .profile-row-label { flex: none; width: 64px; color: var(--muted); }
+.profile-input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 16px; text-align: right; outline: none; padding: 12px 0; }
+.profile-input:focus { color: var(--accent); }

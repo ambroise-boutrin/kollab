@@ -1,6 +1,7 @@
 import { useRef, useState, type ChangeEvent } from 'react'
 import { Avatar } from '../components/Avatar'
 import { useToast } from '../components/Toast'
+import { Icon } from '../components/Icon'
 import { useStore } from '../lib/store'
 import { PRESENCE, type PresenceStatus, type ProfilePatch } from '../lib/types'
 
@@ -49,48 +50,52 @@ export function ProfileCard() {
     }
   }
 
+  const [busy, setBusy] = useState(false)
+
   return (
-    <section className="card appear" style={{ display: 'flex', flexDirection: 'column', gap: 16, gridColumn: '1 / -1' }}>
-      <h2>Mon profil</h2>
-      <div className="profile-head">
-        <Avatar member={me} size={76} online />
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn soft small" onClick={() => fileRef.current?.click()}>Changer la photo</button>
-          {me.avatarUrl && <button className="btn soft small" onClick={() => void backend.removeAvatar().then(reload)}>Retirer</button>}
-          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => void onPhoto(e)} />
-        </div>
+    <section className="card appear profile-card" style={{ gridColumn: '1 / -1' }}>
+      <div className="profile-hero">
+        <button className="profile-photo" aria-label="Changer la photo" disabled={busy} onClick={() => fileRef.current?.click()}>
+          <Avatar member={me} size={96} />
+          <span className="profile-photo-edit" aria-hidden="true"><Icon name="photo" size={16} /></span>
+        </button>
+        <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { setBusy(true); void onPhoto(e).finally(() => setBusy(false)) }} />
+        <strong className="profile-name">{me.name}</strong>
+        <span className="profile-sub">{me.title || 'Ajoute ton rôle ci-dessous'}</span>
+        {me.avatarUrl && <button className="link-btn" onClick={() => void backend.removeAvatar().then(reload)}>Retirer la photo</button>}
       </div>
 
-      <div className="grid-2">
-        <label className="field">
-          Nom affiché
-          <input className="input" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && name !== me.name && void save({ name: name.trim() }, 'Nom enregistré')} />
+      <div className="profile-group" role="group" aria-label="Statut">
+        {(Object.keys(PRESENCE) as PresenceStatus[]).map((s) => (
+          <button key={s} className="profile-row" aria-pressed={me.status === s} onClick={() => void save({ status: s })}>
+            <span className="presence" style={{ background: PRESENCE[s].color }} aria-hidden="true" />
+            <span className="profile-row-label">{PRESENCE[s].label}</span>
+            {me.status === s && <Icon name="check" size={18} />}
+          </button>
+        ))}
+      </div>
+
+      <div className="profile-group">
+        <label className="profile-row">
+          <span className="profile-row-label">Nom</span>
+          <input className="profile-input" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && name !== me.name && void save({ name: name.trim() }, 'Nom enregistré')} />
         </label>
-        <label className="field">
-          Rôle dans l'équipe
-          <input className="input" value={title} maxLength={60} placeholder="ex. Développeuse front" onChange={(e) => setTitle(e.target.value)} onBlur={() => title !== me.title && void save({ title: title.trim() }, 'Rôle enregistré')} />
+        <label className="profile-row">
+          <span className="profile-row-label">Rôle</span>
+          <input className="profile-input" value={title} maxLength={60} placeholder="ex. Développeuse front" onChange={(e) => setTitle(e.target.value)} onBlur={() => title !== me.title && void save({ title: title.trim() }, 'Rôle enregistré')} />
         </label>
       </div>
 
-      <div className="field">
-        Statut
-        <div className="seg" role="group" aria-label="Statut">
-          {(Object.keys(PRESENCE) as PresenceStatus[]).map((s) => (
-            <button key={s} aria-pressed={me.status === s} onClick={() => void save({ status: s })}>
-              {PRESENCE[s].label}
-            </button>
-          ))}
+      {!me.avatarUrl && (
+        <div className="field">
+          Couleur
+          <div className="colors" role="group" aria-label="Couleur de l'avatar">
+            {COLORS.map((c) => (
+              <button key={c} className={`color-dot${me.color === c ? ' selected' : ''}`} style={{ background: c }} aria-label={c} aria-pressed={me.color === c} onClick={() => void save({ color: c })} />
+            ))}
+          </div>
         </div>
-      </div>
-
-      <div className="field">
-        Couleur de l'avatar
-        <div className="colors" role="group" aria-label="Couleur de l'avatar">
-          {COLORS.map((c) => (
-            <button key={c} className={`color-dot${me.color === c ? ' selected' : ''}`} style={{ background: c }} aria-label={c} aria-pressed={me.color === c} onClick={() => void save({ color: c })} />
-          ))}
-        </div>
-      </div>
+      )}
     </section>
   )
 }

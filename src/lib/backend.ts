@@ -157,6 +157,7 @@ export interface Backend {
   listDeletedGroups(): Promise<{ id: string; name: string; deletedAt: string }[]>
   restoreGroup(id: string): Promise<void>
   removeLink(id: string): Promise<void>
+  updateLink(id: string, patch: { title: string; url: string }): Promise<void>
 
   createSprint(sprint: Omit<Sprint, 'id' | 'closedAt'>): Promise<Sprint>
 

@@ -2,6 +2,7 @@ import { StrictMode, Suspense, lazy } from 'react'
 import { createRoot } from 'react-dom/client'
 import { IS_TAURI } from './lib/base'
 import { startUpdates } from './lib/updates'
+import { blockPinchZoom, trackViewport } from './lib/viewport'
 import { applyTheme, loadThemeChoice } from './lib/themes'
 import '@fontsource-variable/inter'
 import '@fontsource-variable/plus-jakarta-sans'
@@ -31,12 +32,14 @@ const AppRoot = lazy(() => import('./AppRoot'))
 const Site = lazy(() => import('./site/Site'))
 
 if (showApp) {
+  blockPinchZoom()
   applyTheme(loadThemeChoice())
   window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme(loadThemeChoice()))
 }
 
 // Mises à jour : updater Tauri sur le bureau, service worker (hors ligne compris) sur le web.
 startUpdates()
+trackViewport()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

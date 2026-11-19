@@ -208,7 +208,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       if (!data.user) throw new Error('Non connecté')
       // Un nom unique à chaque envoi évite que l'ancienne photo reste en cache.
       const path = `${data.user.id}/${Date.now()}.webp`
-      must(await sb.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: true }))
+      must(await sb.storage.from('avatars').upload(path, file, { contentType: file.type || 'image/webp' }))
       const url = sb.storage.from('avatars').getPublicUrl(path).data.publicUrl
       must(await sb.from('profiles').update({ avatar_url: url }).eq('id', data.user.id))
       return url
@@ -227,7 +227,13 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
 
     async link(provider) {
       if (provider === 'email') throw new Error("L'email se relie depuis la connexion par lien magique.")
-      must(await sb.auth.linkIdentity({ provider, options: { redirectTo: `${redirectTo}/reglages`, ...(provider === 'github' ? { scopes: GITHUB_SCOPES } : {}) } }))
+      const res = await sb.auth.linkIdentity({ provider, options: { redirectTo: `${redirectTo}/reglages`, ...(provider === 'github' ? { scopes: GITHUB_SCOPES } : {}) } })
+      if (res.error) {
+        const m = res.error.message
+        if (/provider is not enabled/i.test(m)) throw new Error(`La connexion ${provider === 'github' ? 'GitHub' : provider === 'google' ? 'Google' : 'Discord'} n'est pas encore activée sur Kollab.`)
+        if (/manual linking/i.test(m)) throw new Error("La liaison de comptes n'est pas encore activée sur Kollab.")
+        throw res.error
+      }
     },
 
     async connectGitHub() {
@@ -674,6 +680,10 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     async removeLink(id) {
       const { data: auth } = await sb.auth.getUser()
       must(await sb.from('links').update({ deleted_at: new Date().toISOString(), deleted_by: auth.user?.id ?? null }).eq('id', id))
+    },
+
+    async updateLink(id, patch) {
+      must(await sb.from('links').update({ title: patch.title, url: patch.url }).eq('id', id))
     },
 
     async setDiscordWebhook(webhook) {

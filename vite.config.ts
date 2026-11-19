@@ -27,7 +27,7 @@ export default defineConfig({
       // Enregistré à la main dans main.tsx, pour ne pas le faire dans l'appli bureau.
       injectRegister: false,
       registerType: 'prompt',
-      includeAssets: ['logo.svg'],
+      includeAssets: ['logo.svg', 'apple-touch-icon.png'],
       // Polices et icônes en cache : chargement instantané et hors ligne.
       workbox: { globPatterns: ['**/*.{js,css,html,svg,png,woff2}'], globIgnores: ['version.json', 'push-sw.js', 'og*.png', 'vitrine/**'],
         // Réception des notifications sur téléphone.

@@ -3,7 +3,7 @@ import { useStore, useWorkspace } from '../lib/store'
 import { ROLES, type EmailInvite, type Invite, type Role } from '../lib/types'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
-import { Modal } from './Modal'
+import { Modal, touchScreen } from './Modal'
 import { useToast } from './Toast'
 
 /** Adresse de l'app (elle peut vivre sous /app quand le site vitrine occupe la racine). */
@@ -146,14 +146,14 @@ export function InviteDialog({ onClose }: { onClose: () => void }) {
   const canSend = emails.length > 0 || EMAIL.test(typed.trim())
 
   return (
-    <Modal title={`Inviter dans ${ws.group.name}`} onClose={onClose}>
+    <Modal title={`Inviter dans ${ws.group.name}`} onClose={onClose} full>
       <div className="invite-compose">
         <div className="chips-input" onClick={(e) => (e.currentTarget.querySelector('input') as HTMLInputElement | null)?.focus()}>
           {emails.map((e) => (
             <span key={e} className="email-chip">{e}<button aria-label={`Retirer ${e}`} onClick={() => setEmails((l) => l.filter((x) => x !== e))}><Icon name="close" size={12} /></button></span>
           ))}
           <input
-            autoFocus
+            autoFocus={!touchScreen()}
             type="email"
             inputMode="email"
             autoComplete="off"
