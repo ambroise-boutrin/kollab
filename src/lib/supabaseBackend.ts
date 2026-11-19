@@ -238,7 +238,8 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
 
     async connectGitHub() {
       const linked = (await sb.auth.getUserIdentities()).data?.identities.some((i) => i.provider === 'github')
-      const options = { redirectTo: window.location.href, scopes: GITHUB_SCOPES }
+      // Sans le #… de la page : Supabase ajoute le jeton après un #, un second # le rendrait illisible.
+      const options = { redirectTo: window.location.origin + window.location.pathname + window.location.search, scopes: GITHUB_SCOPES }
       if (linked) must(await sb.auth.signInWithOAuth({ provider: 'github', options }))
       else must(await sb.auth.linkIdentity({ provider: 'github', options }))
     },
