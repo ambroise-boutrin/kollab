@@ -114,6 +114,14 @@ export const ROLES: Record<Role, { label: string; help: string }> = {
   guest: { label: 'Invité', help: 'Voit tout, mais ne peut rien modifier ni écrire.' },
 }
 
+/** Invitation envoyée à une adresse, en attente. */
+export interface EmailInvite {
+  id: string
+  email: string
+  role: Role
+  createdAt: string
+}
+
 export interface Invite {
   id: string
   code: string

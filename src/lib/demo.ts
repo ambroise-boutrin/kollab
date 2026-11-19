@@ -1,5 +1,5 @@
 import { newId, type Backend, type RoomEvent, type TrashItem, type GroupSetup, type LiveHandlers, type User, type Workspace } from './backend'
-import type { AppNotification, DocumentItem, Note, Sprint, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task } from './types'
+import type { AppNotification, EmailInvite, DocumentItem, Note, Sprint, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task } from './types'
 
 /**
  * Mode démo : tout est stocké dans le navigateur. Plusieurs onglets ouverts
@@ -11,6 +11,7 @@ const bus = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('koll
 
 interface DemoState {
   invites?: Invite[]
+  emailInvites?: EmailInvite[]
   user: User | null
   providers: Provider[]
   workspace: Workspace | null
@@ -424,8 +425,26 @@ export const demoBackend: Backend = {
     return () => bus?.removeEventListener('message', onBus)
   },
 
-  async inviteByEmail() {
-    return false
+  async inviteByEmail(email, role) {
+    const inv: EmailInvite = { id: newId(), email: email.trim().toLowerCase(), role, createdAt: new Date().toISOString() }
+    update((s) => {
+      s.emailInvites = [inv, ...(s.emailInvites ?? []).filter((e) => e.email !== inv.email)]
+    })
+    return { account: false, emailed: true }
+  },
+
+  async listEmailInvites() {
+    return read().emailInvites ?? []
+  },
+
+  async cancelEmailInvite(id) {
+    update((s) => {
+      s.emailInvites = (s.emailInvites ?? []).filter((e) => e.id !== id)
+    })
+  },
+
+  async claimEmailInvites() {
+    return 0
   },
 
   async listInvites() {

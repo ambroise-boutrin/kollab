@@ -196,7 +196,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setNotifications([])
       return
     }
-    void backend.listNotifications().then(setNotifications).catch(() => {})
+    // Les invitations reçues par email avant d'avoir un compte arrivent ici en notifications.
+    void backend.claimEmailInvites().catch(() => 0).then(() => backend.listNotifications()).then(setNotifications).catch(() => {})
     return backend.watchNotifications((n) => {
       setNotifications((list) => (list.some((x) => x.id === n.id) ? list : [n, ...list]))
       // Une invitation ou un nouveau membre peut changer la liste des projets.

@@ -1664,3 +1664,29 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 2px 6px; border
   /* Pastilles : moins de pilules. */
   .chip { border-radius: 10px; }
 }
+
+/* Invitations, façon Canva */
+.invite-compose { display: flex; flex-direction: column; gap: 10px; }
+.invite-compose .chips-input { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); border-radius: 10px; min-height: 50px; }
+.invite-compose .chips-input:focus-within { box-shadow: inset 0 0 0 2px var(--accent); }
+.invite-compose .email-chip { border-radius: 8px; background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--accent); }
+.invite-compose .email-chip button { background: transparent; color: var(--accent); }
+.invite-send { display: flex; gap: 8px; align-items: stretch; }
+.invite-send .btn { flex: 1; }
+.invite-hint { margin: 0; font-size: 13px; color: var(--muted); }
+.role-select { position: relative; display: inline-flex; align-items: center; }
+.role-select select { appearance: none; -webkit-appearance: none; font: inherit; font-size: 14px; font-weight: 600; color: var(--text); background: var(--surface); border: 0; box-shadow: inset 0 0 0 1px var(--line); border-radius: 10px; padding: 0 32px 0 12px; min-height: 44px; cursor: pointer; }
+.role-select select:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+.role-select svg { position: absolute; right: 10px; pointer-events: none; color: var(--muted); }
+.invite-section { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+.invite-people { display: flex; flex-direction: column; margin-top: 18px; }
+.invite-person { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.invite-person .pop-grow { min-width: 0; display: flex; flex-direction: column; }
+.invite-person strong { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.invite-person .muted { font-size: 13px; }
+.invite-linkbox { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.invite-linkbox .invite-link-row code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 12px; border-radius: 10px; background: var(--subtle); font-size: 13px; color: var(--text); }
+.invite-linkbox .btn.ok { background: var(--ok); color: #fff; }
+.invite-link-opts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.invite-active { margin-top: 12px; }
+@media (max-width: 520px) { .invite-send { flex-direction: column; } .invite-send .role-select select { width: 100%; } .invite-send .role-select { width: 100%; } }

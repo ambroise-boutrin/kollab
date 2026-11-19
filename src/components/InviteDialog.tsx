@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type KeyboardEvent } from 'react'
 import { useStore, useWorkspace } from '../lib/store'
-import { ROLES, type Invite, type Role } from '../lib/types'
-import { Icon, type IconName } from './Icon'
+import { ROLES, type EmailInvite, type Invite, type Role } from '../lib/types'
+import { Avatar } from './Avatar'
+import { Icon } from './Icon'
 import { Modal } from './Modal'
 import { useToast } from './Toast'
 
@@ -16,21 +17,31 @@ function expiresIn(iso: string) {
   return days <= 1 ? 'expire demain' : `${days} jours`
 }
 
-const ROLE_LOOK: Record<Role, { icon: IconName; color: string }> = {
-  member: { icon: 'board', color: 'var(--accent)' },
-  guest: { icon: 'info', color: '#2F6FD0' },
-  admin: { icon: 'shield', color: '#D98A1C' },
-}
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const ROLE_ORDER: Role[] = ['member', 'guest', 'admin']
 
-/** Inviter : un lien prêt à partager, ou des emails, avec le rôle choisi. */
+function RoleSelect({ value, onChange, label }: { value: Role; onChange: (r: Role) => void; label: string }) {
+  return (
+    <label className="role-select">
+      <span className="sr-only">{label}</span>
+      <select value={value} onChange={(e) => onChange(e.target.value as Role)}>
+        {ROLE_ORDER.map((r) => <option key={r} value={r}>{ROLES[r].label}</option>)}
+      </select>
+      <Icon name="chevron" size={14} />
+    </label>
+  )
+}
+
+/** Inviter, façon Canva : des emails et un rôle en haut, les invitations en attente, puis un lien à partager. */
 export function InviteDialog({ onClose }: { onClose: () => void }) {
   const ws = useWorkspace()
   const { backend } = useStore()
   const toast = useToast()
   const [role, setRole] = useState<Role>('member')
+  const [linkRole, setLinkRole] = useState<Role>('member')
   const [days, setDays] = useState(7)
   const [invites, setInvites] = useState<Invite[]>([])
+  const [pending, setPending] = useState<EmailInvite[]>([])
   const [link, setLink] = useState<Invite | null>(null)
   const [emails, setEmails] = useState<string[]>([])
   const [typed, setTyped] = useState('')
@@ -38,18 +49,20 @@ export function InviteDialog({ onClose }: { onClose: () => void }) {
   const [sending, setSending] = useState(false)
 
   const loadInvites = useCallback(async () => setInvites(await backend.listInvites()), [backend])
+  const loadPending = useCallback(async () => setPending(await backend.listEmailInvites().catch(() => [])), [backend])
   useEffect(() => {
     void loadInvites()
-  }, [loadInvites])
+    void loadPending()
+  }, [loadInvites, loadPending])
 
   // Un lien est prêt dès l'ouverture, et suit le rôle et la durée choisis.
   useEffect(() => {
     let alive = true
     setLink(null)
-    const reuse = invites.find((i) => i.role === role && !i.maxUses && Math.abs(new Date(i.expiresAt).getTime() - Date.now() - days * 86400000) < 86400000)
+    const reuse = invites.find((i) => i.role === linkRole && !i.maxUses && Math.abs(new Date(i.expiresAt).getTime() - Date.now() - days * 86400000) < 86400000)
     if (reuse) return setLink(reuse)
     const id = setTimeout(() => {
-      void backend.createInvite(role, { days, maxUses: null }).then((inv) => {
+      void backend.createInvite(linkRole, { days, maxUses: null }).then((inv) => {
         if (!alive) return
         setLink(inv)
         void loadInvites()
@@ -59,7 +72,7 @@ export function InviteDialog({ onClose }: { onClose: () => void }) {
       alive = false
       clearTimeout(id)
     }
-  }, [role, days]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [linkRole, days]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function copy() {
     if (!link) return
@@ -86,82 +99,126 @@ export function InviteDialog({ onClose }: { onClose: () => void }) {
     setTyped(list.filter((e) => !EMAIL.test(e)).join(' '))
   }
   function onKey(e: KeyboardEvent<HTMLInputElement>) {
-    if (['Enter', ',', ' ', ';'].includes(e.key) && typed.trim()) {
+    if ([',', ' ', ';'].includes(e.key) && typed.trim()) {
       e.preventDefault()
       addEmail(typed)
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      void send()
     } else if (e.key === 'Backspace' && !typed && emails.length) setEmails((l) => l.slice(0, -1))
   }
 
-  async function sendEmails() {
+  async function send() {
     const list = [...emails, ...(EMAIL.test(typed.trim()) ? [typed.trim()] : [])]
     if (!list.length) return
     setSending(true)
-    const missing: string[] = []
+    const failed: string[] = []
+    let notEmailed = 0
     for (const email of list) {
       try {
-        if (!(await backend.inviteByEmail(email, role))) missing.push(email)
+        const r = await backend.inviteByEmail(email, role)
+        if (!r.emailed && !r.account) notEmailed++
       } catch (e) {
+        failed.push(email)
         toast(`${email} : ${e instanceof Error ? e.message : 'impossible'}`)
       }
     }
     setSending(false)
-    setEmails(missing)
+    setEmails(failed)
     setTyped('')
-    if (missing.length) toast(`Pas encore de compte : envoie-leur le lien (${missing.length})`)
-    else toast(list.length > 1 ? `${list.length} invitations envoyées` : 'Invitation envoyée')
+    void loadPending()
+    const ok = list.length - failed.length
+    if (!ok) return
+    if (notEmailed) toast('Invitation créée, mais l’email n’a pas pu partir : envoie-leur le lien')
+    else toast(ok > 1 ? `${ok} invitations envoyées` : 'Invitation envoyée')
   }
+
+  async function cancel(inv: EmailInvite) {
+    setPending((l) => l.filter((x) => x.id !== inv.id))
+    try {
+      await backend.cancelEmailInvite(inv.id)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Annulation impossible')
+      void loadPending()
+    }
+  }
+
+  const canSend = emails.length > 0 || EMAIL.test(typed.trim())
 
   return (
     <Modal title={`Inviter dans ${ws.group.name}`} onClose={onClose}>
-      <div className="role-tiles" role="radiogroup" aria-label="Rôle">
-        {(['member', 'guest', 'admin'] as Role[]).map((r) => (
-          <button key={r} type="button" role="radio" aria-checked={role === r} className="role-tile" style={{ ['--tile' as string]: ROLE_LOOK[r].color }} onClick={() => setRole(r)}>
-            <span className="role-ico"><Icon name={ROLE_LOOK[r].icon} size={18} /></span>
-            <strong>{ROLES[r].label}</strong>
-            <small>{ROLES[r].help}</small>
+      <div className="invite-compose">
+        <div className="chips-input" onClick={(e) => (e.currentTarget.querySelector('input') as HTMLInputElement | null)?.focus()}>
+          {emails.map((e) => (
+            <span key={e} className="email-chip">{e}<button aria-label={`Retirer ${e}`} onClick={() => setEmails((l) => l.filter((x) => x !== e))}><Icon name="close" size={12} /></button></span>
+          ))}
+          <input
+            autoFocus
+            type="email"
+            inputMode="email"
+            autoComplete="off"
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            onKeyDown={onKey}
+            onBlur={() => typed.trim() && addEmail(typed)}
+            onPaste={(e) => { e.preventDefault(); addEmail(typed + ' ' + e.clipboardData.getData('text')) }}
+            placeholder={emails.length ? 'Ajouter une adresse' : 'Adresses email'}
+            aria-label="Adresses email"
+          />
+        </div>
+        <div className="invite-send">
+          <RoleSelect value={role} onChange={setRole} label="Rôle des personnes invitées" />
+          <button className="btn" disabled={sending || !canSend} onClick={() => void send()}>
+            {sending ? 'Envoi…' : 'Envoyer l’invitation'}
           </button>
-        ))}
+        </div>
+        <p className="invite-hint">{ROLES[role].help}</p>
       </div>
 
-      <div className="invite-link">
-        <span className="invite-link-label">Lien d'invitation · {ROLES[role].label.toLowerCase()}</span>
+      {pending.length > 0 && (
+        <div className="invite-people">
+          <span className="invite-section">En attente</span>
+          {pending.map((p) => (
+            <div key={p.id} className="invite-person">
+              <Avatar member={{ id: p.email, name: p.email, color: '#8A90A2' } as never} size={32} />
+              <span className="pop-grow">
+                <strong>{p.email}</strong>
+                <span className="muted">{ROLES[p.role].label} · invitation envoyée</span>
+              </span>
+              <button className="link-btn" onClick={() => void cancel(p)}>Annuler</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="invite-linkbox">
+        <span className="invite-section">Ou partage un lien</span>
         <div className="invite-link-row">
           <code>{link ? inviteUrl(link.code).replace(/^https?:\/\//, '') : 'Création…'}</code>
-          <button className={`btn${copied ? ' ok' : ''}`} disabled={!link} onClick={() => void copy()}>
+          <button className={`btn soft${copied ? ' ok' : ''}`} disabled={!link} onClick={() => void copy()}>
             {copied ? <><Icon name="check" size={16} /> Copié</> : 'Copier'}
           </button>
         </div>
-        <div className="invite-link-foot">
-          <div className="seg-mini" role="radiogroup" aria-label="Validité">
-            {[1, 7, 30].map((d) => (
-              <button key={d} role="radio" aria-checked={days === d} onClick={() => setDays(d)}>{d === 1 ? '1 jour' : `${d} jours`}</button>
-            ))}
-          </div>
-          <button className="link-btn" onClick={() => void share()}>Partager…</button>
+        <div className="invite-link-opts">
+          <RoleSelect value={linkRole} onChange={setLinkRole} label="Rôle via le lien" />
+          <label className="role-select">
+            <span className="sr-only">Validité du lien</span>
+            <select value={days} onChange={(e) => setDays(Number(e.target.value))}>
+              <option value={1}>1 jour</option>
+              <option value={7}>7 jours</option>
+              <option value={30}>30 jours</option>
+            </select>
+            <Icon name="chevron" size={14} />
+          </label>
+          <button className="link-btn" style={{ marginLeft: 'auto' }} onClick={() => void share()}>Partager…</button>
         </div>
       </div>
-
-      {backend.mode === 'supabase' && (
-        <div className="invite-emails">
-          <span className="invite-link-label">Ou par email</span>
-          <div className="chips-input" onClick={(e) => (e.currentTarget.querySelector('input') as HTMLInputElement | null)?.focus()}>
-            {emails.map((e) => (
-              <span key={e} className="email-chip">{e}<button aria-label={`Retirer ${e}`} onClick={() => setEmails((l) => l.filter((x) => x !== e))}><Icon name="close" size={12} /></button></span>
-            ))}
-            <input value={typed} onChange={(e) => setTyped(e.target.value)} onKeyDown={onKey} onBlur={() => typed.trim() && addEmail(typed)} onPaste={(e) => { e.preventDefault(); addEmail(typed + ' ' + e.clipboardData.getData('text')) }} placeholder={emails.length ? '' : 'nom@exemple.fr, autre@exemple.fr'} aria-label="Emails" />
-          </div>
-          <button className="btn" style={{ alignSelf: 'flex-end' }} disabled={sending || (!emails.length && !EMAIL.test(typed.trim()))} onClick={() => void sendEmails()}>
-            {sending ? 'Envoi…' : `Inviter${emails.length > 1 ? ` (${emails.length})` : ''}`}
-          </button>
-        </div>
-      )}
 
       {invites.length > 0 && (
         <details className="invite-active">
           <summary>{invites.length} lien{invites.length > 1 ? 's' : ''} actif{invites.length > 1 ? 's' : ''}</summary>
           {invites.map((inv) => (
             <div key={inv.id} className="invite-row">
-              <span className="role-dot" style={{ background: ROLE_LOOK[inv.role].color }} />
               <span className="pop-grow">
                 <strong>{ROLES[inv.role].label}</strong>
                 <span className="muted">{expiresIn(inv.expiresAt)} · {inv.uses} arrivée{inv.uses > 1 ? 's' : ''}{inv.maxUses ? ` sur ${inv.maxUses}` : ''}</span>
