@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.5.3",
+    "date": "2026-11-19",
+    "title": "Un projet bien lancé",
+    "items": [
+      "Création de projet en six étapes : nom, modèle, dépôt GitHub, équipe, rythme, Discord",
+      "Couleur du projet et rôle donné dès l'invitation",
+      "Premier sprint créé avec la durée choisie",
+      "Fiche tâche plein écran sur téléphone",
+      "Tes projets en grandes cartes, accueil téléphone épuré"
+    ]
+  },
+  {
     "version": "0.5.2",
     "date": "2026-11-19",
     "title": "Chaque projet a son visage",

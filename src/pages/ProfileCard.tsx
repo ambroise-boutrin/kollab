@@ -14,6 +14,7 @@ export function ProfileCard() {
   const me = workspace?.members.find((m) => m.id === user?.id) ?? workspace?.members[0]
   const [name, setName] = useState(me?.name ?? '')
   const fileRef = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
   if (!me) return null
 
   async function save(patch: ProfilePatch, msg?: string) {
@@ -38,8 +39,6 @@ export function ProfileCard() {
       toast(err instanceof Error ? err.message : "Impossible d'envoyer la photo")
     }
   }
-
-  const [busy, setBusy] = useState(false)
 
   return (
     <section className="card appear profile-card" style={{ gridColumn: '1 / -1' }}>

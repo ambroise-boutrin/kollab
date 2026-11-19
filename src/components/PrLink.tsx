@@ -46,7 +46,9 @@ export function PrStatus({ url, onMerged }: { url: string; onMerged?: () => void
  * Branche et PR d'une tâche : liste déroulante des branches du dépôt du projet.
  * Choisir une branche ouvre sa PR (ou la crée) ; « Nouvelle branche » crée feature/… ou fix/… et la PR.
  */
-export function PrPicker({ value, onChange, onMerged, task }: {
+export function PrPicker({ value, onChange, onMerged, task, card = false }: {
+  /** Grand bouton « Créer la branche et la PR » (fiche tâche sur téléphone). */
+  card?: boolean
   value: string | null
   onChange: (url: string | null) => void
   onMerged?: () => void
@@ -70,6 +72,15 @@ export function PrPicker({ value, onChange, onMerged, task }: {
   }, [branches.data, q, prByBranch])
 
   if (!repo) {
+    if (card) {
+      return (
+        <Link to="/projet#github" className="pr-card-btn">
+          <span className="pr-card-icon"><Icon name="branch" size={20} /></span>
+          <span className="pr-card-text"><b>Relier un dépôt GitHub</b><span>Pour créer la branche et la PR</span></span>
+          <Icon name="chevron" size={16} />
+        </Link>
+      )
+    }
     return <p className="hint">Aucun dépôt relié. <Link to="/projet#github">Relier un dépôt</Link></p>
   }
 
@@ -98,11 +109,19 @@ export function PrPicker({ value, onChange, onMerged, task }: {
   const canWrite = !!ghToken()
   return (
     <div className="branch-picker" ref={ref}>
-      <button type="button" className="select-btn" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-        <Icon name="branch" size={16} />
-        <span>Choisir une branche</span>
-        <Icon name="chevron" size={16} />
-      </button>
+      {card ? (
+        <button type="button" className="pr-card-btn" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(true)}>
+          <span className="pr-card-icon"><Icon name="branch" size={20} /></span>
+          <span className="pr-card-text"><b>{canWrite ? 'Créer la branche et la PR' : 'Choisir une branche'}</b><span>{fresh}</span></span>
+          <Icon name="chevron" size={16} />
+        </button>
+      ) : (
+        <button type="button" className="select-btn" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          <Icon name="branch" size={16} />
+          <span>Choisir une branche</span>
+          <Icon name="chevron" size={16} />
+        </button>
+      )}
       {open && (
         <Modal title="Choisir une branche" onClose={() => setOpen(false)}>
         <div className="branch-menu in-modal" role="listbox" aria-label={`Branches de ${repo.owner}/${repo.repo}`}>

@@ -172,7 +172,7 @@ export function ProjectSettings() {
               <>
                 <section className="card project-hero">
                   <button className="project-logo-btn" disabled={!isAdmin} onClick={() => logoInput.current?.click()} aria-label="Changer le logo du projet" title={isAdmin ? 'Changer le logo' : undefined}>
-                    <ProjectMark id={ws.group.id} logoUrl={ws.group.logoUrl} size={72} />
+                    <ProjectMark id={ws.group.id} logoUrl={ws.group.logoUrl} color={ws.group.color} size={72} />
                     {isAdmin && <span className="profile-photo-edit" aria-hidden="true"><Icon name="photo" size={15} /></span>}
                   </button>
                   <input ref={logoInput} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void attempt(async () => backend.setGroupLogo(await shrinkSquare(f, 320)), 'Logo mis à jour') }} />

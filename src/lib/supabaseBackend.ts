@@ -253,9 +253,9 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     async listGroups() {
       const { data: auth } = await sb.auth.getUser()
       if (!auth.user) return []
-      type Row = { group_id: string; role: Role; groups: { name: string; logo_url: string | null; group_members: { count: number }[] } | null }
+      type Row = { group_id: string; role: Role; groups: { name: string; logo_url: string | null; color?: string | null; group_members: { count: number }[] } | null }
       const rows = must(
-        await sb.from('group_members').select('group_id, role, groups(name, logo_url, group_members(count))').eq('user_id', auth.user.id).order('joined_at'),
+        await sb.from('group_members').select('group_id, role, groups(name, logo_url, color, group_members(count))').eq('user_id', auth.user.id).order('joined_at'),
       ) as unknown as Row[]
       // Un projet à la corbeille n'est plus lisible : il n'apparaît plus.
       return rows.filter((r) => r.groups).map((r) => ({
@@ -263,6 +263,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         name: r.groups?.name ?? 'Projet',
         role: r.role,
         logoUrl: r.groups?.logo_url ?? null,
+        color: r.groups?.color ?? null,
         memberCount: r.groups?.group_members?.[0]?.count,
       }))
     },
@@ -294,7 +295,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         profiles: { name: string; color: string; title: string; status: PresenceStatus; avatar_url: string | null } | null
       }
       return {
-        group: { id: g.id, name: g.name, inviteCode: g.invite_code, discordWebhookSet: g.discord_webhook_set, logoUrl: g.logo_url ?? null },
+        group: { id: g.id, name: g.name, inviteCode: g.invite_code, discordWebhookSet: g.discord_webhook_set, logoUrl: g.logo_url ?? null, color: g.color ?? null, sprintDays: g.sprint_days ?? null, dailyTime: g.daily_time ?? null },
         members: (must(members) as unknown as MemberRow[]).map(
           (m): Member => ({
             id: m.user_id,
@@ -479,6 +480,18 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
 
     async setMemberRole(memberId, role) {
       must(await sb.rpc('set_member_role', { gid: groupId, member: memberId, new_role: role }))
+    },
+
+    async setGroupPrefs(prefs, gid) {
+      const row: Record<string, unknown> = {}
+      if (prefs.color !== undefined) row.color = prefs.color
+      if (prefs.sprintDays !== undefined) row.sprint_days = prefs.sprintDays
+      if (prefs.dailyTime !== undefined) row.daily_time = prefs.dailyTime
+      if (Object.keys(row).length) must(await sb.from('groups').update(row).eq('id', gid ?? groupId))
+    },
+
+    async setInviteTitle(email, title) {
+      must(await sb.rpc('set_invite_title', { gid: groupId, email, new_title: title }))
     },
 
     async setMemberTitle(memberId, title) {

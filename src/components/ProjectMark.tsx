@@ -8,10 +8,10 @@ function hash(s: string) {
 }
 
 /** Quatre compositions en aplats, couleurs tirées de l'identifiant du projet. */
-function Shapes({ seed }: { seed: string }) {
+function Shapes({ seed, color }: { seed: string; color?: string | null }) {
   const h = hash(seed)
-  const bg = PALETTE[h % PALETTE.length]
-  let alt = PALETTE[(h >>> 4) % PALETTE.length]
+  const bg = color || PALETTE[h % PALETTE.length]
+  let alt = color ? (color === '#FFD23F' ? '#14142B' : '#FFD23F') : PALETTE[(h >>> 4) % PALETTE.length]
   if (alt === bg) alt = PALETTE[(h + 3) % PALETTE.length]
   const kind = (h >>> 8) % 4
   const rot = ((h >>> 12) % 4) * 90
@@ -28,10 +28,19 @@ function Shapes({ seed }: { seed: string }) {
   )
 }
 
-export function ProjectMark({ id, logoUrl, size = 32, radius }: { id: string; logoUrl?: string | null; size?: number; radius?: number }) {
+/** Couleurs proposées à la création d'un projet. */
+export const PROJECT_COLORS = [
+  { id: '#5546E0', label: 'Indigo' },
+  { id: '#FFD23F', label: 'Jaune' },
+  { id: '#FF7262', label: 'Corail' },
+  { id: '#0F7A63', label: 'Vert' },
+  { id: '#2F6FD0', label: 'Bleu' },
+]
+
+export function ProjectMark({ id, logoUrl, color, size = 32, radius }: { id: string; logoUrl?: string | null; color?: string | null; size?: number; radius?: number }) {
   return (
     <span className="project-mark" style={{ width: size, height: size, borderRadius: radius ?? Math.round(size * 0.28) }} aria-hidden="true">
-      {logoUrl ? <img src={logoUrl} alt="" width={size} height={size} /> : <Shapes seed={id} />}
+      {logoUrl ? <img src={logoUrl} alt="" width={size} height={size} /> : <Shapes seed={id} color={color} />}
     </span>
   )
 }
