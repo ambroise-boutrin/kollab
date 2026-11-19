@@ -78,7 +78,11 @@ export function Reviews() {
             <button role="tab" aria-selected={state === 'open'} onClick={() => setState('open')}>Ouvertes</button>
             <button role="tab" aria-selected={state === 'closed'} onClick={() => setState('closed')}>Fermées</button>
           </div>
-          {pulls.loading && <p className="hint">Chargement…</p>}
+          {pulls.loading && !pulls.data && (
+            <ul className="pr-nav skeleton-list" aria-label="Chargement des PR">
+              {[0, 1, 2].map((i) => <li key={i} className="skeleton-row" style={{ animationDelay: `${i * 0.12}s` }}><i /><i /></li>)}
+            </ul>
+          )}
           {pulls.error && <p className="hint">{pulls.error}</p>}
           {pulls.data?.length === 0 && <p className="hint">Aucune PR.</p>}
           <ul className="pr-nav">
@@ -97,7 +101,15 @@ export function Reviews() {
             })}
           </ul>
         </aside>
-        {pr ? <PrDetail key={pr.number} repo={repo} pr={pr} onReload={pulls.reload} /> : <div className="card"><p className="hint">{pulls.error ? 'PR indisponibles pour le moment.' : pulls.loading ? 'Chargement…' : 'Aucune PR sélectionnée.'}</p></div>}
+        {pr ? <PrDetail key={pr.number} repo={repo} pr={pr} onReload={pulls.reload} /> : pulls.loading && !pulls.error ? (
+          <div className="card pr-wait" aria-hidden="true"><i /><i /><i /><i /></div>
+        ) : (
+          <div className="card reviews-empty">
+            <span className="chat-empty-ico"><Icon name="pr" size={26} /></span>
+            <strong>{pulls.error ? 'PR indisponibles pour le moment' : state === 'open' ? 'Aucune PR à relire' : 'Aucune PR fermée'}</strong>
+            <span className="muted">{pulls.error ? 'Réessaie dans un instant.' : pulls.data?.length ? 'Choisis une PR à gauche.' : 'Les PR du dépôt arriveront ici dès leur ouverture sur GitHub.'}</span>
+          </div>
+        )}
       </div>
     </div>
   )

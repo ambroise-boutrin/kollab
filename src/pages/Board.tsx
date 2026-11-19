@@ -1,7 +1,8 @@
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   KeyboardSensor,
   useDraggable,
   useDroppable,
@@ -87,7 +88,9 @@ export function Board() {
     }, { replace: true })
   const [dragId, setDragId] = useState<string | null>(null)
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    // Au doigt : appui long pour déplacer, sinon on fait défiler le tableau.
+    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } }),
     useSensor(KeyboardSensor),
   )
 

@@ -247,7 +247,7 @@ export function Layout() {
         </header>
         {DEMO_SESSION ? (
           <div className="demo-banner" role="status">
-            <span><strong>Mode démo</strong> · une équipe d'exemple, rien n'est envoyé.</span>
+            <span><strong>Mode démo</strong><span className="demo-long"> · une équipe d'exemple</span>, rien n'est envoyé.</span>
             <button className="btn small" onClick={leaveDemo}>Créer mon compte</button>
           </div>
         ) : backend.mode === 'demo' && (

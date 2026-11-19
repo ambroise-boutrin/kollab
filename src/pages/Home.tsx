@@ -103,7 +103,7 @@ export function Home() {
         <section className="card home-board">
           <div className="row-between">
             <h2>Tableau du sprint</h2>
-            <button className="btn dark small" onClick={newTask}>Nouvelle tâche</button>
+            <button className="btn small" onClick={newTask}>Nouvelle tâche</button>
           </div>
           <div className="mini-board">
             {STATUSES.map((s) => {

@@ -54,11 +54,12 @@ export function Group() {
               <Avatar member={m} size={56} online={on} />
               <div className="member-id">
                 <strong>{m.name}{m.id === me?.id && <span className="muted"> · toi</span>}</strong>
-                <span className="muted">{m.title || 'Sans intitulé'}</span>
-              </div>
-              <div className="member-presence">
-                <i style={{ background: on ? PRESENCE[m.status ?? 'available'].color : 'var(--line)' }} />
-                {on ? PRESENCE[m.status ?? 'available'].label : 'Hors ligne'}
+                <span className="muted">
+                  {m.title || 'Sans intitulé'} ·{' '}
+                  <span className="member-presence" style={{ ['--p' as string]: on ? PRESENCE[m.status ?? 'available'].color : 'var(--muted)' }}>
+                    {on ? PRESENCE[m.status ?? 'available'].label : 'Hors ligne'}
+                  </span>
+                </span>
               </div>
               <div className="member-stats">
                 <span><b>{open.length}</b> à faire</span>
