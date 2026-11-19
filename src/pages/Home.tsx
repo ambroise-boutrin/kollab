@@ -8,6 +8,7 @@ import { openInvite } from './Group'
 import { PrStatus } from '../components/PrLink'
 import { DockToggle } from '../components/Dock'
 import { Icon } from '../components/Icon'
+import { PhoneHome } from './PhoneHome'
 import { ActivityDialog, ActivityList, useActivity } from '../components/ActivityFeed'
 import { HomeLayoutDialog, useHomeLayout, type WidgetId } from '../components/HomeLayout'
 import { boardTasks } from '../lib/sprints'
@@ -121,7 +122,7 @@ export function Home() {
         <section className="card home-activity">
           <div className="row-between">
             <h2>Activité</h2>
-            <button className="mini-more link-btn" onClick={() => setHistory(true)}>Historique</button>
+            <button className="mini-more ghost-link" onClick={() => setHistory(true)}>Historique</button>
           </div>
           {activity && activity.length === 0 && <p className="hint">Le projet démarre : invite l'équipe et crée les premières tâches.</p>}
           {activity && <ActivityList items={activity} max={6} />}
@@ -172,6 +173,8 @@ export function Home() {
           <button className="btn" onClick={openInvite}>Inviter<span className="hide-phone"> des membres</span></button>
         </div>
       </header>
+
+      <PhoneHome newTask={newTask} />
 
       <div className="home-strip">
         <div className="strip-tile" style={{ ['--tile' as string]: 'var(--accent)' }}>
