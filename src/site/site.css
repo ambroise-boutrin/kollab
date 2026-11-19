@@ -553,3 +553,6 @@
 .k-aud-card .k-case-media { border-radius: 0; margin-bottom: 10px; }
 .k-aud-card li { border-top-width: 1px; border-top-color: var(--line); }
 .site .k-diff { color: #fff; }
+.k-case { min-width: 0; max-width: min(460px, 80vw); }
+.k-case-media { width: 100%; }
+.k-case-media.is-phone img, .k-case-media.is-phone video { max-width: 100%; min-width: 0; }
