@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.5.1",
+    "date": "2026-11-19",
+    "title": "Plus agréable au doigt",
+    "items": [
+      "Téléphone soigné partout : en-tête, fenêtres, barre du bas",
+      "Tableau : défilement au doigt, appui long pour déplacer",
+      "Chat : zone d'écriture toujours visible",
+      "« Annuler » juste après une suppression",
+      "Thème sombre corrigé dans les sprints"
+    ]
+  },
+  {
     "version": "0.5.0",
     "date": "2026-11-18",
     "title": "Toute l'équipe au même endroit",

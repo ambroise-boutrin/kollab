@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useStore, useWorkspace } from '../lib/store'
 import { Icon } from './Icon'
+import { useToast } from './Toast'
 
 const KNOWN: [RegExp, string][] = [
   [/docs\.google\.com\/document/, 'Google Docs'],
@@ -40,6 +41,7 @@ const host = (url: string) => {
 export function LinksCard() {
   const ws = useWorkspace()
   const { backend, reload } = useStore()
+  const toast = useToast()
   const [adding, setAdding] = useState(false)
   const [value, setValue] = useState('')
   const [error, setError] = useState(false)
@@ -88,7 +90,7 @@ export function LinksCard() {
                 <small>{host(l.url)}</small>
               </span>
             </a>
-            <button className="icon-btn link-del" aria-label={`Retirer ${l.title}`} onClick={() => void backend.removeLink(l.id).then(reload)}>
+            <button className="icon-btn link-del" aria-label={`Retirer ${l.title}`} onClick={() => void backend.removeLink(l.id).then(reload).then(() => toast('Lien retiré', { label: 'Annuler', run: async () => { await backend.restoreItem('link', l.id); await reload() } }))}>
               <Icon name="close" size={14} />
             </button>
           </li>

@@ -195,7 +195,8 @@ export default function NoteEditor({ note, onClose }: { note: Note; onClose: () 
     clearTimeout(saveTimer.current)
     await backend.removeNote(note.id)
     await reload()
-    toast('Mis à la corbeille')
+    const id = note.id
+    toast('Mis à la corbeille', { label: 'Annuler', run: async () => { await backend.restoreItem('note', id); await reload() } })
     onClose()
   }
 
