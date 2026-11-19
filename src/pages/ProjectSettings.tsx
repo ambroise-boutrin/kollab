@@ -9,14 +9,13 @@ import { shrinkSquare } from '../lib/image'
 import { SectionsPage } from '../components/SectionsPage'
 import { useToast } from '../components/Toast'
 import type { TrashItem } from '../lib/backend'
-import { branchName, getRepo, ghToken, myRepos, parseRepo, type RepoInfo } from '../lib/github'
+import { branchName, getRepo, ghToken, myRepos, parseRepo, projectRepoLink, type RepoInfo } from '../lib/github'
 import { normalizeRepo } from '../lib/presets'
 import { autoPrEnabled, rememberGroup, setAutoPr, useStore, useWorkspace } from '../lib/store'
 import { ROLES } from '../lib/types'
 import { useAsync } from '../lib/useAsync'
 import { openInvite } from './Group'
 
-const isRepo = (url: string) => /^https:\/\/github\.com\/[^/]+\/[^/]+/.test(url)
 
 function ago(iso: string) {
   const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
@@ -89,7 +88,7 @@ export function ProjectSettings() {
   const me = ws.members.find((m) => m.id === user?.id) ?? (backend.mode === 'demo' ? ws.members[0] : undefined)
   const isAdmin = me?.role === 'admin'
   const canWrite = me?.role !== 'guest'
-  const repoLink = ws.links.find((l) => isRepo(l.url))
+  const repoLink = projectRepoLink(ws.links)
   const repoRef = repoLink ? parseRepo(repoLink.url) : null
 
   const [editingName, setEditingName] = useState(false)

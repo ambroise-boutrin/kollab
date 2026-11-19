@@ -33,13 +33,21 @@ export function parsePrUrl(url: string | null): (Repo & { number: number }) | nu
   const m = url?.match(/^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/(\d+)/)
   return m ? { owner: m[1], repo: m[2], number: Number(m[3]) } : null
 }
-/** Le dépôt du projet : le premier lien GitHub vers un dépôt. */
+const BARE_REPO = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/?$/
+/** Le lien du dépôt du projet : celui nommé « Dépôt GitHub », sinon le premier lien vers un dépôt (pas une PR ni un fichier). */
+export function projectRepoLink<L extends { title: string; url: string }>(links: L[]): L | undefined {
+  return links.find((l) => l.title === 'Dépôt GitHub' && parseRepo(l.url)) ?? links.find((l) => BARE_REPO.test(l.url)) ?? links.find((l) => parseRepo(l.url))
+}
+/** Le dépôt du projet. */
 export function projectRepo(ws: Workspace | null): Repo | null {
-  for (const l of ws?.links ?? []) {
-    const r = parseRepo(l.url)
-    if (r) return r
-  }
-  return null
+  const l = projectRepoLink(ws?.links ?? [])
+  return l ? parseRepo(l.url) : null
+}
+/** Nom de branche tapé à la main : « ma branche » → feature/ma-branche (préfixe gardé s'il est donné). */
+export function typedBranch(input: string, kind: string): string | null {
+  const parts = input.trim().split('/').map((p) => p.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '')).filter(Boolean)
+  if (!parts.length) return null
+  return parts.length === 1 ? `${PREFIX[kind] ?? 'feature'}/${parts[0]}` : parts.join('/')
 }
 
 export class GitHubError extends Error {
@@ -58,6 +66,7 @@ async function gh<T>(path: string, init: RequestInit = {}, accept = 'application
   })
   if (res.status === 401) {
     setGhToken(null)
+    window.dispatchEvent(new Event('kollab:gh-expired'))
     throw new GitHubError('Connexion GitHub expirée : reconnecte GitHub', 401)
   }
   if (res.status === 403 && res.headers.get('x-ratelimit-remaining') === '0') throw new GitHubError('Limite GitHub atteinte : connecte GitHub pour continuer', 403)
@@ -206,12 +215,13 @@ export async function prFromBranch(r: Repo, branch: string, task: TaskInfo): Pro
  * Crée une branche depuis la branche principale, avec un premier commit vide
  * (GitHub refuse une PR sans différence), puis ouvre la PR en brouillon. Renvoie l'adresse de la PR.
  */
-export async function createTaskPr(r: Repo, task: TaskInfo): Promise<string> {
+export async function createTaskPr(r: Repo, task: TaskInfo, wanted?: string): Promise<string> {
   if (!ghToken()) throw new GitHubError('Connecte GitHub pour créer la PR', 401)
   const main = await defaultBranch(r)
   const taken = new Set((await listBranches(r)).map((b) => b.name))
-  let branch = branchName(task.kind, task.title)
-  for (let i = 2; taken.has(branch); i++) branch = `${branchName(task.kind, task.title)}-${i}`
+  const first = wanted || branchName(task.kind, task.title)
+  let branch = first
+  for (let i = 2; taken.has(branch); i++) branch = `${first}-${i}`
   await emptyCommit(r, branch, `Démarre : ${task.title}`, true, main)
   return openPr(r, branch, main, task)
 }

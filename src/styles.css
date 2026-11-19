@@ -2074,3 +2074,4 @@ label.profile-row .profile-row-label { flex: none; width: 64px; color: var(--mut
 .ac-dots { display: flex; gap: 4px; }
 .ac-dots i { width: 18px; height: 18px; border-radius: 50%; }
 .ac-logout { min-height: 50px; border: 0; border-radius: 14px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); font: inherit; font-weight: 700; color: #C2413A; cursor: pointer; }
+.branch-repo { font-family: ui-monospace, monospace; font-size: .8em; color: var(--accent); }

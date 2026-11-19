@@ -1,4 +1,4 @@
-import { setGhToken } from './github'
+import { ghToken, setGhToken } from './github'
 import { APP_BASE } from './base'
 import { createClient, type SupabaseClient, type User as SbUser } from '@supabase/supabase-js'
 import type { Backend, RoomEvent, User, Workspace } from './backend'
@@ -128,11 +128,29 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
   let chatReady = false
   const redirectTo = `${window.location.origin}${APP_BASE}`
 
+  /** Jeton GitHub gardé sur le compte : on le retrouve sur chaque appareil sans se reconnecter. */
+  async function restoreGhToken() {
+    const local = ghToken()
+    // Jeton obtenu avant cette version : on le range aussi sur le compte.
+    if (local) return void (await sb.from('github_tokens').upsert({ token: local, updated_at: new Date().toISOString() }))
+    const { data } = await sb.from('github_tokens').select('token').maybeSingle()
+    if (data?.token) setGhToken(data.token as string)
+  }
+  function keepGhToken(token: string) {
+    setGhToken(token)
+    void sb.from('github_tokens').upsert({ token, updated_at: new Date().toISOString() }).then(() => undefined)
+  }
+  // Jeton refusé par GitHub : on l'oublie aussi sur le compte.
+  window.addEventListener('kollab:gh-expired', () => {
+    void sb.auth.getUser().then(({ data }) => data.user && sb.from('github_tokens').delete().eq('user_id', data.user.id))
+  })
+
   return {
     mode: 'supabase',
 
     async currentUser() {
       const { data } = await sb.auth.getUser()
+      if (data.user) await restoreGhToken().catch(() => undefined)
       return toUser(data.user)
     },
 
@@ -142,7 +160,8 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         const u = session?.user
         // Jeton GitHub : Supabase ne le donne qu'au retour de GitHub, on le garde pour l'API.
         const latest = [...(u?.identities ?? [])].sort((a, b) => String(b.last_sign_in_at ?? '').localeCompare(String(a.last_sign_in_at ?? '')))[0]
-        if (session?.provider_token && latest?.provider === 'github') setGhToken(session.provider_token)
+        if (session?.provider_token && latest?.provider === 'github') keepGhToken(session.provider_token)
+        else if (event === 'SIGNED_IN' && !ghToken()) void restoreGhToken().catch(() => undefined)
         if (event === 'SIGNED_OUT') setGhToken(null)
         // Email de bienvenue, une seule fois après l'activation (la fonction vérifie elle-même).
         if (event === 'SIGNED_IN' && u?.email_confirmed_at && !u.app_metadata?.welcomed) {
@@ -249,6 +268,10 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       const identity = data?.identities.find((i) => i.provider === provider)
       if (!identity) return
       must(await sb.auth.unlinkIdentity(identity))
+      if (provider === 'github') {
+        setGhToken(null)
+        if (data?.identities[0]?.user_id) await sb.from('github_tokens').delete().eq('user_id', data.identities[0].user_id)
+      }
     },
 
     async listGroups() {
