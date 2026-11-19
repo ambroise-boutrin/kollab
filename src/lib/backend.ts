@@ -47,7 +47,15 @@ export interface GroupSummary {
   name: string
   role: Role
   logoUrl?: string | null
+  color?: string | null
   memberCount?: number
+}
+
+/** Réglages choisis pendant la création d'un projet. */
+export interface GroupPrefs {
+  color?: string | null
+  sprintDays?: number | null
+  dailyTime?: string | null
 }
 
 /** Préconfiguration d'un nouveau projet (modèle choisi à la création). */
@@ -139,6 +147,10 @@ export interface Backend {
   setMemberTitle(memberId: string, title: string): Promise<void>
   /** Logo du projet ouvert (ou de `groupId`) ; null le retire. */
   setGroupLogo(file: Blob | null, groupId?: string): Promise<void>
+  /** Couleur et rythme du projet ouvert (ou de `groupId`). */
+  setGroupPrefs(prefs: GroupPrefs, groupId?: string): Promise<void>
+  /** Rôle dans l'équipe donné à une invitation par email en attente. */
+  setInviteTitle(email: string, title: string): Promise<void>
   /** Historique des actions de l'équipe, du plus récent au plus ancien. */
   listActivity(limit?: number, before?: string): Promise<ActivityItem[]>
 

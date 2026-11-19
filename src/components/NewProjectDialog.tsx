@@ -1,38 +1,51 @@
-import { useEffect } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../lib/store'
-import { Icon } from './Icon'
-import { ProjectForm } from './ProjectForm'
+import { Modal, touchScreen } from './Modal'
+import { ProjectWizard } from './ProjectWizard'
 import { useToast } from './Toast'
 
-/** Fenêtre « Nouveau projet ou rejoindre », ouverte depuis le sélecteur de projet. */
-export function NewProjectDialog({ onClose }: { onClose: () => void }) {
-  const { switchGroup } = useStore()
+/** Nouveau projet (création en étapes) ou rejoindre un projet avec un code. */
+export function NewProjectDialog({ onClose, mode = 'create' }: { onClose: () => void; mode?: 'create' | 'join' }) {
+  const { switchGroup, backend } = useStore()
   const navigate = useNavigate()
   const toast = useToast()
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  async function open(id: string) {
+    await switchGroup(id)
+    onClose()
+    navigate('/')
+  }
+
+  if (mode === 'create') return <ProjectWizard onClose={onClose} onDone={open} />
+
+  async function join(e: FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    try {
+      await open(await backend.joinGroup(code.trim()))
+      toast('Tu as rejoint le projet')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Code refusé')
+      setBusy(false)
+    }
+  }
 
   return (
-    <div className="modal-back" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" style={{ width: "min(860px, 100%)" }} role="dialog" aria-modal="true" aria-labelledby="new-project-title">
-        <div className="modal-head">
-          <h2 id="new-project-title">Nouveau projet</h2>
-          <button className="icon-btn" aria-label="Fermer" onClick={onClose}><Icon name="close" size={18} /></button>
-        </div>
-        <ProjectForm
-          onDone={async ({ id, how }) => {
-            await switchGroup(id)
-            onClose()
-            navigate('/')
-            toast(how === 'created' ? 'Projet créé' : 'Tu as rejoint le projet')
-          }}
-        />
-      </div>
-    </div>
+    <Modal title="Rejoindre avec un code" onClose={onClose}>
+      <form onSubmit={join} className="stack">
+        <label className="field">
+          Code ou lien d'invitation
+          <input className="input" value={code} onChange={(e) => setCode(e.target.value.replace(/^.*[?&]invitation=/, ''))} placeholder="ex. 4F9A2C7B1D" autoFocus={!touchScreen()} />
+          <span className="field-help">Demande-le à un admin du projet.</span>
+        </label>
+        {error && <p role="alert" className="form-error">{error}</p>}
+        <button className="btn" disabled={busy || !code.trim()}>{busy ? 'Connexion…' : 'Rejoindre le projet'}</button>
+      </form>
+    </Modal>
   )
 }

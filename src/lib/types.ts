@@ -137,6 +137,12 @@ export interface Group {
   inviteCode: string
   discordWebhookSet: boolean
   logoUrl?: string | null
+  /** Couleur choisie à la création (sinon celle du visuel généré). */
+  color?: string | null
+  /** Durée habituelle d'un sprint, en jours. */
+  sprintDays?: number | null
+  /** Heure du point d'équipe, ex. « 09:30 ». */
+  dailyTime?: string | null
 }
 
 /** Rôles dans l'équipe proposés aux admins (liste fixe). */
@@ -144,6 +150,7 @@ export const TEAM_TITLES = [
   'Chef de projet',
   'Product Owner',
   'Scrum Master',
+  'Développeur',
   'Développeur front',
   'Développeur back',
   'Développeur full stack',

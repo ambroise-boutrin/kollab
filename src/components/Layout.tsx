@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { boardTasks } from '../lib/sprints'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { DEMO_SESSION, leaveDemo, useStore } from '../lib/store'
 import { PRESENCE, type Member } from '../lib/types'
@@ -8,8 +10,10 @@ import { DesktopMenu } from './DesktopMenu'
 import { Icon, type IconName } from './Icon'
 import { LogoMark } from './Logo'
 import { NewProjectDialog } from './NewProjectDialog'
+import { hasWizardDraft } from './ProjectWizard'
+import { PhoneAccount } from './PhoneAccount'
+import { usePhone } from './Modal'
 import { Popover } from './Popover'
-import { Modal } from './Modal'
 import { ProjectMark } from './ProjectMark'
 import { NotificationBell, usePushOpen } from './Notifications'
 import { InviteDialog } from './InviteDialog'
@@ -33,57 +37,72 @@ const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(naviga
 const ROLE_LABEL = { admin: 'Admin', member: 'Membre', guest: 'Invité' } as const
 
 /** En haut à gauche : le projet ouvert ; un clic montre tous les projets en grand. */
-function ProjectSwitcher({ onNew, compact = false }: { onNew: () => void; compact?: boolean }) {
-  const { workspace, groups, switchGroup } = useStore()
+function ProjectSwitcher({ onNew, compact = false }: { onNew: (mode: 'create' | 'join') => void; compact?: boolean }) {
+  const { workspace, groups, switchGroup, notifications } = useStore()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   if (!workspace) return null
   const g = workspace.group
   const role = groups.find((x) => x.id === g.id)?.role
+  const openTasks = workspace.tasks.filter((t) => t.status !== 'done').length
+  const board = boardTasks(workspace)
+  const pts = board.reduce((n, t) => n + (t.points ?? 0), 0)
+  const pct = pts ? Math.round((board.filter((t) => t.status === 'done').reduce((n, t) => n + (t.points ?? 0), 0) / pts) * 100) : 0
+  const unread = notifications.filter((n) => !n.readAt && (!n.groupId || n.groupId === g.id)).length
+  const others = groups.filter((p) => p.id !== g.id)
+  const count = workspace.members.length
   return (
     <div className={compact ? 'switcher compact' : 'switcher'}>
       <button className="switcher-btn" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)} data-tour="project">
-        <ProjectMark id={g.id} logoUrl={g.logoUrl} size={compact ? 30 : 34} />
+        <ProjectMark id={g.id} logoUrl={g.logoUrl} color={g.color} size={compact ? 32 : 34} radius={compact ? 9 : undefined} />
         <span className="switcher-text">
           <strong>{g.name}</strong>
-          {!compact && <span>{workspace.members.length} membre{workspace.members.length > 1 ? 's' : ''}{role ? ` · ${ROLE_LABEL[role]}` : ''}</span>}
+          {!compact && <span>{count} membre{count > 1 ? 's' : ''}{role ? ` · ${ROLE_LABEL[role]}` : ''}</span>}
         </span>
         <Icon name="chevron" size={16} />
       </button>
-      {open && (
-        <Modal title="Tes projets" onClose={() => setOpen(false)} wide>
-          <div className="projects-grid">
-            {groups.map((p) => {
-              const current = p.id === g.id
-              const logo = current ? g.logoUrl : p.logoUrl
-              const count = current ? workspace.members.length : p.memberCount
-              return (
-                <button
-                  key={p.id}
-                  className={`project-card${current ? ' current' : ''}`}
-                  aria-current={current || undefined}
-                  onClick={() => {
-                    setOpen(false)
-                    if (!current) void switchGroup(p.id).then(() => navigate('/'))
-                  }}
-                >
-                  <ProjectMark id={p.id} logoUrl={logo} size={64} />
-                  <strong>{p.name}</strong>
-                  <span className="muted">{count != null ? `${count} membre${count > 1 ? 's' : ''} · ` : ''}{ROLE_LABEL[p.role]}</span>
-                  {current && <span className="project-open">Ouvert</span>}
+      {open && createPortal(
+        <div className="wizard-back" onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}>
+          <div className="wizard projects-screen" role="dialog" aria-modal="true" aria-labelledby="projects-title">
+            <header className="pj-head">
+              <button className="wz-text-btn accent" onClick={() => setOpen(false)}>Fermer</button>
+            </header>
+            <div className="pj-body">
+              <h1 id="projects-title" className="wz-title">Tes projets</h1>
+              <button className="pj-current" aria-current="true" onClick={() => setOpen(false)}>
+                <span className="pj-current-top">
+                  <ProjectMark id={g.id} logoUrl={g.logoUrl} color={g.color} size={64} radius={18} />
+                  <span className="pj-name"><strong>{g.name}</strong><span>{count} membre{count > 1 ? 's' : ''}{role ? ` · ${ROLE_LABEL[role]}` : ''}</span></span>
+                  <span className="pj-open">Ouvert</span>
+                </span>
+                <span className="pj-stats">
+                  <span><b style={{ color: '#2F6FD0' }}>{openTasks}</b>tâche{openTasks > 1 ? 's' : ''} ouverte{openTasks > 1 ? 's' : ''}</span>
+                  <span><b style={{ color: 'var(--ok)' }}>{pct} %</b>du sprint</span>
+                  <span><b style={{ color: '#C2413A' }}>{unread}</b>non lu{unread > 1 ? 's' : ''}</span>
+                </span>
+              </button>
+              <div className="pj-grid">
+                {others.map((p) => (
+                  <button key={p.id} className="pj-card" onClick={() => { setOpen(false); void switchGroup(p.id).then(() => navigate('/')) }}>
+                    <ProjectMark id={p.id} logoUrl={p.logoUrl} color={p.color} size={52} radius={15} />
+                    <strong>{p.name}</strong>
+                    <span>{p.memberCount != null ? `${p.memberCount} membre${p.memberCount > 1 ? 's' : ''} · ` : ''}{ROLE_LABEL[p.role]}</span>
+                  </button>
+                ))}
+                <button className="pj-card pj-add" onClick={() => { setOpen(false); onNew('create') }}>
+                  <span className="pj-add-icon" style={{ background: 'var(--text)', color: 'var(--surface)' }}><Icon name="plus" size={20} /></span>
+                  <strong>Nouveau projet</strong>
                 </button>
-              )
-            })}
-            <button className="project-card add" onClick={() => { setOpen(false); onNew() }}>
-              <span className="invite-plus"><Icon name="plus" size={26} /></span>
-              <strong>Nouveau projet</strong>
-              <span className="muted">ou rejoindre avec un code</span>
-            </button>
+                <button className="pj-card pj-add" onClick={() => { setOpen(false); onNew('join') }}>
+                  <span className="pj-add-icon" style={{ background: '#FFD23F', color: '#14142B' }}><Icon name="door" size={20} /></span>
+                  <strong>Rejoindre avec un code</strong>
+                </button>
+              </div>
+              <button className="link-btn pj-settings hide-phone" onClick={() => { setOpen(false); navigate('/projet') }}>Réglages de {g.name}</button>
+            </div>
           </div>
-          <div className="projects-foot">
-            <button className="btn soft" onClick={() => { setOpen(false); navigate('/projet') }}><Icon name="settings" size={18} /> Réglages de {g.name}</button>
-          </div>
-        </Modal>
+        </div>,
+        document.body,
       )}
     </div>
   )
@@ -145,9 +164,12 @@ export function MembersStack() {
 function ProfileMenu({ compact = false }: { compact?: boolean }) {
   const { workspace, user, online, backend } = useStore()
   const navigate = useNavigate()
+  const phone = usePhone()
+  const [account, setAccount] = useState(false)
   const me = workspace?.members.find((m) => m.id === user?.id) ?? workspace?.members[0]
   const go = (close: () => void, to: string) => { close(); navigate(to) }
   return (
+    <>
     <Popover
       label="Mon compte"
       className={compact ? 'profile-pop compact' : 'profile-pop'}
@@ -173,7 +195,7 @@ function ProfileMenu({ compact = false }: { compact?: boolean }) {
             </span>
           </div>
           <hr />
-          <button role="menuitem" className="pop-item" onClick={() => go(close, '/reglages#profil')}><Icon name="user" size={18} /> Mon profil</button>
+          <button role="menuitem" className="pop-item" onClick={() => { if (phone) { close(); setAccount(true) } else go(close, '/reglages#profil') }}><Icon name="user" size={18} /> Mon profil</button>
           <button role="menuitem" className="pop-item" onClick={() => go(close, '/reglages#comptes')}><Icon name="link" size={18} /> Comptes liés</button>
           <button role="menuitem" className="pop-item" onClick={() => go(close, '/reglages#apparence')}><Icon name="palette" size={18} /> Apparence</button>
           <button role="menuitem" className="pop-item" onClick={() => go(close, '/reglages')}><Icon name="settings" size={18} /> Réglages du compte</button>
@@ -185,20 +207,22 @@ function ProfileMenu({ compact = false }: { compact?: boolean }) {
         </>
       )}
     </Popover>
+    {account && <PhoneAccount onClose={() => setAccount(false)} />}
+    </>
   )
 }
 
 export function Layout() {
   const { workspace, user, backend } = useStore()
   usePushOpen()
-  const [creating, setCreating] = useState(false)
+  const [creating, setCreating] = useState<null | 'create' | 'join'>(() => (hasWizardDraft() ? 'create' : null))
   const [inviting, setInviting] = useState(false)
   useEffect(() => {
     const on = () => setInviting(true)
     window.addEventListener('kollab:invite', on)
     return () => window.removeEventListener('kollab:invite', on)
   }, [])
-  const openNew = useCallback(() => setCreating(true), [])
+  const openNew = useCallback(() => setCreating('create'), [])
   const { pathname } = useLocation()
   const onHome = pathname === '/'
   const myOpen = workspace?.tasks.filter((t) => t.assigneeIds.includes(user?.id ?? 'me') && t.status !== 'done').length ?? 0
@@ -208,7 +232,7 @@ export function Layout() {
     <div className="shell">
       <nav className="sidebar" aria-label="Navigation principale">
         <div className="brand"><LogoMark size={24} /> Kollab</div>
-        <ProjectSwitcher onNew={() => setCreating(true)} />
+        <ProjectSwitcher onNew={setCreating} />
         <button className="nav-search" onClick={openSearch}>
           <Icon name="search" size={18} />
           Rechercher
@@ -231,7 +255,7 @@ export function Layout() {
       <main className="main">
         <header className={onHome ? 'topbar on-home' : 'topbar'}>
           <div className="topbar-mobile">
-            <ProjectSwitcher onNew={() => setCreating(true)} compact />
+            <ProjectSwitcher onNew={setCreating} compact />
           </div>
           <MembersStack />
           <button className="icon-btn topbar-search" aria-label="Rechercher" onClick={openSearch}><Icon name="search" size={20} /></button>
@@ -287,7 +311,7 @@ export function Layout() {
         </Popover>
       </nav>
 
-      {creating && <NewProjectDialog onClose={() => setCreating(false)} />}
+      {creating && <NewProjectDialog mode={creating} onClose={() => setCreating(null)} />}
       {inviting && workspace && <InviteDialog onClose={() => setInviting(false)} />}
       {!DEMO_SESSION && <AppTour />}
       <DesktopMenu onNewProject={openNew} />

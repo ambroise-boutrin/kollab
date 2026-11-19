@@ -310,7 +310,7 @@ export const demoBackend: Backend = {
     const s = read()
     const all = [s.workspace, ...(s.others ?? []).map((o) => o.workspace)].filter((w): w is Workspace => !!w)
     return all
-      .map((w) => ({ id: w.group.id, name: w.group.name, role: w.members.find((m) => m.id === 'me')?.role ?? 'admin', logoUrl: w.group.logoUrl ?? null, memberCount: w.members.length }))
+      .map((w) => ({ id: w.group.id, name: w.group.name, role: w.members.find((m) => m.id === 'me')?.role ?? 'admin', logoUrl: w.group.logoUrl ?? null, color: w.group.color ?? null, memberCount: w.members.length }))
       .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
   },
 
@@ -486,6 +486,15 @@ export const demoBackend: Backend = {
     })
     emit({ kind: 'refresh' })
   },
+
+  async setGroupPrefs(prefs) {
+    update((s) => {
+      if (s.workspace) Object.assign(s.workspace.group, Object.fromEntries(Object.entries(prefs).filter(([, v]) => v !== undefined)))
+    })
+    emit({ kind: 'refresh' })
+  },
+
+  async setInviteTitle() {},
 
   async setGroupLogo(file) {
     const url = file ? await new Promise<string>((res) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.readAsDataURL(file) }) : null

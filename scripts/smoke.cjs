@@ -10,7 +10,7 @@ await p.addInitScript(() => { try { sessionStorage.setItem('kollab-demo-tour', '
 await p.goto(BASE + '/app/?demo=1'); await p.waitForTimeout(1000)
 const check = async (name) => { const sw = await p.evaluate(() => document.documentElement.scrollWidth); if (sw > w + 1 || errs.length) { bad++; console.log('FAIL', tag, name, sw, errs.splice(0)) } }
 for (const path of ['/', '/tableau', '/sprints', '/revues', '/chat', '/documents', '/equipe', '/projet', '/reglages']) { await p.goto(BASE + '/app' + path); await p.waitForTimeout(700); await check(path) }
-await p.goto(BASE + '/app/tableau'); await p.waitForTimeout(600); await p.locator('.board .task').first().click(); await p.waitForTimeout(500); await check('task open'); if (!await p.locator('.task-modal').count()) { bad++; console.log('FAIL no task modal') }
+await p.goto(BASE + '/app/tableau'); await p.waitForTimeout(600); await p.locator('.board .task').first().click(); await p.waitForTimeout(500); await check('task open'); if (!await p.locator('.task-modal, .pt-screen').count()) { bad++; console.log('FAIL no task modal') }
 await p.keyboard.press('Escape')
 await p.goto(BASE + '/app/sprints'); await p.waitForTimeout(600); await p.locator('.backlog-title').first().click(); await p.waitForTimeout(500); await check('backlog task'); await p.keyboard.press('Escape')
 await p.goto(BASE + '/app/sprints?poker=1'); await p.waitForTimeout(600); await check('poker')

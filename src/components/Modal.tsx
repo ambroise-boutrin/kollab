@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from './Icon'
 
@@ -25,4 +25,18 @@ export function Modal({ title, onClose, children, wide = false, footer, full = f
     </div>,
     document.body,
   )
+}
+
+/** Écran de téléphone (même seuil que le CSS), suivi au redimensionnement. */
+export function usePhone() {
+  const q = '(max-width: 820px)'
+  const [phone, setPhone] = useState(() => window.matchMedia?.(q).matches ?? false)
+  useEffect(() => {
+    const m = window.matchMedia?.(q)
+    if (!m) return
+    const on = () => setPhone(m.matches)
+    m.addEventListener('change', on)
+    return () => m.removeEventListener('change', on)
+  }, [])
+  return phone
 }
