@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.5.2",
+    "date": "2026-11-19",
+    "title": "Chaque projet a son visage",
+    "items": [
+      "Logo de projet, ou un visuel propre à chaque projet",
+      "Historique des actions de l'équipe",
+      "Rôles dans l'équipe attribués par les admins",
+      "Saisies dans une fenêtre au centre, au-dessus du clavier",
+      "Fiche tâche plus colorée, documents avec modèles et cases à cocher",
+      "Accueil téléphone repensé, profil façon appli mobile"
+    ]
+  },
+  {
     "version": "0.5.1",
     "date": "2026-11-19",
     "title": "Plus agréable au doigt",
