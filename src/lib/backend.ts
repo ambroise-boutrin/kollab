@@ -1,4 +1,4 @@
-import type { AppNotification, Channel, DocumentItem, Note, Sprint, ReactionChange, Group, Invite, LinkItem, Member, Message, ProfilePatch, Provider, Role, Task } from './types'
+import type { AppNotification, EmailInvite, Channel, DocumentItem, Note, Sprint, ReactionChange, Group, Invite, LinkItem, Member, Message, ProfilePatch, Provider, Role, Task } from './types'
 
 export interface User {
   id: string
@@ -122,7 +122,13 @@ export interface Backend {
   live(groupId: string, handlers: LiveHandlers): () => void
 
   /** Invite quelqu'un qui a déjà un compte ; false s'il n'y a pas de compte avec cet email. */
-  inviteByEmail(email: string, role: Role): Promise<boolean>
+  /** Invite une adresse : email envoyé, et notification « Rejoindre / Refuser » si elle a déjà un compte. */
+  inviteByEmail(email: string, role: Role): Promise<{ account: boolean; emailed: boolean }>
+  /** Invitations par email en attente dans le projet. */
+  listEmailInvites(): Promise<EmailInvite[]>
+  cancelEmailInvite(id: string): Promise<void>
+  /** À la connexion : les invitations reçues avant d'avoir un compte deviennent des notifications. */
+  claimEmailInvites(): Promise<number>
   listInvites(): Promise<Invite[]>
   createInvite(role: Role, opts: { days: number; maxUses: number | null }): Promise<Invite>
   revokeInvite(id: string): Promise<void>

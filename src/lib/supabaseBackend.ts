@@ -413,7 +413,33 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     },
 
     async inviteByEmail(email, role) {
-      return must(await sb.rpc('invite_by_email', { gid: groupId, email, new_role: role })) as boolean
+      const { data, error } = await sb.functions.invoke('invite-email', { body: { groupId, email, role } })
+      if (error) {
+        const body = await (error as { context?: Response }).context?.json?.().catch(() => null)
+        throw new Error(body?.error ?? 'Invitation impossible')
+      }
+      return data as { account: boolean; emailed: boolean }
+    },
+
+    async listEmailInvites() {
+      const since = new Date(Date.now() - 30 * 86400000).toISOString()
+      const rows = must(
+        await sb.from('email_invites').select('id, email, role, code, created_at').eq('group_id', groupId).is('cancelled_at', null).gte('created_at', since).order('created_at', { ascending: false }),
+      ) as { id: string; email: string; role: Role; code: string; created_at: string }[]
+      if (!rows.length) return []
+      // Déjà arrivé dans l'équipe : le code a servi.
+      const used = must(await sb.from('invitations').select('code, uses').in('code', rows.map((r) => r.code))) as { code: string; uses: number }[]
+      const done = new Set(used.filter((u) => u.uses > 0).map((u) => u.code))
+      return rows.filter((r) => !done.has(r.code)).map((r) => ({ id: r.id, email: r.email, role: r.role, createdAt: r.created_at }))
+    },
+
+    async cancelEmailInvite(id) {
+      must(await sb.rpc('cancel_email_invite', { invite_id: id }))
+    },
+
+    async claimEmailInvites() {
+      const { data } = await sb.rpc('claim_email_invites')
+      return (data as number) ?? 0
     },
 
     async listInvites() {
