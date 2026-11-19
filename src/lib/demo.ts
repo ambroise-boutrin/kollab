@@ -22,6 +22,7 @@ interface DemoState {
   trashedTasks?: Task[]
   trashedDocs?: DocumentItem[]
   trashedNotes?: Note[]
+  trashedLinks?: LinkItem[]
   /** Contenu des documents texte (base64 Yjs). */
   noteStates?: Record<string, string>
 }
@@ -565,6 +566,9 @@ export const demoBackend: Backend = {
       const note = (s.trashedNotes ?? []).find((n) => n.id === id)
       if (note && s.workspace) s.workspace.notes.unshift(note)
       s.trashedNotes = (s.trashedNotes ?? []).filter((n) => n.id !== id)
+      const link = (s.trashedLinks ?? []).find((l) => l.id === id)
+      if (link && s.workspace) s.workspace.links.push(link)
+      s.trashedLinks = (s.trashedLinks ?? []).filter((l) => l.id !== id)
     })
     emit({ kind: 'refresh' })
   },
@@ -706,7 +710,11 @@ export const demoBackend: Backend = {
 
   async removeLink(id) {
     update((s) => {
-      if (s.workspace) s.workspace.links = s.workspace.links.filter((l) => l.id !== id)
+      const l = s.workspace?.links.find((x) => x.id === id)
+      if (!l || !s.workspace) return
+      s.workspace.links = s.workspace.links.filter((x) => x.id !== id)
+      s.trashedLinks = [...(s.trashedLinks ?? []), l]
+      s.trash = [{ kind: 'link', id, title: l.title, deletedAt: new Date().toISOString(), deletedBy: 'me' }, ...(s.trash ?? [])]
     })
     emit({ kind: 'refresh' })
   },

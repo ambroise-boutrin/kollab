@@ -154,7 +154,7 @@ export function Documents() {
     try {
       await backend.removeDocument(d.id)
       await reload()
-      toast('Mis à la corbeille')
+      toast('Mis à la corbeille', { label: 'Annuler', run: async () => { await backend.restoreItem('document', d.id); await reload() } })
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Suppression impossible')
     }

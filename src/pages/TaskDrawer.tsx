@@ -20,7 +20,7 @@ const POINTS = [1, 2, 3, 5, 8, 13, 21]
  */
 export function TaskDrawer({ task, onClose, isNew = false }: { task: Task; onClose: () => void; isNew?: boolean }) {
   const { members, tasks, sprints } = useWorkspace()
-  const { saveTask, createTask, deleteTask, backend, online } = useStore()
+  const { saveTask, createTask, deleteTask, backend, online, reload } = useStore()
   const toast = useToast()
   const [draft, setDraft] = useState(task)
   const openSprints = sprints.filter((sp) => sp.status !== 'done' || sp.id === draft.sprintId)
@@ -85,7 +85,7 @@ export function TaskDrawer({ task, onClose, isNew = false }: { task: Task; onClo
   async function remove() {
     onClose()
     await deleteTask(task.id)
-    toast('Tâche supprimée')
+    toast('Tâche supprimée', { label: 'Annuler', run: async () => { await backend.restoreItem('task', task.id); await reload() } })
   }
 
   const maxLoad = Math.max(13, ...members.map((m) => load(tasks, m.id)))
