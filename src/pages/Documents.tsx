@@ -244,8 +244,8 @@ export function Documents() {
             <span className="kind-image">JPG</span>
             <span className="kind-text">MD</span>
           </span>
-          <strong>Dépose ici le cahier des charges, les maquettes, les PDF…</strong>
-          <span className="muted">{canWrite ? 'Glisse des fichiers sur la page ou clique pour choisir. 25 Mo maximum.' : 'Aucun document pour le moment.'}</span>
+          <strong><span className="hide-phone">Dépose ici le cahier des charges, les maquettes, les PDF…</span><span className="show-phone">Ajoute le cahier des charges, les maquettes, les PDF…</span></strong>
+          <span className="muted">{canWrite ? <><span className="hide-phone">Glisse des fichiers sur la page ou clique pour choisir. </span><span className="show-phone">Touche pour choisir un fichier. </span>25 Mo maximum.</> : 'Aucun document pour le moment.'}</span>
         </button>
       ) : docs.length === 0 ? (
         <p className="hint">Aucun document ne correspond.</p>
@@ -258,7 +258,7 @@ export function Documents() {
             <button className="doc-card doc-add" onClick={() => input.current?.click()}>
               <span className="invite-plus"><Icon name="plus" size={26} /></span>
               <strong>Ajouter un fichier</strong>
-              <span className="muted">ou glisse-le ici</span>
+              <span className="muted hide-phone">ou glisse-le ici</span>
             </button>
           )}
         </div>

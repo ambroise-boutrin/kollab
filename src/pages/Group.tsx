@@ -1,9 +1,11 @@
+import { useState } from 'react'
+import { ActivityDialog, ActivityList, useActivity } from '../components/ActivityFeed'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { Popover } from '../components/Popover'
 import { useToast } from '../components/Toast'
 import { useStore, useWorkspace } from '../lib/store'
-import { PRESENCE, ROLES, type Role } from '../lib/types'
+import { PRESENCE, ROLES, TEAM_TITLES, type Role } from '../lib/types'
 
 export const openInvite = () => window.dispatchEvent(new Event('kollab:invite'))
 
@@ -16,12 +18,24 @@ export function Group() {
   const toast = useToast()
   const me = ws.members.find((m) => m.id === user?.id) ?? (backend.mode === 'demo' ? ws.members[0] : undefined)
   const isAdmin = me?.role === 'admin'
+  const activity = useActivity(8)
+  const [history, setHistory] = useState(false)
 
   async function changeRole(memberId: string, next: Role) {
     try {
       await backend.setMemberRole(memberId, next)
       await reload()
       toast('Rôle mis à jour')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Changement impossible')
+    }
+  }
+
+  async function changeTitle(memberId: string, title: string) {
+    try {
+      await backend.setMemberTitle(memberId, title)
+      await reload()
+      toast(title ? `Rôle : ${title}` : 'Rôle retiré')
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Changement impossible')
     }
@@ -54,8 +68,16 @@ export function Group() {
               <Avatar member={m} size={56} online={on} />
               <div className="member-id">
                 <strong>{m.name}{m.id === me?.id && <span className="muted"> · toi</span>}</strong>
+                {isAdmin ? (
+                  <select className="title-select" value={m.title} aria-label={`Rôle de ${m.name} dans l'équipe`} onChange={(e) => void changeTitle(m.id, e.target.value)}>
+                    <option value="">Choisir un rôle…</option>
+                    {m.title && !(TEAM_TITLES as readonly string[]).includes(m.title) && <option value={m.title}>{m.title}</option>}
+                    {TEAM_TITLES.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                ) : (
+                  <span className="member-title">{m.title || 'Rôle non défini'}</span>
+                )}
                 <span className="muted">
-                  {m.title || 'Sans intitulé'} ·{' '}
                   <span className="member-presence" style={{ ['--p' as string]: on ? PRESENCE[m.status ?? 'available'].color : 'var(--muted)' }}>
                     {on ? PRESENCE[m.status ?? 'available'].label : 'Hors ligne'}
                   </span>
@@ -107,6 +129,16 @@ export function Group() {
           </button>
         )}
       </div>
+
+      <section className="card team-history">
+        <div className="row-between">
+          <h2>Historique</h2>
+          <button className="btn soft small" onClick={() => setHistory(true)}>Tout voir</button>
+        </div>
+        {activity && activity.length === 0 && <p className="hint">Aucune action pour l'instant.</p>}
+        {activity && <ActivityList items={activity} max={8} />}
+      </section>
+      {history && <ActivityDialog onClose={() => setHistory(false)} />}
     </div>
   )
 }

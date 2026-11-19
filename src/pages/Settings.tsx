@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 import { SectionsPage } from '../components/SectionsPage'
 import { useToast } from '../components/Toast'
 import { useStore } from '../lib/store'
@@ -8,13 +8,13 @@ import { AboutCard } from './AboutCard'
 import { AppearanceCard } from './AppearanceCard'
 import { DangerCard } from './DangerCard'
 import { ProfileCard } from './ProfileCard'
+import { PromptDialog } from '../components/PromptDialog'
 import { PushCard } from './PushCard'
 
 export function Settings() {
   const { backend } = useStore()
   const toast = useToast()
   const [linked, setLinked] = useState<Provider[]>([])
-  const [password, setPassword] = useState('')
   const [editingPassword, setEditingPassword] = useState(false)
 
 
@@ -33,18 +33,6 @@ export function Settings() {
       setLinked(await backend.linkedProviders())
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Action impossible')
-    }
-  }
-
-  async function savePassword(e: FormEvent) {
-    e.preventDefault()
-    try {
-      await backend.setPassword(password)
-      setPassword('')
-      setEditingPassword(false)
-      toast('Mot de passe enregistré')
-    } catch (err) {
-      toast(err instanceof Error ? err.message : 'Changement impossible')
     }
   }
 
@@ -106,17 +94,12 @@ export function Settings() {
               <strong style={{ fontWeight: 600 }}>Email</strong>
               <span className="muted" style={{ fontSize: 13 }}>Mot de passe ou lien magique</span>
             </span>
-            {!editingPassword && <button className="btn small soft" onClick={() => setEditingPassword(true)}>Mot de passe</button>}
+            <button className="btn small soft" onClick={() => setEditingPassword(true)}>Mot de passe</button>
           </div>
           {editingPassword && (
-            <form onSubmit={savePassword} className="appear" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-              <label className="field" style={{ flex: '1 1 200px' }}>
-                Nouveau mot de passe
-                <input className="input" type="password" required minLength={8} autoComplete="new-password" placeholder="8 caractères minimum" value={password} onChange={(e) => setPassword(e.target.value)} />
-              </label>
-              <button className="btn">Enregistrer</button>
-              <button type="button" className="btn soft" onClick={() => { setEditingPassword(false); setPassword('') }}>Annuler</button>
-            </form>
+            <PromptDialog title="Nouveau mot de passe" confirm="Enregistrer" onClose={() => setEditingPassword(false)}
+              fields={[{ name: 'pw', label: 'Mot de passe', type: 'password', autoComplete: 'new-password', placeholder: '8 caractères minimum', minLength: 8, required: true }]}
+              onSubmit={async (v) => { if (v.pw.length < 8) return '8 caractères minimum'; await backend.setPassword(v.pw); toast('Mot de passe enregistré') }} />
           )}
         </section>
               <DangerCard />

@@ -4,6 +4,7 @@ import { branchName, checkRuns, createTaskPr, getPull, ghToken, listBranches, li
 import { useStore } from '../lib/store'
 import { useAsync } from '../lib/useAsync'
 import { Icon } from './Icon'
+import { Modal, touchScreen } from './Modal'
 import { useToast } from './Toast'
 
 /** État lisible d'une PR. */
@@ -68,13 +69,6 @@ export function PrPicker({ value, onChange, onMerged, task }: {
       .sort((a, b) => Number(prByBranch.has(b.name)) - Number(prByBranch.has(a.name)))
   }, [branches.data, q, prByBranch])
 
-  useEffect(() => {
-    if (!open) return
-    const onDown = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false)
-    document.addEventListener('pointerdown', onDown)
-    return () => document.removeEventListener('pointerdown', onDown)
-  }, [open])
-
   if (!repo) {
     return <p className="hint">Aucun dépôt relié. <Link to="/projet#github">Relier un dépôt</Link></p>
   }
@@ -110,10 +104,11 @@ export function PrPicker({ value, onChange, onMerged, task }: {
         <Icon name="chevron" size={16} />
       </button>
       {open && (
-        <div className="branch-menu" role="listbox" aria-label={`Branches de ${repo.owner}/${repo.repo}`}>
+        <Modal title="Choisir une branche" onClose={() => setOpen(false)}>
+        <div className="branch-menu in-modal" role="listbox" aria-label={`Branches de ${repo.owner}/${repo.repo}`}>
           <label className="branch-search">
             <Icon name="search" size={16} />
-            <input autoFocus placeholder="Chercher une branche" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Chercher une branche" />
+            <input autoFocus={!touchScreen()} placeholder="Chercher une branche" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Chercher une branche" />
           </label>
           {canWrite ? (
             <button type="button" role="option" aria-selected={false} className="branch-row new" disabled={!!busy || !task.title.trim()} onClick={() => void run('new', () => createTaskPr(repo, task))}>
@@ -144,6 +139,7 @@ export function PrPicker({ value, onChange, onMerged, task }: {
             })}
           </div>
         </div>
+        </Modal>
       )}
     </div>
   )

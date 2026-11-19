@@ -6,9 +6,9 @@ import { MembersStack } from '../components/Layout'
 import { NotificationBell } from '../components/Notifications'
 import { openInvite } from './Group'
 import { PrStatus } from '../components/PrLink'
-import { Avatar } from '../components/Avatar'
 import { DockToggle } from '../components/Dock'
 import { Icon } from '../components/Icon'
+import { ActivityDialog, ActivityList, useActivity } from '../components/ActivityFeed'
 import { HomeLayoutDialog, useHomeLayout, type WidgetId } from '../components/HomeLayout'
 import { boardTasks } from '../lib/sprints'
 import { useStore, useWorkspace } from '../lib/store'
@@ -17,19 +17,11 @@ import { KINDS, STATUSES, type Task, type TaskStatus } from '../lib/types'
 const NEXT: Record<TaskStatus, TaskStatus | null> = { todo: 'doing', doing: 'review', review: 'done', done: null }
 const NEXT_LABEL: Record<TaskStatus, string> = { todo: 'Commencer', doing: 'En revue', review: 'Terminer', done: '' }
 
-function ago(iso: string) {
-  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
-  if (s < 60) return "à l'instant"
-  if (s < 3600) return `il y a ${Math.floor(s / 60)} min`
-  if (s < 86400) return `il y a ${Math.floor(s / 3600)} h`
-  const d = Math.floor(s / 86400)
-  return d === 1 ? 'hier' : `il y a ${d} j`
-}
 
 /** Accueil du projet, d'après la maquette : en-tête, tableau du sprint, PR à relire, liens. */
 export function Home() {
   const ws = useWorkspace()
-  const { user, saveTask, notifications, online } = useStore()
+  const { user, saveTask, online } = useStore()
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [layout, setLayout] = useHomeLayout(ws.group.id)
@@ -51,14 +43,8 @@ export function Home() {
     .sort((a, b) => ['doing', 'review', 'todo'].indexOf(a.status) - ['doing', 'review', 'todo'].indexOf(b.status))
   const onlineMembers = ws.members.filter((m) => online.includes(m.id) && m.id !== me?.id)
 
-  // Fil d'activité : notifications du projet + tâches récentes.
-  type Item = { id: string; at: string; who?: string | null; text: string; link: string | null }
-  const activity: Item[] = [
-    ...notifications.filter((n) => !n.groupId || n.groupId === ws.group.id).map((n) => ({ id: n.id, at: n.createdAt, who: n.actorId, text: n.body ? `${n.title} : ${n.body}` : n.title, link: n.link })),
-    ...[...ws.tasks].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 4).map((t) => ({ id: t.id, at: t.createdAt, who: null, text: `Nouvelle tâche : ${t.title}`, link: `/tableau?tache=${t.id}` })),
-  ]
-    .sort((a, b) => b.at.localeCompare(a.at))
-    .slice(0, 6)
+  const activity = useActivity(12)
+  const [history, setHistory] = useState(false)
 
   function advance(t: Task) {
     const next = NEXT[t.status]
@@ -133,21 +119,12 @@ export function Home() {
     ),
     activity: (
         <section className="card home-activity">
-          <h2>Activité</h2>
-          {activity.length === 0 && <p className="hint">Le projet démarre : invite l'équipe et crée les premières tâches.</p>}
-          <ul className="feed">
-            {activity.map((a) => {
-              const who = a.who ? ws.members.find((m) => m.id === a.who) : undefined
-              const inner = (
-                <>
-                  {who ? <Avatar member={who} size={26} /> : <span className="feed-dot" />}
-                  <span className="feed-text">{a.text}</span>
-                  <span className="muted feed-at">{ago(a.at)}</span>
-                </>
-              )
-              return <li key={a.id}>{a.link ? <Link to={a.link}>{inner}</Link> : <div>{inner}</div>}</li>
-            })}
-          </ul>
+          <div className="row-between">
+            <h2>Activité</h2>
+            <button className="mini-more link-btn" onClick={() => setHistory(true)}>Historique</button>
+          </div>
+          {activity && activity.length === 0 && <p className="hint">Le projet démarre : invite l'équipe et crée les premières tâches.</p>}
+          {activity && <ActivityList items={activity} max={6} />}
         </section>
     ),
     reviews: (
@@ -191,7 +168,7 @@ export function Home() {
           <MembersStack />
           <NotificationBell />
           <DockToggle />
-          <button className="icon-btn" aria-label="Organiser l'accueil" title="Organiser l'accueil" onClick={() => setCustomizing(true)}><Icon name="layout" size={20} /></button>
+          <button className="icon-btn hide-phone" aria-label="Organiser l'accueil" title="Organiser l'accueil" onClick={() => setCustomizing(true)}><Icon name="layout" size={20} /></button>
           <button className="btn" onClick={openInvite}>Inviter<span className="hide-phone"> des membres</span></button>
         </div>
       </header>
@@ -220,6 +197,7 @@ export function Home() {
           </div>
         ))}
       </div>
+      {history && <ActivityDialog onClose={() => setHistory(false)} />}
       {customizing && <HomeLayoutDialog layout={layout} onChange={setLayout} onClose={() => setCustomizing(false)} />}
     </div>
   )

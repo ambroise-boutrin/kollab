@@ -253,12 +253,18 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     async listGroups() {
       const { data: auth } = await sb.auth.getUser()
       if (!auth.user) return []
-      type Row = { group_id: string; role: Role; groups: { name: string } | null }
+      type Row = { group_id: string; role: Role; groups: { name: string; logo_url: string | null; group_members: { count: number }[] } | null }
       const rows = must(
-        await sb.from('group_members').select('group_id, role, groups(name)').eq('user_id', auth.user.id).order('joined_at'),
+        await sb.from('group_members').select('group_id, role, groups(name, logo_url, group_members(count))').eq('user_id', auth.user.id).order('joined_at'),
       ) as unknown as Row[]
       // Un projet à la corbeille n'est plus lisible : il n'apparaît plus.
-      return rows.filter((r) => r.groups).map((r) => ({ id: r.group_id, name: r.groups?.name ?? 'Projet', role: r.role }))
+      return rows.filter((r) => r.groups).map((r) => ({
+        id: r.group_id,
+        name: r.groups?.name ?? 'Projet',
+        role: r.role,
+        logoUrl: r.groups?.logo_url ?? null,
+        memberCount: r.groups?.group_members?.[0]?.count,
+      }))
     },
 
     async loadWorkspace(wanted?: string | null): Promise<Workspace | null> {
@@ -271,8 +277,8 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       groupId = (memberships.find((m) => m.group_id === wanted) ?? memberships[0]).group_id
 
       const [group, members, tasks, channels, links, documents, sprints, notes] = await Promise.all([
-        sb.from('groups').select('id, name, invite_code, discord_webhook_set').eq('id', groupId).single(),
-        sb.from('group_members').select('user_id, role, profiles(name, color, title, status, avatar_url)').eq('group_id', groupId),
+        sb.from('groups').select('*').eq('id', groupId).single(),
+        sb.from('group_members').select('*, profiles(name, color, title, status, avatar_url)').eq('group_id', groupId),
         sb.from('tasks').select('*').eq('group_id', groupId).order('position'),
         sb.from('channels').select('id, name').eq('group_id', groupId).order('created_at'),
         sb.from('links').select('*').eq('group_id', groupId).order('created_at'),
@@ -284,17 +290,18 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       type MemberRow = {
         user_id: string
         role: Role
+        title?: string | null
         profiles: { name: string; color: string; title: string; status: PresenceStatus; avatar_url: string | null } | null
       }
       return {
-        group: { id: g.id, name: g.name, inviteCode: g.invite_code, discordWebhookSet: g.discord_webhook_set },
+        group: { id: g.id, name: g.name, inviteCode: g.invite_code, discordWebhookSet: g.discord_webhook_set, logoUrl: g.logo_url ?? null },
         members: (must(members) as unknown as MemberRow[]).map(
           (m): Member => ({
             id: m.user_id,
             name: m.profiles?.name ?? 'Membre',
             color: m.profiles?.color ?? '#5546E0',
             role: m.role,
-            title: m.profiles?.title ?? '',
+            title: m.title || m.profiles?.title || '',
             status: m.profiles?.status ?? 'available',
             avatarUrl: m.profiles?.avatar_url ?? null,
           }),
@@ -370,6 +377,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'group_members', filter }, refresh)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'groups', filter: `id=eq.${gid}` }, refresh)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, refresh)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity', filter }, () => window.dispatchEvent(new Event('kollab:activity')))
         .on('presence', { event: 'sync' }, () => {
           const state = ch.presenceState<{ userId: string }>()
           h.onPresence(Object.values(state).flat().map((s) => s.userId))
@@ -471,6 +479,31 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
 
     async setMemberRole(memberId, role) {
       must(await sb.rpc('set_member_role', { gid: groupId, member: memberId, new_role: role }))
+    },
+
+    async setMemberTitle(memberId, title) {
+      must(await sb.rpc('set_member_title', { gid: groupId, member: memberId, new_title: title }))
+    },
+
+    async setGroupLogo(file, gid) {
+      const target = gid ?? groupId
+      if (!file) {
+        must(await sb.from('groups').update({ logo_url: null }).eq('id', target))
+        return
+      }
+      const path = `${target}/${Date.now()}.webp`
+      must(await sb.storage.from('logos').upload(path, file, { contentType: file.type || 'image/webp' }))
+      const url = sb.storage.from('logos').getPublicUrl(path).data.publicUrl
+      must(await sb.from('groups').update({ logo_url: url }).eq('id', target))
+    },
+
+    async listActivity(limit = 60, before) {
+      let q = sb.from('activity').select('*').eq('group_id', groupId).order('created_at', { ascending: false }).limit(limit)
+      if (before) q = q.lt('created_at', before)
+      const { data, error } = await q
+      if (error) return []
+      type Row = { id: string; actor_id: string | null; verb: string; target: string; target_id: string | null; label: string | null; meta: Record<string, string> | null; created_at: string }
+      return (data as Row[]).map((r) => ({ id: r.id, actorId: r.actor_id, verb: r.verb, target: r.target, targetId: r.target_id, label: r.label, meta: r.meta ?? {}, createdAt: r.created_at }))
     },
 
     async saveTask(task) {

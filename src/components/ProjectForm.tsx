@@ -1,4 +1,8 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
+import { Icon } from './Icon'
+import { touchScreen } from './Modal'
+import { ProjectMark } from './ProjectMark'
+import { shrinkSquare } from '../lib/image'
 import { normalizeRepo, PRESETS, type Preset } from '../lib/presets'
 import { useStore } from '../lib/store'
 
@@ -55,6 +59,20 @@ export function ProjectForm({ onDone, initialCode = '' }: { onDone: (r: ProjectO
   const [code, setCode] = useState(initialCode)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [logo, setLogo] = useState<Blob | null>(null)
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const logoInput = useRef<HTMLInputElement>(null)
+
+  async function pickLogo(file?: File) {
+    if (!file) return
+    try {
+      const small = await shrinkSquare(file, 320)
+      setLogo(small)
+      setLogoPreview(URL.createObjectURL(small))
+    } catch {
+      setError('Image illisible')
+    }
+  }
 
   async function run(fn: () => Promise<ProjectOutcome>) {
     setError(null)
@@ -72,7 +90,11 @@ export function ProjectForm({ onDone, initialCode = '' }: { onDone: (r: ProjectO
     e.preventDefault()
     const repoUrl = normalizeRepo(repo)
     if (repo.trim() && !repoUrl) return setError('Dépôt GitHub : écris « compte/projet » ou colle son adresse')
-    void run(async () => ({ id: await backend.createGroup(name.trim() || 'Mon projet', { ...chosen.setup, repoUrl }), how: 'created' }))
+    void run(async () => {
+      const id = await backend.createGroup(name.trim() || 'Mon projet', { ...chosen.setup, repoUrl })
+      if (logo) await backend.setGroupLogo(logo, id).catch(() => undefined)
+      return { id, how: 'created' }
+    })
   }
 
   function join(e: FormEvent) {
@@ -89,10 +111,18 @@ export function ProjectForm({ onDone, initialCode = '' }: { onDone: (r: ProjectO
 
       {tab === 'create' ? (
         <form onSubmit={create} className="stack appear">
-          <label className="field">
-            Nom du projet
-            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="ex. Projet L3, Appli mobile" maxLength={80} autoFocus />
-          </label>
+          <div className="name-logo">
+            <button type="button" className="project-logo-btn" onClick={() => logoInput.current?.click()} aria-label="Choisir un logo" title="Choisir un logo">
+              <ProjectMark id={name.trim() || 'nouveau'} logoUrl={logoPreview} size={60} />
+              <span className="profile-photo-edit" aria-hidden="true"><Icon name="photo" size={14} /></span>
+            </button>
+            <input ref={logoInput} type="file" accept="image/*" hidden onChange={(e) => void pickLogo(e.target.files?.[0]).finally(() => { e.target.value = '' })} />
+            <label className="field" style={{ flex: 1 }}>
+              Nom du projet
+              <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="ex. Projet L3, Appli mobile" maxLength={80} autoFocus={!touchScreen()} />
+            </label>
+          </div>
+          <p className="field-help" style={{ margin: '-6px 0 0' }}>{logo ? <>Logo choisi. <button type="button" className="link-btn" onClick={() => { setLogo(null); setLogoPreview(null) }}>Retirer</button></> : 'Touche le visuel pour mettre ton logo, sinon il est créé pour toi.'}</p>
           <div className="field">
             Modèle
             <div className="presets-wrap">

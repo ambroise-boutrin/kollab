@@ -127,12 +127,16 @@ export function TaskDrawer({ task, onClose, isNew = false }: { task: Task; onClo
           <div className="task-main">
             <div className="task-field">
               <span className="task-label">Statut</span>
-              <div className="chips" role="radiogroup" aria-label="Statut">
-                {STATUSES.map((s) => (
-                  <button key={s.id} type="button" role="radio" aria-checked={draft.status === s.id} className={`chip status-${s.id}`} onClick={() => commit({ ...draft, status: s.id })}>
-                    {s.label}
-                  </button>
-                ))}
+              <div className="status-steps" role="radiogroup" aria-label="Statut">
+                {STATUSES.map((s, i) => {
+                  const cur = STATUSES.findIndex((x) => x.id === draft.status)
+                  return (
+                    <button key={s.id} type="button" role="radio" aria-checked={draft.status === s.id} className={`step status-${s.id}${i <= cur ? ' reached' : ''}`} onClick={() => commit({ ...draft, status: s.id })}>
+                      <i aria-hidden="true" />
+                      <span>{s.label}</span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
@@ -148,11 +152,12 @@ export function TaskDrawer({ task, onClose, isNew = false }: { task: Task; onClo
             </div>
 
             <div className="task-field">
-              <span className="task-label">Points</span>
-              <div className="chips" role="radiogroup" aria-label="Estimation en points">
-                {POINTS.map((p) => (
-                  <button key={p} type="button" role="radio" aria-checked={draft.points === p} className="chip num" onClick={() => commit({ ...draft, points: draft.points === p ? null : p })}>
-                    {p}
+              <span className="task-label">Points{draft.points != null ? <b className="pts-now"> · {draft.points}</b> : null}</span>
+              <div className="points-scale" role="radiogroup" aria-label="Estimation en points">
+                {POINTS.map((p, i) => (
+                  <button key={p} type="button" role="radio" aria-checked={draft.points === p} className={`pt${draft.points != null && p <= draft.points ? ' on' : ''}`} style={{ ['--h' as string]: `${12 + i * 7}px`, ['--c' as string]: i < 3 ? 'var(--ok)' : i < 5 ? '#D98A1C' : 'var(--danger)' }} onClick={() => commit({ ...draft, points: draft.points === p ? null : p })}>
+                    <i aria-hidden="true" />
+                    <span>{p}</span>
                   </button>
                 ))}
               </div>

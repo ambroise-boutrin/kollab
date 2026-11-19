@@ -3,12 +3,14 @@ import CollaborationCaret from '@tiptap/extension-collaboration-caret'
 import { Placeholder } from '@tiptap/extensions'
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import { TaskItem, TaskList } from '@tiptap/extension-list'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate, removeAwarenessStates } from 'y-protocols/awareness'
 import * as Y from 'yjs'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
+import { PromptDialog } from '../components/PromptDialog'
 import { useToast } from '../components/Toast'
 import type { Room, RoomEvent } from '../lib/backend'
 import { useStore, useWorkspace } from '../lib/store'
@@ -49,7 +51,9 @@ export default function NoteEditor({ note, onClose }: { note: Note; onClose: () 
     {
       editable: canWrite,
       extensions: [
-        StarterKit.configure({ undoRedo: false }),
+        StarterKit.configure({ undoRedo: false, link: { openOnClick: false, autolink: true } }),
+        TaskList,
+        TaskItem.configure({ nested: true }),
         Placeholder.configure({ placeholder: 'Écris ici… Les autres voient ton curseur en direct.' }),
         Collaboration.configure({ document: doc }),
         CollaborationCaret.configure({
@@ -223,6 +227,7 @@ export default function NoteEditor({ note, onClose }: { note: Note; onClose: () 
           })}
         </div>
         <span className={`note-saved ${saved}`}>{saved === 'ok' ? 'Enregistré' : saved === 'pending' ? 'Enregistrement…' : 'Hors ligne, réessai…'}</span>
+        {editor && <button className="icon-btn" aria-label="Télécharger en Markdown" title="Télécharger (.md)" onClick={() => download(title, editor)}><Icon name="download" size={18} /></button>}
         {canWrite && <button className="icon-btn" aria-label="Mettre à la corbeille" title="Mettre à la corbeille" onClick={() => void remove()}><Icon name="trash" size={18} /></button>}
       </header>
 
@@ -230,6 +235,7 @@ export default function NoteEditor({ note, onClose }: { note: Note; onClose: () 
 
       <div className="note-scroll">
         <div className="note-page">
+          {loaded && editor && canWrite && <Templates editor={editor} onTitle={(t) => { if (!title.trim() || title === 'Sans titre') { setTitle(t); void rename(t) } }} />}
           {!loaded ? <div className="note-loading"><span className="spinner dark" /></div> : <EditorContent editor={editor} />}
           {!canWrite && <p className="hint">Lecture seule.</p>}
         </div>
@@ -258,6 +264,9 @@ function Toolbar({ editor }: { editor: Ed }) {
       ordered: e.isActive('orderedList'),
       quote: e.isActive('blockquote'),
       block: e.isActive('codeBlock'),
+      under: e.isActive('underline'),
+      check: e.isActive('taskList'),
+      link: e.isActive('link'),
     }),
   })
   const b = (label: string, on: boolean, run: () => void, content: React.ReactNode) => (
@@ -266,23 +275,105 @@ function Toolbar({ editor }: { editor: Ed }) {
     </button>
   )
   const c = () => editor.chain().focus()
+  const [linking, setLinking] = useState(false)
   return (
     <div className="note-toolbar" role="toolbar" aria-label="Mise en forme">
+      {linking && (
+        <PromptDialog title="Ajouter un lien" confirm="Ajouter" onClose={() => setLinking(false)}
+          fields={[{ name: 'url', label: 'Adresse', type: 'url', inputMode: 'url', placeholder: 'https://…', required: true }]}
+          onSubmit={(v) => {
+            const raw = v.url.trim()
+            const href = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+            if (!/^https?:\/\/[^\s.]+\.[^\s]+$/i.test(href)) return 'Adresse invalide'
+            if (editor.state.selection.empty) c().insertContent({ type: 'text', text: raw, marks: [{ type: 'link', attrs: { href } }] }).run()
+            else c().setLink({ href }).run()
+          }} />
+      )}
       {b('Titre', s.h1, () => c().toggleHeading({ level: 1 }).run(), <b>T1</b>)}
       {b('Sous-titre', s.h2, () => c().toggleHeading({ level: 2 }).run(), <b>T2</b>)}
       <span className="tb-sep" />
       {b('Gras', s.bold, () => c().toggleBold().run(), <b>G</b>)}
       {b('Italique', s.italic, () => c().toggleItalic().run(), <i style={{ fontFamily: 'Georgia, serif' }}>I</i>)}
       {b('Barré', s.strike, () => c().toggleStrike().run(), <s>S</s>)}
+      {b('Souligné', s.under, () => c().toggleUnderline().run(), <u>U</u>)}
       {b('Code', s.code, () => c().toggleCode().run(), <code>{'<>'}</code>)}
+      {b('Lien', s.link, () => { if (s.link) c().unsetLink().run(); else setLinking(true) }, <Icon name="link" size={16} />)}
       <span className="tb-sep" />
       {b('Liste', s.bullet, () => c().toggleBulletList().run(), <span>•</span>)}
       {b('Liste numérotée', s.ordered, () => c().toggleOrderedList().run(), <span>1.</span>)}
+      {b('Cases à cocher', s.check, () => c().toggleTaskList().run(), <Icon name="check" size={16} />)}
       {b('Citation', s.quote, () => c().toggleBlockquote().run(), <span>“</span>)}
       {b('Bloc de code', s.block, () => c().toggleCodeBlock().run(), <span>{'{}'}</span>)}
+      {b('Séparateur', false, () => c().setHorizontalRule().run(), <span>—</span>)}
       <span className="tb-sep" />
       {b('Annuler', false, () => c().undo().run(), <span>↶</span>)}
       {b('Rétablir', false, () => c().redo().run(), <span>↷</span>)}
     </div>
   )
+}
+
+const TEMPLATES: { id: string; name: string; color: string; html: string }[] = [
+  { id: 'cr', name: 'Compte rendu', color: 'var(--accent)', html: '<h1>Compte rendu</h1><p><strong>Date :</strong> </p><p><strong>Présents :</strong> </p><h2>Points abordés</h2><ul><li><p></p></li></ul><h2>Décisions</h2><ul><li><p></p></li></ul><h2>À faire</h2><ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p></p></li></ul>' },
+  { id: 'cdc', name: 'Cahier des charges', color: '#D9822B', html: '<h1>Cahier des charges</h1><h2>Contexte</h2><p></p><h2>Objectifs</h2><ul><li><p></p></li></ul><h2>Utilisateurs</h2><p></p><h2>Fonctionnalités</h2><ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p></p></li></ul><h2>Contraintes</h2><p></p><h2>Planning</h2><p></p>' },
+  { id: 'spec', name: 'Spécification', color: '#2F6FD0', html: '<h1>Spécification</h1><h2>Problème</h2><p></p><h2>Solution proposée</h2><p></p><h2>Détails techniques</h2><pre><code></code></pre><h2>Critères d\'acceptation</h2><ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p></p></li></ul><h2>Questions ouvertes</h2><ul><li><p></p></li></ul>' },
+  { id: 'retro', name: 'Rétro de sprint', color: 'var(--ok)', html: '<h1>Rétro de sprint</h1><h2>Ce qui a bien marché</h2><ul><li><p></p></li></ul><h2>Ce qui a coincé</h2><ul><li><p></p></li></ul><h2>On essaie la prochaine fois</h2><ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p></p></li></ul>' },
+]
+
+/** Document vide : partir d'un modèle en un clic. */
+function Templates({ editor, onTitle }: { editor: Ed; onTitle: (t: string) => void }) {
+  const empty = useEditorState({ editor, selector: ({ editor: e }) => e.isEmpty })
+  if (!empty) return null
+  return (
+    <div className="note-templates">
+      <span className="muted">Partir d'un modèle</span>
+      <div className="note-templates-row">
+        {TEMPLATES.map((t) => (
+          <button key={t.id} type="button" className="note-template" style={{ ['--t' as string]: t.color }} onClick={() => { editor.chain().focus().setContent(t.html).run(); onTitle(t.name) }}>
+            <span className="note-template-lines" aria-hidden="true"><i /><i /><i /></span>
+            <strong>{t.name}</strong>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** Export Markdown simple, depuis le contenu de l'éditeur. */
+function toMarkdown(node: { type?: string; text?: string; attrs?: Record<string, unknown>; marks?: { type: string; attrs?: Record<string, unknown> }[]; content?: unknown[] }, depth = 0): string {
+  const kids = (sep = '') => ((node.content ?? []) as typeof node[]).map((c) => toMarkdown(c, depth)).join(sep)
+  switch (node.type) {
+    case 'doc': return ((node.content ?? []) as typeof node[]).map((c) => toMarkdown(c, depth)).join('\n\n')
+    case 'heading': return `${'#'.repeat(Number(node.attrs?.level ?? 1))} ${kids()}`
+    case 'paragraph': return kids()
+    case 'text': {
+      let t = node.text ?? ''
+      for (const m of node.marks ?? []) {
+        if (m.type === 'bold') t = `**${t}**`
+        else if (m.type === 'italic') t = `*${t}*`
+        else if (m.type === 'strike') t = `~~${t}~~`
+        else if (m.type === 'code') t = `\`${t}\``
+        else if (m.type === 'link') t = `[${t}](${String(m.attrs?.href ?? '')})`
+      }
+      return t
+    }
+    case 'bulletList': return ((node.content ?? []) as typeof node[]).map((c) => `${'  '.repeat(depth)}- ${toMarkdown(c, depth + 1)}`).join('\n')
+    case 'orderedList': return ((node.content ?? []) as typeof node[]).map((c, i) => `${'  '.repeat(depth)}${i + 1}. ${toMarkdown(c, depth + 1)}`).join('\n')
+    case 'taskList': return ((node.content ?? []) as typeof node[]).map((c) => `${'  '.repeat(depth)}- [${c.attrs?.checked ? 'x' : ' '}] ${toMarkdown(c, depth + 1)}`).join('\n')
+    case 'listItem': case 'taskItem': return ((node.content ?? []) as typeof node[]).map((c) => toMarkdown(c, depth)).join('\n')
+    case 'blockquote': return kids('\n').split('\n').map((l) => `> ${l}`).join('\n')
+    case 'codeBlock': return '```\n' + kids() + '\n```'
+    case 'horizontalRule': return '---'
+    case 'hardBreak': return '\n'
+    default: return kids()
+  }
+}
+
+function download(title: string, editor: Ed) {
+  const md = toMarkdown(editor.getJSON() as Parameters<typeof toMarkdown>[0])
+  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `${(title || 'document').replace(/[\\/:*?"<>|]+/g, '-')}.md`
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000)
 }
