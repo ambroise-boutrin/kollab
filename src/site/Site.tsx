@@ -79,36 +79,42 @@ function Cursor({ name, color, style }: { name: string; color: string; style: CS
   )
 }
 
-/** Une capture de l'app par public : tableau, chat, téléphone. */
-const AUD_SHOTS = ['/vitrine/tableau-attribution.png', '/vitrine/chat.png', '/vitrine/telephone-accueil.png']
-function AudShot({ i }: { i: number }) {
-  const src = AUD_SHOTS[i % AUD_SHOTS.length]
-  return (
-    <div className={`k-case-media${src.includes('telephone') ? ' is-phone' : ''}`}>
-      <img src={src} alt="" loading="lazy" decoding="async" />
-    </div>
-  )
+/** Médias de l'app : version anglaise des captures et vidéos sur les pages /en. */
+const media = (name: string, ext: string) => `/vitrine/${name}${LANG === 'en' ? '-en' : ''}.${ext}`
+
+/** Vidéo en boucle qui ne se charge et ne joue qu'une fois visible à l'écran. */
+function LoopVideo({ name, label }: { name: string; label: string }) {
+  const ref = useRef<HTMLVideoElement>(null)
+  useEffect(() => {
+    const v = ref.current
+    if (!v || !('IntersectionObserver' in window)) return
+    const io = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { v.preload = 'auto'; void v.play().catch(() => {}) } else v.pause()
+    }, { rootMargin: '200px' })
+    io.observe(v)
+    return () => io.disconnect()
+  }, [])
+  return <video ref={ref} src={media(`demo-${name}`, 'mp4')} poster={media(`demo-${name}`, 'webp')} muted loop playsInline preload="none" aria-label={label} />
 }
 
-function Shot({ src, alt, children, className = '' }: { src: string; alt: string; children?: ReactNode; className?: string }) {
+/** Une vidéo de l'app par public : attribution, chat, téléphone. */
+const AUD_DEMOS = ['attribution', 'chat', 'telephone']
+function AudShot({ i }: { i: number }) {
+  const name = AUD_DEMOS[i % AUD_DEMOS.length]
+  const [still] = useState(reducedMotion)
   return (
-    <div className={`k-shot ${className}`}>
-      <img src={src} alt={alt} loading="lazy" decoding="async" />
-      {children}
+    <div className={`k-case-media${name === 'telephone' ? ' is-phone' : ''}`}>
+      {still ? <img src={media(`demo-${name}`, 'webp')} alt="" loading="lazy" decoding="async" /> : <LoopVideo name={name} label="" />}
     </div>
   )
 }
 
 /** Une vraie prise de l'app en boucle (sans son). Image fixe si l'utilisateur préfère moins d'animations. */
-function Demo({ name, label, children }: { name: string; label: string; children?: ReactNode }) {
+function Demo({ name, label, children, className = '' }: { name: string; label: string; children?: ReactNode; className?: string }) {
   const [still] = useState(reducedMotion)
   return (
-    <div className="k-shot k-video">
-      {still ? (
-        <img src={`/vitrine/demo-${name}.webp`} alt={label} />
-      ) : (
-        <video src={`/vitrine/demo-${name}.mp4`} poster={`/vitrine/demo-${name}.webp`} autoPlay muted loop playsInline preload="metadata" aria-label={label} />
-      )}
+    <div className={`k-shot k-video ${className}`}>
+      {still ? <img src={media(`demo-${name}`, 'webp')} alt={label} loading="lazy" decoding="async" /> : <LoopVideo name={name} label={label} />}
       {children}
     </div>
   )
@@ -121,9 +127,9 @@ function PhoneDemo() {
   return (
     <div className="k-phone">
       {still ? (
-        <img src="/vitrine/demo-telephone.webp" alt={label} loading="lazy" decoding="async" />
+        <img src={media('demo-telephone', 'webp')} alt={label} loading="lazy" decoding="async" />
       ) : (
-        <video src="/vitrine/demo-telephone.mp4" poster="/vitrine/demo-telephone.webp" autoPlay muted loop playsInline preload="metadata" aria-label={label} />
+        <LoopVideo name="telephone" label={label} />
       )}
     </div>
   )
@@ -207,7 +213,7 @@ function Footer() {
             <p className="k-footer-tag">{t.footer.tag}</p>
           </div>
           <nav aria-label={t.footer.product}>
-            <h4>{t.footer.product}</h4>
+            <h2 className="k-footer-h">{t.footer.product}</h2>
             <a href={APP_URL}>{t.footer.openApp}</a>
             <a href={DEMO_URL}>{t.footer.demo}</a>
             {FOOTER_NAV.map((k) => (
@@ -219,7 +225,7 @@ function Footer() {
             {DISCORD_URL && <a href={DISCORD_URL} target="_blank" rel="noreferrer">Discord</a>}
           </nav>
           <nav aria-label={t.footer.legal}>
-            <h4>{t.footer.legal}</h4>
+            <h2 className="k-footer-h">{t.footer.legal}</h2>
             {LEGAL_DOCS.map((d) => (
               <a key={d.path} href={d.path} hrefLang="fr">{d.title}</a>
             ))}
@@ -265,8 +271,8 @@ function HeroSection() {
           <div className="k-canvas k-bg-indigo fade-in d2">
             <div className="k-canvas-inner">
               <Demo name="tableau" label={h.video}>
-                <Cursor name="Léa" color="#FF7262" style={{ left: '84%', top: '18%' }} />
-                <Cursor name="Sami" color="#14AE5C" style={{ left: '30%', top: '78%' }} />
+                <Cursor name="Léa" color="#C93A2E" style={{ left: '84%', top: '18%' }} />
+                <Cursor name="Sami" color="#0E7F42" style={{ left: '30%', top: '78%' }} />
               </Demo>
             </div>
           </div>
@@ -326,7 +332,7 @@ function DiffMock() {
 function ProductTabs() {
   const p = t.product
   const tabs = [
-    { bg: 'k-bg-yellow', title: p.board.title, text: <>{p.board.text}</>, media: <Shot src="/vitrine/tableau-attribution.png" alt={p.board.alt} /> },
+    { bg: 'k-bg-yellow', title: p.board.title, text: <>{p.board.text}</>, media: <Demo name="attribution" label={p.board.alt} /> },
     { bg: 'k-bg-coral', title: p.chat.title, text: <>{p.chat.textA}<code>{p.chat.code}</code>{p.chat.textB}</>, media: <Demo name="chat" label={p.chat.video} /> },
     { bg: 'k-bg-mint', title: p.phone.title, text: <>{p.phone.text}</>, media: <PhoneDemo /> },
     { bg: 'k-bg-ink', title: p.pr.title, text: <>{p.pr.text}</>, media: <DiffMock />, soon: true },
@@ -460,9 +466,7 @@ function ProductSection() {
               <h3>{p.board.title}</h3>
               <p>{p.board.text}</p>
             </div>
-            <Shot className="k-shot-tilt" src="/vitrine/tableau-attribution.png" alt={p.board.alt}>
-              <Cursor name={t.hero.you} color="#5546E0" style={{ left: '70%', top: '58%' }} />
-            </Shot>
+            <Demo className="k-shot-tilt" name="attribution" label={p.board.alt} />
           </article>
 
           <article className="k-block k-bg-coral reveal">

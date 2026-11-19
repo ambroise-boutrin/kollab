@@ -29,7 +29,7 @@ export default defineConfig({
       registerType: 'prompt',
       includeAssets: ['logo.svg'],
       // Polices et icônes en cache : chargement instantané et hors ligne.
-      workbox: { globPatterns: ['**/*.{js,css,html,svg,png,woff2}'], globIgnores: ['version.json', 'push-sw.js'],
+      workbox: { globPatterns: ['**/*.{js,css,html,svg,png,woff2}'], globIgnores: ['version.json', 'push-sw.js', 'og*.png', 'vitrine/**'],
         // Réception des notifications sur téléphone.
         importScripts: ['/push-sw.js'],
         cleanupOutdatedCaches: true,
