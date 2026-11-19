@@ -3,6 +3,7 @@ import { useStore, useWorkspace } from '../lib/store'
 import { Icon } from './Icon'
 import { useToast } from './Toast'
 import { Modal } from './Modal'
+import { PromptDialog } from './PromptDialog'
 import type { LinkItem } from '../lib/types'
 
 const KNOWN: [RegExp, string][] = [
@@ -137,18 +138,13 @@ export function LinksCard() {
   const ws = useWorkspace()
   const { backend, reload } = useStore()
   const [adding, setAdding] = useState(false)
-  const [value, setValue] = useState('')
-  const [error, setError] = useState(false)
   const [open, setOpen] = useState<{ link: LinkItem; confirm: boolean } | null>(null)
 
-  async function add(e: FormEvent) {
-    e.preventDefault()
-    const v = value.trim()
-    const url = normalize(v)
-    if (!v || !validUrl(url)) return setError(true)
-    await backend.addLink(titleFromUrl(url), url)
-    setValue('')
-    setAdding(false)
+  async function add(v: Record<string, string>) {
+    const raw = v.url.trim()
+    const url = normalize(raw)
+    if (!raw || !validUrl(url)) return 'Adresse invalide'
+    await backend.addLink(v.title.trim() || titleFromUrl(url), url)
     await reload()
   }
 
@@ -156,25 +152,23 @@ export function LinksCard() {
     <section className="card appear appear-3 links-card">
       <div className="links-head">
         <h2>Liens importants</h2>
-        <button className="icon-btn" aria-label="Ajouter un lien" aria-expanded={adding} onClick={() => setAdding((a) => !a)}>
+        <button className="icon-btn" aria-label="Ajouter un lien" aria-expanded={adding} onClick={() => setAdding(true)}>
           <Icon name="plus" size={18} />
         </button>
       </div>
       {adding && (
-        <form onSubmit={add} className="link-add">
-          <input
-            className={`input${error ? ' invalid' : ''}`}
-            autoFocus
-            value={value}
-            onChange={(e) => { setValue(e.target.value); setError(false) }}
-            onKeyDown={(e) => e.key === 'Escape' && setAdding(false)}
-            placeholder="Colle une adresse puis Entrée"
-            aria-label="Adresse du lien"
-            inputMode="url"
-          />
-        </form>
+        <PromptDialog
+          title="Ajouter un lien"
+          confirm="Ajouter"
+          onClose={() => setAdding(false)}
+          onSubmit={add}
+          fields={[
+            { name: 'url', label: 'Adresse', placeholder: 'figma.com/…', type: 'url', inputMode: 'url', required: true },
+            { name: 'title', label: 'Nom (facultatif)', placeholder: 'Déduit de l’adresse', maxLength: 120 },
+          ]}
+        />
       )}
-      {ws.links.length === 0 && !adding && <p className="hint">Aucun lien.</p>}
+      {ws.links.length === 0 && <p className="hint">Aucun lien.</p>}
       <ul className="links">
         {ws.links.map((l) => (
           <li key={l.id}>

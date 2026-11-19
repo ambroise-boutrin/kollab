@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AvatarGroup } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { Modal } from '../components/Modal'
+import { PromptDialog } from '../components/PromptDialog'
+import { ProjectMark } from '../components/ProjectMark'
+import { shrinkSquare } from '../lib/image'
 import { SectionsPage } from '../components/SectionsPage'
 import { useToast } from '../components/Toast'
 import type { TrashItem } from '../lib/backend'
@@ -90,7 +93,7 @@ export function ProjectSettings() {
   const repoRef = repoLink ? parseRepo(repoLink.url) : null
 
   const [editingName, setEditingName] = useState(false)
-  const [name, setName] = useState(ws.group.name)
+  const logoInput = useRef<HTMLInputElement>(null)
   const [newChannel, setNewChannel] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
   const [discord, setDiscord] = useState(false)
@@ -101,7 +104,6 @@ export function ProjectSettings() {
   const [trash, setTrash] = useState<TrashItem[] | null>(null)
   const repo = useAsync<RepoInfo>(repoRef ? () => getRepo(repoRef) : null, [repoLink?.url])
 
-  useEffect(() => setName(ws.group.name), [ws.group.name])
   const loadTrash = () => void backend.listTrash().then(setTrash).catch(() => setTrash(null))
   useEffect(loadTrash, [backend, ws.tasks.length, ws.links.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -117,26 +119,12 @@ export function ProjectSettings() {
     }
   }
 
-  const saveName = (e?: FormEvent) => {
-    e?.preventDefault()
-    setEditingName(false)
-    if (name.trim() && name.trim() !== ws.group.name) void attempt(() => backend.renameGroup(name), 'Nom enregistré')
-    else setName(ws.group.name)
-  }
-
   const pickRepo = (url: string) => {
     setPicking(false)
     void attempt(async () => {
       if (repoLink) await backend.removeLink(repoLink.id)
       await backend.addLink('Dépôt GitHub', url)
     }, 'Dépôt relié')
-  }
-
-  async function addChannel(e: FormEvent) {
-    e.preventDefault()
-    const n = newChannel?.trim()
-    setNewChannel(null)
-    if (n) await attempt(() => backend.createChannel(n), `#${n} créé`)
   }
 
   async function leave(kind: 'leave' | 'delete') {
@@ -169,7 +157,6 @@ export function ProjectSettings() {
   const pct = totalPts ? Math.round((donePts / totalPts) * 100) : 0
   const admins = ws.members.filter((m) => m.role === 'admin').length
   const lastAdmin = isAdmin && admins === 1 && ws.members.length > 1
-  const initial = ws.group.name.trim()[0]?.toUpperCase() ?? 'K'
 
   return (
     <>
@@ -184,18 +171,17 @@ export function ProjectSettings() {
             render: () => (
               <>
                 <section className="card project-hero">
-                  <span className="project-tile">{initial}</span>
+                  <button className="project-logo-btn" disabled={!isAdmin} onClick={() => logoInput.current?.click()} aria-label="Changer le logo du projet" title={isAdmin ? 'Changer le logo' : undefined}>
+                    <ProjectMark id={ws.group.id} logoUrl={ws.group.logoUrl} size={72} />
+                    {isAdmin && <span className="profile-photo-edit" aria-hidden="true"><Icon name="photo" size={15} /></span>}
+                  </button>
+                  <input ref={logoInput} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void attempt(async () => backend.setGroupLogo(await shrinkSquare(f, 320)), 'Logo mis à jour') }} />
                   <div className="project-hero-text">
-                    {editingName ? (
-                      <form onSubmit={saveName}>
-                        <input className="hero-input" autoFocus value={name} maxLength={80} onChange={(e) => setName(e.target.value)} onBlur={() => saveName()} onKeyDown={(e) => e.key === 'Escape' && (setName(ws.group.name), setEditingName(false))} aria-label="Nom du projet" />
-                      </form>
-                    ) : (
-                      <button className="hero-name" disabled={!isAdmin} onClick={() => setEditingName(true)} title={isAdmin ? 'Renommer' : undefined}>
-                        {ws.group.name}
-                        {isAdmin && <Icon name="settings" size={16} />}
-                      </button>
-                    )}
+                    <button className="hero-name" disabled={!isAdmin} onClick={() => setEditingName(true)} title={isAdmin ? 'Renommer' : undefined}>
+                      {ws.group.name}
+                      {isAdmin && <Icon name="edit" size={16} />}
+                    </button>
+                    {isAdmin && ws.group.logoUrl && <button className="link-btn" style={{ alignSelf: 'flex-start', fontSize: 13 }} onClick={() => void attempt(() => backend.setGroupLogo(null), 'Logo retiré')}>Retirer le logo</button>}
                     <span className="muted">{ws.members.length} membre{ws.members.length > 1 ? 's' : ''} · ton rôle : {me ? ROLES[me.role].label.toLowerCase() : '—'}</span>
                   </div>
                   <AvatarGroup members={ws.members} size={34} max={5} online={online} />
@@ -217,13 +203,7 @@ export function ProjectSettings() {
                     {ws.channels.map((c) => (
                       <button key={c.id} className="chan-chip" onClick={() => navigate(`/chat?salon=${c.id}`)}># {c.name}</button>
                     ))}
-                    {canWrite && (newChannel === null ? (
-                      <button className="chan-chip add" onClick={() => setNewChannel('')}><Icon name="plus" size={14} /> Salon</button>
-                    ) : (
-                      <form onSubmit={addChannel} className="chan-chip editing">
-                        #<input autoFocus value={newChannel} onChange={(e) => setNewChannel(e.target.value)} onBlur={() => !newChannel && setNewChannel(null)} onKeyDown={(e) => e.key === 'Escape' && setNewChannel(null)} placeholder="nom" maxLength={40} aria-label="Nom du salon" />
-                      </form>
-                    ))}
+                    {canWrite && <button className="chan-chip add" onClick={() => setNewChannel('')}><Icon name="plus" size={14} /> Salon</button>}
                   </div>
                 </section>
               </>
@@ -387,6 +367,16 @@ export function ProjectSettings() {
 
       {picking && <RepoPicker onPick={pickRepo} onClose={() => setPicking(false)} />}
 
+      {editingName && (
+        <PromptDialog title="Renommer le projet" confirm="Enregistrer" onClose={() => setEditingName(false)}
+          fields={[{ name: 'name', label: 'Nom du projet', initial: ws.group.name, maxLength: 80, required: true }]}
+          onSubmit={async (v) => { const n = v.name.trim(); if (!n) return 'Donne un nom au projet'; if (n !== ws.group.name) await attempt(() => backend.renameGroup(n), 'Nom enregistré') }} />
+      )}
+      {newChannel !== null && (
+        <PromptDialog title="Nouveau salon" confirm="Créer" onClose={() => setNewChannel(null)}
+          fields={[{ name: 'name', label: 'Nom du salon', prefix: '#', placeholder: 'design', maxLength: 40, required: true }]}
+          onSubmit={async (v) => { const n = v.name.trim().replace(/^#/, ''); if (!n) return 'Donne un nom au salon'; await attempt(() => backend.createChannel(n), `#${n} créé`) }} />
+      )}
       {discord && (
         <Modal title="Relier Discord" onClose={() => setDiscord(false)} footer={
           <>

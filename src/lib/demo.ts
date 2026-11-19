@@ -1,5 +1,5 @@
 import { newId, type Backend, type RoomEvent, type TrashItem, type GroupSetup, type LiveHandlers, type User, type Workspace } from './backend'
-import type { AppNotification, EmailInvite, DocumentItem, Note, Sprint, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task } from './types'
+import type { ActivityItem, AppNotification, EmailInvite, DocumentItem, Note, Sprint, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task } from './types'
 
 /**
  * Mode démo : tout est stocké dans le navigateur. Plusieurs onglets ouverts
@@ -7,6 +7,11 @@ import type { AppNotification, EmailInvite, DocumentItem, Note, Sprint, Invite, 
  */
 
 const KEY = 'kollab-demo-v1'
+
+/** Note une action dans l'historique de démo. */
+function logAct(s: DemoState, verb: string, target: string, label: string | null, meta: Record<string, string> = {}, targetId: string | null = null) {
+  s.activity = [{ id: newId(), actorId: 'me', verb, target, targetId, label, meta, createdAt: new Date().toISOString() }, ...(s.activity ?? [])].slice(0, 300)
+}
 const bus = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('kollab-demo') : null
 
 interface DemoState {
@@ -24,6 +29,8 @@ interface DemoState {
   trashedDocs?: DocumentItem[]
   trashedNotes?: Note[]
   trashedLinks?: LinkItem[]
+  /** Historique des actions (le plus récent d'abord). */
+  activity?: ActivityItem[]
   /** Contenu des documents texte (base64 Yjs). */
   noteStates?: Record<string, string>
 }
@@ -303,7 +310,7 @@ export const demoBackend: Backend = {
     const s = read()
     const all = [s.workspace, ...(s.others ?? []).map((o) => o.workspace)].filter((w): w is Workspace => !!w)
     return all
-      .map((w) => ({ id: w.group.id, name: w.group.name, role: w.members.find((m) => m.id === 'me')?.role ?? 'admin' }))
+      .map((w) => ({ id: w.group.id, name: w.group.name, role: w.members.find((m) => m.id === 'me')?.role ?? 'admin', logoUrl: w.group.logoUrl ?? null, memberCount: w.members.length }))
       .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
   },
 
@@ -472,6 +479,35 @@ export const demoBackend: Backend = {
     })
   },
 
+  async setMemberTitle(memberId, title) {
+    update((s) => {
+      const m = s.workspace?.members.find((x) => x.id === memberId)
+      if (m) m.title = title
+    })
+    emit({ kind: 'refresh' })
+  },
+
+  async setGroupLogo(file) {
+    const url = file ? await new Promise<string>((res) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.readAsDataURL(file) }) : null
+    update((s) => {
+      if (s.workspace) s.workspace.group.logoUrl = url
+      logAct(s, 'logo', 'groups', null)
+    })
+    emit({ kind: 'refresh' })
+  },
+
+  async listActivity(limit = 60) {
+    const s = read()
+    const w = s.workspace
+    if (!w) return []
+    const seeded: ActivityItem[] = [
+      ...w.tasks.map((t) => ({ id: `t-${t.id}`, actorId: null, verb: 'created', target: 'tasks', targetId: t.id, label: t.title, meta: {}, createdAt: t.createdAt })),
+      ...w.documents.map((d) => ({ id: `d-${d.id}`, actorId: d.uploadedBy, verb: 'created', target: 'documents', targetId: d.id, label: d.name, meta: {}, createdAt: d.createdAt })),
+      ...w.notes.map((n) => ({ id: `n-${n.id}`, actorId: n.createdBy, verb: 'created', target: 'notes', targetId: n.id, label: n.title, meta: {}, createdAt: n.createdAt })),
+    ]
+    return [...(s.activity ?? []), ...seeded].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit)
+  },
+
   async setMemberRole(memberId, role) {
     update((s) => {
       const m = s.workspace?.members.find((x) => x.id === memberId)
@@ -486,6 +522,11 @@ export const demoBackend: Backend = {
     update((s) => {
       if (!s.workspace) return
       const i = s.workspace.tasks.findIndex((t) => t.id === task.id)
+      const before = i >= 0 ? s.workspace.tasks[i] : null
+      if (!before) logAct(s, 'created', 'tasks', task.title, {}, task.id)
+      else if (before.status !== task.status) logAct(s, 'moved', 'tasks', task.title, { from: before.status, to: task.status }, task.id)
+      else if (before.assigneeIds.join() !== task.assigneeIds.join()) logAct(s, 'assigned', 'tasks', task.title, {}, task.id)
+      else if (task.prUrl && before.prUrl !== task.prUrl) logAct(s, 'pr_linked', 'tasks', task.title, { pr: task.prUrl }, task.id)
       if (i >= 0) s.workspace.tasks[i] = task
       else s.workspace.tasks.push(task)
     })
@@ -602,6 +643,7 @@ export const demoBackend: Backend = {
     const link: LinkItem = { id: newId(), title, url }
     update((s) => {
       s.workspace?.links.push(link)
+      logAct(s, 'created', 'links', title, {}, link.id)
     })
     emit({ kind: 'refresh' })
     return link
@@ -731,6 +773,7 @@ export const demoBackend: Backend = {
     update((s) => {
       const l = s.workspace?.links.find((x) => x.id === id)
       if (l) Object.assign(l, patch)
+      logAct(s, 'edited', 'links', patch.title, {}, id)
     })
     emit({ kind: 'refresh' })
   },
@@ -741,6 +784,7 @@ export const demoBackend: Backend = {
       if (!l || !s.workspace) return
       s.workspace.links = s.workspace.links.filter((x) => x.id !== id)
       s.trashedLinks = [...(s.trashedLinks ?? []), l]
+      logAct(s, 'trashed', 'links', l.title, {}, id)
       s.trash = [{ kind: 'link', id, title: l.title, deletedAt: new Date().toISOString(), deletedBy: 'me' }, ...(s.trash ?? [])]
     })
     emit({ kind: 'refresh' })

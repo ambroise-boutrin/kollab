@@ -1,4 +1,4 @@
-import type { AppNotification, EmailInvite, Channel, DocumentItem, Note, Sprint, ReactionChange, Group, Invite, LinkItem, Member, Message, ProfilePatch, Provider, Role, Task } from './types'
+import type { AppNotification, EmailInvite, Channel, DocumentItem, Note, Sprint, ReactionChange, ActivityItem, Group, Invite, LinkItem, Member, Message, ProfilePatch, Provider, Role, Task } from './types'
 
 export interface User {
   id: string
@@ -46,6 +46,8 @@ export interface GroupSummary {
   id: string
   name: string
   role: Role
+  logoUrl?: string | null
+  memberCount?: number
 }
 
 /** Préconfiguration d'un nouveau projet (modèle choisi à la création). */
@@ -133,6 +135,12 @@ export interface Backend {
   createInvite(role: Role, opts: { days: number; maxUses: number | null }): Promise<Invite>
   revokeInvite(id: string): Promise<void>
   setMemberRole(memberId: string, role: Role): Promise<void>
+  /** Rôle dans l'équipe (Product Owner…), attribué par un admin du projet. */
+  setMemberTitle(memberId: string, title: string): Promise<void>
+  /** Logo du projet ouvert (ou de `groupId`) ; null le retire. */
+  setGroupLogo(file: Blob | null, groupId?: string): Promise<void>
+  /** Historique des actions de l'équipe, du plus récent au plus ancien. */
+  listActivity(limit?: number, before?: string): Promise<ActivityItem[]>
 
   saveTask(task: Task): Promise<Task>
   deleteTask(id: string): Promise<void>

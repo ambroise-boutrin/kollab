@@ -9,6 +9,8 @@ import { Icon, type IconName } from './Icon'
 import { LogoMark } from './Logo'
 import { NewProjectDialog } from './NewProjectDialog'
 import { Popover } from './Popover'
+import { Modal } from './Modal'
+import { ProjectMark } from './ProjectMark'
 import { NotificationBell, usePushOpen } from './Notifications'
 import { InviteDialog } from './InviteDialog'
 import { CommandPalette, openSearch } from './CommandPalette'
@@ -30,66 +32,60 @@ const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(naviga
 
 const ROLE_LABEL = { admin: 'Admin', member: 'Membre', guest: 'Invité' } as const
 
-/** Pastille de couleur avec l'initiale du projet. */
-function ProjectMark({ name, size = 30 }: { name: string; size?: number }) {
-  return (
-    <span className="project-mark" style={{ width: size, height: size, fontSize: size * 0.46 }} aria-hidden="true">
-      {name.trim()[0]?.toUpperCase() ?? 'K'}
-    </span>
-  )
-}
-
-/** En haut à gauche : le projet ouvert, et le menu pour en changer. */
+/** En haut à gauche : le projet ouvert ; un clic montre tous les projets en grand. */
 function ProjectSwitcher({ onNew, compact = false }: { onNew: () => void; compact?: boolean }) {
   const { workspace, groups, switchGroup } = useStore()
   const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
   if (!workspace) return null
   const g = workspace.group
   const role = groups.find((x) => x.id === g.id)?.role
   return (
-    <Popover
-      label="Projets"
-      className={compact ? 'switcher compact' : 'switcher'}
-      button={({ open, toggle }) => (
-        <button className="switcher-btn" aria-expanded={open} aria-haspopup="menu" onClick={toggle} data-tour="project">
-          <ProjectMark name={g.name} size={compact ? 28 : 32} />
-          <span className="switcher-text">
-            <strong>{g.name}</strong>
-            {!compact && <span>{workspace.members.length} membre{workspace.members.length > 1 ? 's' : ''}{role ? ` · ${ROLE_LABEL[role]}` : ''}</span>}
-          </span>
-          <Icon name="chevron" size={16} />
-        </button>
-      )}
-    >
-      {(close) => (
-        <>
-          <p className="pop-title">Tes projets</p>
-          {groups.map((p) => (
-            <button
-              key={p.id}
-              role="menuitemradio"
-              aria-checked={p.id === g.id}
-              className="pop-item"
-              onClick={() => {
-                close()
-                if (p.id !== g.id) void switchGroup(p.id).then(() => navigate('/'))
-              }}
-            >
-              <ProjectMark name={p.name} size={24} />
-              <span className="pop-grow">{p.name}</span>
-              {p.id === g.id && <Icon name="check" size={16} />}
+    <div className={compact ? 'switcher compact' : 'switcher'}>
+      <button className="switcher-btn" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)} data-tour="project">
+        <ProjectMark id={g.id} logoUrl={g.logoUrl} size={compact ? 30 : 34} />
+        <span className="switcher-text">
+          <strong>{g.name}</strong>
+          {!compact && <span>{workspace.members.length} membre{workspace.members.length > 1 ? 's' : ''}{role ? ` · ${ROLE_LABEL[role]}` : ''}</span>}
+        </span>
+        <Icon name="chevron" size={16} />
+      </button>
+      {open && (
+        <Modal title="Tes projets" onClose={() => setOpen(false)} wide>
+          <div className="projects-grid">
+            {groups.map((p) => {
+              const current = p.id === g.id
+              const logo = current ? g.logoUrl : p.logoUrl
+              const count = current ? workspace.members.length : p.memberCount
+              return (
+                <button
+                  key={p.id}
+                  className={`project-card${current ? ' current' : ''}`}
+                  aria-current={current || undefined}
+                  onClick={() => {
+                    setOpen(false)
+                    if (!current) void switchGroup(p.id).then(() => navigate('/'))
+                  }}
+                >
+                  <ProjectMark id={p.id} logoUrl={logo} size={64} />
+                  <strong>{p.name}</strong>
+                  <span className="muted">{count != null ? `${count} membre${count > 1 ? 's' : ''} · ` : ''}{ROLE_LABEL[p.role]}</span>
+                  {current && <span className="project-open">Ouvert</span>}
+                </button>
+              )
+            })}
+            <button className="project-card add" onClick={() => { setOpen(false); onNew() }}>
+              <span className="invite-plus"><Icon name="plus" size={26} /></span>
+              <strong>Nouveau projet</strong>
+              <span className="muted">ou rejoindre avec un code</span>
             </button>
-          ))}
-          <hr />
-          <button role="menuitem" className="pop-item" onClick={() => { close(); navigate('/projet') }}>
-            <Icon name="settings" size={18} /> Réglages du projet
-          </button>
-          <button role="menuitem" className="pop-item" onClick={() => { close(); onNew() }}>
-            <Icon name="plus" size={18} /> Nouveau projet ou rejoindre
-          </button>
-        </>
+          </div>
+          <div className="projects-foot">
+            <button className="btn soft" onClick={() => { setOpen(false); navigate('/projet') }}><Icon name="settings" size={18} /> Réglages de {g.name}</button>
+          </div>
+        </Modal>
       )}
-    </Popover>
+    </div>
   )
 }
 

@@ -37,7 +37,7 @@ export const PRESENCE: Record<PresenceStatus, { label: string; color: string }> 
   away: { label: 'Absent', color: '#8A90A2' },
 }
 
-export type ProfilePatch = Partial<Pick<Member, 'name' | 'color' | 'title' | 'status'>>
+export type ProfilePatch = Partial<Pick<Member, 'name' | 'color' | 'status'>>
 
 export interface Task {
   id: string
@@ -136,6 +136,35 @@ export interface Group {
   name: string
   inviteCode: string
   discordWebhookSet: boolean
+  logoUrl?: string | null
+}
+
+/** Rôles dans l'équipe proposés aux admins (liste fixe). */
+export const TEAM_TITLES = [
+  'Chef de projet',
+  'Product Owner',
+  'Scrum Master',
+  'Développeur front',
+  'Développeur back',
+  'Développeur full stack',
+  'Développeur mobile',
+  'DevOps',
+  'Designer UX/UI',
+  'Testeur QA',
+  'Data',
+  'Stagiaire',
+] as const
+
+/** Une action de l'équipe, notée par la base. */
+export interface ActivityItem {
+  id: string
+  actorId: string | null
+  verb: string
+  target: 'tasks' | 'links' | 'documents' | 'sprints' | 'notes' | 'group_members' | 'groups' | string
+  targetId: string | null
+  label: string | null
+  meta: Record<string, string>
+  createdAt: string
 }
 
 export type NotificationKind = 'assigned' | 'mention' | 'invited' | 'joined'
