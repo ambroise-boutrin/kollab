@@ -117,7 +117,7 @@ export function VoiceJoin({ compact = false }: { compact?: boolean }) {
   return (
     <button className={`voice-join${inside.length ? ' live' : ''}${compact ? ' compact' : ''}`} onClick={() => void v.join()} disabled={v.joining}>
       <Icon name="mic" size={16} />
-      {v.joining ? 'Connexion…' : inside.length ? `Rejoindre le vocal · ${inside.length}` : 'Lancer le vocal'}
+      {v.joining ? 'Connexion…' : inside.length ? `Rejoindre le vocal · ${inside.length}` : <><span className="hide-phone">Lancer le vocal</span><span className="show-phone">Vocal</span></>}
       {inside.length > 0 && !compact && <span className="voice-join-faces">{inside.slice(0, 3).map((m) => <Avatar key={m.id} member={m} size={20} />)}</span>}
     </button>
   )

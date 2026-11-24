@@ -8,6 +8,7 @@ import { initials } from '../components/Avatar'
 import { Popover } from '../components/Popover'
 import { PromptDialog } from '../components/PromptDialog'
 import { Modal } from '../components/Modal'
+import { LogoMark } from '../components/Logo'
 import { PrStatus } from '../components/PrLink'
 import { useToast } from '../components/Toast'
 import { ghToken, listPulls, projectRepo } from '../lib/github'
@@ -171,6 +172,7 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
   const fileRef = useRef<HTMLInputElement>(null)
   // Salons : création, renommage, suppression.
   const [channelDialog, setChannelDialog] = useState<{ mode: 'new' | 'rename' | 'delete'; channel?: Channel } | null>(null)
+  const [pickChan, setPickChan] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const repo = projectRepo(ws)
@@ -410,7 +412,14 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
         onDrop={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); setDragging(false); addFiles(e.dataTransfer.files) } }}>
         {dragging && <div className="drop-hint" aria-hidden="true"><Icon name="upload" size={28} /><strong>Dépose pour joindre à #{channel?.name}</strong></div>}
         <header className="thread-head">
-          <h2># {channel?.name}</h2>
+          <h2 className="hide-phone"># {channel?.name}</h2>
+          {!docked && <span className="chan-logo show-phone-flex" aria-hidden="true"><LogoMark size={28} /></span>}
+          {!docked && (
+            <button className="chan-pick show-phone-flex" aria-haspopup="dialog" onClick={() => setPickChan(true)}>
+              <strong># {channel?.name} <Icon name="chevron" size={14} /></strong>
+              <span>{channels.length} salon{channels.length > 1 ? 's' : ''} · {members.filter((m) => online.includes(m.id)).length} en ligne{channel && linkOf(channel.id) ? ' · Discord' : ''}</span>
+            </button>
+          )}
           <div className="thread-tools">
             {channel && (linkOf(channel.id) ? (
               <button className="discord-pill" onClick={() => setDiscordOpen(true)} title="Messages partagés avec Discord">
@@ -519,6 +528,32 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
             )
           })}
         </div>
+
+        {pickChan && (
+          <Modal title="Salons" onClose={() => setPickChan(false)}>
+            <div className="chan-list">
+              {channels.map((c) => (
+                <div key={c.id} className="chan-row-wrap">
+                  <button className={`chan-row${c.id === channelId ? ' active' : ''}`} aria-current={c.id === channelId} onClick={() => { setChannelId(c.id); setPickChan(false) }}>
+                    <b>#</b>{c.name}
+                  </button>
+                  {isAdmin && (
+                    <>
+                      <button className="chan-act" aria-label={`Renommer #${c.name}`} onClick={() => { setPickChan(false); setChannelDialog({ mode: 'rename', channel: c }) }}><Icon name="edit" size={18} /></button>
+                      {channels.length > 1 && <button className="chan-act danger" aria-label={`Supprimer #${c.name}`} onClick={() => { setPickChan(false); setChannelDialog({ mode: 'delete', channel: c }) }}><Icon name="trash" size={18} /></button>}
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button className="btn soft chan-new" onClick={() => { setPickChan(false); setChannelDialog({ mode: 'new' }) }}><Icon name="plus" size={16} /> Nouveau salon</button>
+            {channel && (isAdmin || discord.guild) && (
+              <button className="btn discord chan-discord" onClick={() => { setPickChan(false); setDiscordOpen(true) }}>
+                {linkOf(channel.id) ? `Discord : # ${linkOf(channel.id)!.discordChannelName}` : 'Relier à Discord'}
+              </button>
+            )}
+          </Modal>
+        )}
 
         <div className="composer" data-tour="composer">
           {suggestions.length > 0 && (

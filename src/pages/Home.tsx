@@ -8,7 +8,6 @@ import { openInvite } from './Group'
 import { PrStatus } from '../components/PrLink'
 import { DockToggle } from '../components/Dock'
 import { Icon } from '../components/Icon'
-import { PhoneHome } from './PhoneHome'
 import { ActivityDialog, ActivityList, useActivity } from '../components/ActivityFeed'
 import { DEFAULT, HomeEditGrid, useHomeLayout, type WidgetId } from '../components/HomeLayout'
 import { boardProgress, boardTasks } from '../lib/sprints'
@@ -95,7 +94,7 @@ export function Home() {
                     {t.prUrl ? <TaskPrChip task={t} /> : <Link to={`/tableau?tache=${t.id}`} className="day-link">Lier une branche</Link>}
                     {STATUSES.find((s) => s.id === t.status)?.label}{t.points != null ? ` · ${t.points} pts` : ''}
                   </span>
-                  <button className="btn soft small" onClick={() => advance(t)}>{NEXT_LABEL[t.status]}</button>
+                  <button className={`btn soft small next-${NEXT[t.status]}`} onClick={() => advance(t)}>{NEXT_LABEL[t.status]}</button>
                 </li>
               ))}
             </ul>
@@ -220,8 +219,6 @@ export function Home() {
         </div>
       </header>
 
-      <PhoneHome newTask={newTask} />
-
       <div className="home-strip">
         <div className="strip-tile" style={{ ['--tile' as string]: 'var(--accent)' }}>
           <b>{mine.length}</b><span>pour toi</span>
@@ -233,6 +230,9 @@ export function Home() {
           <b>{pct} %</b><span>{progress.scope}</span>
           <i><em style={{ width: `${pct}%` }} /></i>
         </div>
+        <Link to="/tableau" className="strip-tile late show-phone-flex" style={{ ['--tile' as string]: '#C93636' }}>
+          <b>{late.length}</b><span>en retard</span>
+        </Link>
         <div className="strip-tile people" style={{ ['--tile' as string]: '#2F6FD0' }}>
           {onlineMembers.length ? <AvatarGroup members={onlineMembers} size={28} /> : <b>0</b>}
           <span>{onlineMembers.length ? `${onlineMembers.length} en ligne` : 'personne en ligne'}</span>
@@ -252,7 +252,7 @@ export function Home() {
             <div key={col} className={col === 'main' ? 'home-main' : 'home-side'}>
               {layout[col].filter((id) => !layout.hidden.includes(id)).map((id) => {
                 const h = layout.heights?.[id]
-                return <div key={id} className={`home-widget${h ? ' sized' : ''}`} style={h ? { height: h } : undefined}>{widgets[id]}</div>
+                return <div key={id} className={`home-widget w-${id}${h ? ' sized' : ''}`} style={h ? { height: h } : undefined}>{widgets[id]}</div>
               })}
             </div>
           ))}
