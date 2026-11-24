@@ -11,7 +11,10 @@ import { Icon } from '../components/Icon'
 import { PhoneHome } from './PhoneHome'
 import { ActivityDialog, ActivityList, useActivity } from '../components/ActivityFeed'
 import { DEFAULT, HomeEditGrid, useHomeLayout, type WidgetId } from '../components/HomeLayout'
-import { boardTasks } from '../lib/sprints'
+import { boardProgress, boardTasks } from '../lib/sprints'
+import { DueBadge, daysUntil } from '../components/TaskExtras'
+
+const DOT: Record<string, string> = { todo: '#A3A9BA', doing: '#2F6FD0', review: '#D98A1C', done: '#2E7D4F' }
 import { useStore, useWorkspace } from '../lib/store'
 import { KINDS, STATUSES, type Task, type TaskStatus } from '../lib/types'
 
@@ -31,9 +34,8 @@ export function Home() {
   const firstName = me?.name.split(/\s+/)[0] ?? ''
 
   const sprintTasks = boardTasks(ws)
-  const total = sprintTasks.reduce((n, t) => n + (t.points ?? 0), 0)
-  const done = sprintTasks.filter((t) => t.status === 'done').reduce((n, t) => n + (t.points ?? 0), 0)
-  const pct = total ? Math.round((done / total) * 100) : 0
+  const progress = boardProgress(ws)
+  const pct = progress.pct
   const open = ws.tasks.filter((t) => t.status !== 'done').length
 
   const q = query.trim().toLowerCase()
@@ -42,7 +44,12 @@ export function Home() {
   const mine = ws.tasks
     .filter((t) => me && t.assigneeIds.includes(me.id) && t.status !== 'done')
     .sort((a, b) => ['doing', 'review', 'todo'].indexOf(a.status) - ['doing', 'review', 'todo'].indexOf(b.status))
-  const onlineMembers = ws.members.filter((m) => online.includes(m.id) && m.id !== me?.id)
+  const onlineMembers = ws.members.filter((m) => online.includes(m.id))
+
+  const withDue = ws.tasks.filter((t) => t.dueOn && t.status !== 'done').sort((a, b) => a.dueOn!.localeCompare(b.dueOn!))
+  const late = withDue.filter((t) => daysUntil(t.dueOn!) < 0)
+  const week = withDue.filter((t) => { const n = daysUntil(t.dueOn!); return n >= 0 && n <= 7 })
+  const who = (t: Task) => ws.members.filter((m) => t.assigneeIds.includes(m.id)).map((m) => m.name.split(/\s+/)[0]).join(', ') || 'Personne'
 
   const activity = useActivity(12)
   const [history, setHistory] = useState(false)
@@ -80,6 +87,36 @@ export function Home() {
                   </Link>
                   <span className="muted day-meta">{STATUSES.find((s) => s.id === t.status)?.label}{t.points != null ? ` · ${t.points} pts` : ''}</span>
                   <button className="btn soft small" onClick={() => advance(t)}>{NEXT_LABEL[t.status]}</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+    ),
+    due: (
+        <section className={`card home-due${late.length ? ' has-late' : ''}`}>
+          {late.length > 0 && (
+            <>
+              <div className="row-between"><h2 className="due-late-title">En retard · {late.length}</h2></div>
+              <ul className="due-list">
+                {late.slice(0, 5).map((t) => (
+                  <li key={t.id}>
+                    <i style={{ background: DOT[t.status] }} />
+                    <Link to={`/tableau?tache=${t.id}`}><b>{t.title}</b><span className="muted">{who(t)} · {STATUSES.find((s) => s.id === t.status)?.label.toLowerCase()}</span></Link>
+                    <b className="due-late-n">{-daysUntil(t.dueOn!) === 1 ? 'hier' : `${-daysUntil(t.dueOn!)} j`}</b>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          <div className="row-between"><h2>Cette semaine</h2></div>
+          {week.length === 0 ? <p className="muted" style={{ margin: 0 }}>Aucune échéance dans les 7 jours. Ajoute-en une depuis la fiche d'une tâche.</p> : (
+            <ul className="due-list">
+              {week.slice(0, 6).map((t) => (
+                <li key={t.id}>
+                  <i style={{ background: DOT[t.status] }} />
+                  <Link to={`/tableau?tache=${t.id}`}><b>{t.title}</b></Link>
+                  <DueBadge task={t} />
                 </li>
               ))}
             </ul>
@@ -130,7 +167,7 @@ export function Home() {
     ),
     reviews: (
         <section className="card">
-          <h2>PR à relire</h2>
+          <h2>Tâches en revue</h2>
           {toReview.length === 0 && <p className="hint">Aucune tâche en revue.</p>}
           {toReview.map((t) => {
             const who = ws.members.filter((m) => t.assigneeIds.includes(m.id))
@@ -159,7 +196,7 @@ export function Home() {
       <header className="home-head">
         <div>
           <h1>Bonjour {firstName}</h1>
-          <p className="muted">{ws.group.name} · {open} tâche{open > 1 ? 's' : ''} ouverte{open > 1 ? 's' : ''} · {pct} % des points terminés</p>
+          <p className="muted">{ws.group.name} · {open} tâche{open > 1 ? 's' : ''} ouverte{open > 1 ? 's' : ''} · {pct} % des points {progress.scope}</p>
         </div>
         <div className="home-tools">
           <label className="search">
@@ -184,7 +221,7 @@ export function Home() {
           <b>{toReview.length}</b><span>en revue</span>
         </div>
         <div className="strip-tile sprint" style={{ ['--tile' as string]: 'var(--ok)' }}>
-          <b>{pct} %</b><span>du sprint</span>
+          <b>{pct} %</b><span>{progress.scope}</span>
           <i><em style={{ width: `${pct}%` }} /></i>
         </div>
         <div className="strip-tile people" style={{ ['--tile' as string]: '#2F6FD0' }}>

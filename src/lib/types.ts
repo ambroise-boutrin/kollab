@@ -69,6 +69,8 @@ export interface Task {
   sprintId?: string | null
   /** Passage en « Terminé » (pour le burndown). */
   doneAt?: string | null
+  /** Échéance, AAAA-MM-JJ. */
+  dueOn?: string | null
 }
 
 export type SprintStatus = 'planned' | 'active' | 'done'
@@ -122,6 +124,14 @@ export interface Message {
   reactions?: Reaction[]
   /** Message écrit sur Discord : nom et avatar de son auteur là-bas. */
   discord?: { name: string; avatar: string | null } | null
+}
+
+export interface TaskComment {
+  id: string
+  taskId: string
+  authorId: string
+  body: string
+  createdAt: string
 }
 
 export interface Reaction {

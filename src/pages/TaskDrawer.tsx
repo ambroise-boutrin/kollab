@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { PrPicker } from '../components/PrLink'
+import { DueField, TaskComments } from '../components/TaskExtras'
 import { Modal, usePhone } from '../components/Modal'
 import { useToast } from '../components/Toast'
 import { useStore, useWorkspace } from '../lib/store'
@@ -75,7 +76,7 @@ export function TaskDrawer({ task, onClose, isNew = false }: { task: Task; onClo
       titleRef.current?.focus()
       return
     }
-    await createTask({ title, status: draft.status, kind: draft.kind, points: draft.points, description: draft.description, assigneeIds: draft.assigneeIds, prUrl: draft.prUrl, ...(draft.sprintId !== undefined ? { sprintId: draft.sprintId } : {}) })
+    await createTask({ title, status: draft.status, kind: draft.kind, points: draft.points, description: draft.description, assigneeIds: draft.assigneeIds, prUrl: draft.prUrl, dueOn: draft.dueOn ?? null, ...(draft.sprintId !== undefined ? { sprintId: draft.sprintId } : {}) })
     for (const id of draft.assigneeIds) {
       const name = members.find((m) => m.id === id)?.name ?? ''
       void backend.notifyDiscord({ type: 'task_assigned', taskTitle: title, assignee: name })
@@ -186,6 +187,8 @@ export function TaskDrawer({ task, onClose, isNew = false }: { task: Task; onClo
               </div>
             )}
 
+            <DueField value={draft.dueOn} sprintEnd={sprints.find((sp) => sp.id === draft.sprintId)?.endsOn} onChange={(d) => commit({ ...draft, dueOn: d })} />
+
             <label className="task-field">
               <span className="task-label">Description</span>
               <textarea
@@ -200,6 +203,8 @@ export function TaskDrawer({ task, onClose, isNew = false }: { task: Task; onClo
               <span className="task-label">Branche et PR</span>
               <PrPicker task={draft} value={draft.prUrl} onChange={(url) => linkPr(url ?? '')} onMerged={() => draft.status !== 'done' && commit({ ...draft, status: 'done' })} />
             </div>
+
+            {!isNew && <TaskComments task={draft} />}
           </div>
 
           <div className="task-side">
@@ -334,6 +339,8 @@ function PhoneTask({ draft, setDraft, commit, isNew, onClose, onCreate, onRemove
           </div>
         </div>
 
+        <DueField className="pt-group" labelClass="pt-label" value={draft.dueOn} sprintEnd={sprint?.endsOn} onChange={(d) => commit({ ...draft, dueOn: d })} />
+
         <PrPicker card task={draft} value={draft.prUrl} onChange={(url) => linkPr(url ?? '')} onMerged={() => draft.status !== 'done' && commit({ ...draft, status: 'done' })} />
 
         <div className="pt-rows">
@@ -348,6 +355,8 @@ function PhoneTask({ draft, setDraft, commit, isNew, onClose, onCreate, onRemove
             </button>
           )}
         </div>
+
+        {!isNew && <TaskComments task={draft} compact />}
       </div>
 
       <footer className="pt-foot">

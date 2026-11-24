@@ -1,6 +1,6 @@
 import { useEffect, useState, type DragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 
-export type WidgetId = 'day' | 'board' | 'activity' | 'reviews' | 'links'
+export type WidgetId = 'day' | 'board' | 'due' | 'activity' | 'reviews' | 'links'
 export interface HomeLayout {
   main: WidgetId[]
   side: WidgetId[]
@@ -9,8 +9,8 @@ export interface HomeLayout {
   heights?: Partial<Record<WidgetId, number>>
 }
 
-export const LABEL: Record<WidgetId, string> = { day: 'Ma journée', board: 'Tableau du sprint', activity: 'Activité', reviews: 'PR à relire', links: 'Liens importants' }
-export const DEFAULT: HomeLayout = { main: ['day', 'board'], side: ['activity', 'reviews', 'links'], hidden: [] }
+export const LABEL: Record<WidgetId, string> = { day: 'Ma journée', board: 'Tableau du sprint', due: 'Échéances', activity: 'Activité', reviews: 'Tâches en revue', links: 'Liens importants' }
+export const DEFAULT: HomeLayout = { main: ['day', 'board'], side: ['due', 'activity', 'reviews', 'links'], hidden: [] }
 const ALL = Object.keys(LABEL) as WidgetId[]
 
 function read(gid: string): HomeLayout {
@@ -18,8 +18,8 @@ function read(gid: string): HomeLayout {
     const v = JSON.parse(localStorage.getItem(`kollab-home:${gid}`) ?? '') as HomeLayout
     const known = (l: unknown) => (Array.isArray(l) ? (l as WidgetId[]).filter((x) => ALL.includes(x)) : [])
     const out: HomeLayout = { main: known(v.main), side: known(v.side), hidden: known(v.hidden), heights: v.heights && typeof v.heights === 'object' ? v.heights : {} }
-    // Un bloc ajouté plus tard va en bas de la colonne étroite.
-    for (const id of ALL) if (!out.main.includes(id) && !out.side.includes(id)) out.side.push(id)
+    // Un bloc ajouté plus tard va en haut de la colonne étroite.
+    for (const id of ALL) if (!out.main.includes(id) && !out.side.includes(id) && !out.hidden.includes(id)) out.side.unshift(id)
     return out
   } catch {
     return DEFAULT

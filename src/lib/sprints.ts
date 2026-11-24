@@ -11,6 +11,15 @@ export function boardTasks(ws: Workspace): Task[] {
   return ws.tasks.filter((t) => !t.sprintId || !closed.has(t.sprintId))
 }
 
+/** Avancement du tableau, le même partout : pourcentage des points faits et ce qu'il mesure. */
+export function boardProgress(ws: Workspace) {
+  const tasks = boardTasks(ws)
+  const total = tasks.reduce((n, t) => n + (t.points ?? 0), 0)
+  const done = tasks.filter((t) => t.status === 'done').reduce((n, t) => n + (t.points ?? 0), 0)
+  const active = activeSprint(ws)
+  return { pct: total ? Math.round((done / total) * 100) : 0, scope: active ? `du ${active.name}` : 'du tableau', done, total }
+}
+
 export const sprintPoints = (tasks: Task[]) => tasks.reduce((n, t) => n + (t.points ?? 0), 0)
 
 const day = (iso: string) => new Date(`${iso}T00:00:00`)

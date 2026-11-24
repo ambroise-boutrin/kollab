@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { ActivityList, useActivity } from '../components/ActivityFeed'
 import { Icon, type IconName } from '../components/Icon'
+import { DueBadge } from '../components/TaskExtras'
 import { activeSprint, boardTasks, daysLeft } from '../lib/sprints'
 import { useStore, useWorkspace } from '../lib/store'
 import { STATUSES, type Task, type TaskStatus } from '../lib/types'
@@ -87,6 +88,7 @@ export function PhoneHome({ newTask }: { newTask: () => void }) {
               <article key={t.id} className="ph-card" style={{ ['--s' as string]: S_TEXT[t.status] }}>
                 <span className="ph-card-status">{STATUSES.find((s) => s.id === t.status)?.label}{t.points != null ? ` · ${t.points} pts` : ''}</span>
                 <Link to={`/tableau?tache=${t.id}`} className="ph-card-title">{t.title}</Link>
+                <DueBadge task={t} />
                 <button className="ph-next" style={{ ['--n' as string]: S_COLOR[NEXT[t.status] ?? 'done'] }} onClick={() => advance(t)}>{NEXT_LABEL[t.status]}</button>
               </article>
             ))}
