@@ -13,7 +13,7 @@ alter table public.group_discord enable row level security;
 create policy "serveur discord lisible" on public.group_discord for select using (public.is_member(group_id));
 
 -- Salon Kollab ↔ salon Discord. Le jeton du webhook est un secret : aucune lecture côté navigateur,
--- les membres passent par la vue channel_discord_public.
+-- les membres passent par la fonction discord_links.
 create table if not exists public.channel_discord (
   channel_id uuid primary key references public.channels (id) on delete cascade,
   group_id uuid not null references public.groups (id) on delete cascade,
