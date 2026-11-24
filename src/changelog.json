@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.6.11",
+    "date": "2026-11-24",
+    "title": "Fusionner sans quitter Kollab",
+    "items": [
+      "Revues : Approuver, Demander des changements et Fusionner, sans passer par GitHub",
+      "Après la fusion, la tâche liée passe en Terminé et la branche peut être supprimée",
+      "Sprints : alerte quand un sprint dépasse le rythme habituel de l'équipe",
+      "Documents : export en PDF, prêt à envoyer",
+      "Fiche tâche : mêmes mots et même ordre sur ordinateur et téléphone"
+    ]
+  },
+  {
     "version": "0.6.10",
     "date": "2026-11-24",
     "title": "Le téléphone au doigt",

@@ -37,7 +37,7 @@ export function ProviderIcon({ path }: { path: string }) {
 type Mode = 'signin' | 'signup' | 'forgot' | 'magic'
 
 const HEADINGS: Record<Mode, { title: string; sub: string }> = {
-  signin: { title: 'Bon retour', sub: 'Connecte-toi pour retrouver ton groupe.' },
+  signin: { title: 'Bon retour', sub: 'Connecte-toi pour retrouver ton projet.' },
   signup: { title: 'Crée ton compte', sub: 'Une minute, et ton équipe a son espace de travail.' },
   forgot: { title: 'Mot de passe oublié', sub: 'Indique ton email : on t’envoie un lien pour en choisir un nouveau.' },
   magic: { title: 'Lien de connexion', sub: 'Pas de mot de passe : on t’envoie un lien qui te connecte en un clic.' },
@@ -45,11 +45,11 @@ const HEADINGS: Record<Mode, { title: string; sub: string }> = {
 
 const PERKS = [
   { title: 'Tableau et sprints', text: 'Kanban glisser-déposer, tâches attribuées, points.' },
-  { title: 'Chat du groupe', text: 'Salons, @mentions et liens de PR GitHub.' },
+  { title: 'Chat de l’équipe', text: 'Salons, @mentions et liens de PR GitHub.' },
   { title: 'Partout', text: 'Web, téléphone, et appli Windows, Mac et Linux.' },
 ]
 
-const STEPS = ['Tu crées ton compte', 'Tu confirmes ton email', 'Tu crées ton groupe ou tu rejoins celui d’un collègue']
+const STEPS = ['Tu crées ton compte', 'Tu confirmes ton email', 'Tu crées ton projet ou tu rejoins celui d’un collègue']
 
 /** Force du mot de passe, de 0 à 4, avec un conseil pour la suite. */
 function strength(pw: string): { score: number; label: string; hint: string } {

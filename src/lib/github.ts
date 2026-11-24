@@ -120,6 +120,20 @@ export const reviewComments = (r: Repo, n: number) => gh<ReviewComment[]>(`${bas
 
 export interface IssueComment { id: number; body: string; user: { login: string; avatar_url: string }; created_at: string }
 export const issueComments = (r: Repo, n: number) => gh<IssueComment[]>(`${base(r)}/issues/${n}/comments?per_page=100`)
+/** Relecture : approuver ou demander des changements (le commentaire est obligatoire pour « changements »). */
+export const submitReview = (r: Repo, n: number, event: 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT', body = '') =>
+  gh<{ id: number; state: string }>(`${base(r)}/pulls/${n}/reviews`, { method: 'POST', body: JSON.stringify({ event, ...(body ? { body } : {}) }) })
+export interface Review { id: number; state: string; user: { login: string; avatar_url: string } | null; submitted_at: string }
+export const listReviews = (r: Repo, n: number) => gh<Review[]>(`${base(r)}/pulls/${n}/reviews?per_page=100`)
+/** Fusionner la PR (squash par défaut, comme dans Kollab). */
+export const mergePull = (r: Repo, n: number, method: 'squash' | 'merge' | 'rebase' = 'squash', title?: string) =>
+  gh<{ merged: boolean; message: string }>(`${base(r)}/pulls/${n}/merge`, { method: 'PUT', body: JSON.stringify({ merge_method: method, ...(title ? { commit_title: title } : {}) }) })
+export const deleteBranch = (r: Repo, branch: string) => gh<void>(`${base(r)}/git/refs/heads/${encodeURIComponent(branch)}`, { method: 'DELETE' })
+/** Mergeabilité : GitHub la calcule en différé (null le temps du calcul). */
+export const pullMergeable = async (r: Repo, n: number) => {
+  const p = await gh<{ mergeable: boolean | null; mergeable_state: string }>(`${base(r)}/pulls/${n}`)
+  return { mergeable: p.mergeable, state: p.mergeable_state }
+}
 export const postComment = (r: Repo, n: number, body: string) => gh<IssueComment>(`${base(r)}/issues/${n}/comments`, { method: 'POST', body: JSON.stringify({ body }) })
 
 export interface CheckRun {

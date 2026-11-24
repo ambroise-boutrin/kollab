@@ -10,7 +10,7 @@ export function LoadError({ message }: { message: string }) {
     <div className="page" style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center' }}>
       <div className="card appear" style={{ width: 'min(440px, 100%)', display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div>
-          <h1 style={{ fontSize: 26 }}>Kollab n'a pas pu charger ton groupe</h1>
+          <h1 style={{ fontSize: 26 }}>Kollab n'a pas pu charger ton projet</h1>
           <p className="muted" style={{ margin: '6px 0 0' }}>Vérifie ta connexion internet, puis réessaie.</p>
         </div>
         <code style={{ fontSize: 13, padding: '10px 12px', borderRadius: 12, background: 'var(--subtle)', color: 'var(--muted)', overflowWrap: 'anywhere' }}>{message}</code>
