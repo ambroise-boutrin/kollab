@@ -39,3 +39,5 @@ export function finishIntro(uid: string) {
 }
 export const tourDone = (uid: string) => get(tourKey(uid)) === 'done'
 export const finishTour = (uid: string) => set(tourKey(uid), 'done')
+/** Présentation restée à moitié alors que le compte a déjà ses projets : on la range, sans relancer la visite. */
+export const dropIntro = (uid: string) => set(introKey(uid), 'done')

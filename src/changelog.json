@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.6.3",
+    "date": "2026-11-24",
+    "title": "Tes projets, à chaque connexion",
+    "items": [
+      "Plus de présentation ni de projet à refaire quand tu te reconnectes",
+      "La visite de l'app ne revient plus sur chaque appareil",
+      "Bulle de chat en bas à droite",
+      "Propose ton rôle dans Équipe, un admin le valide"
+    ]
+  },
+  {
     "version": "0.6.2",
     "date": "2026-11-24",
     "title": "Retours des testeurs",

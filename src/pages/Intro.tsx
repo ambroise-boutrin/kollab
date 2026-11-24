@@ -17,7 +17,7 @@ export function Intro() {
   const uid = user!.id
   const invitation = new URLSearchParams(location.search).get('invitation') ?? ''
   const [state, setState] = useState<IntroState>(
-    () => readIntro(uid) ?? { step: introDone(uid) || invitation ? 'projet' : 'bienvenue' },
+    () => readIntro(uid) ?? { step: introDone(uid) || user?.onboarded || invitation ? 'projet' : 'bienvenue' },
   )
   const [linked, setLinked] = useState<Provider[]>([])
   const [inviteUrl, setInviteUrl] = useState<string | null>(null)
