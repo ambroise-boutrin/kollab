@@ -127,6 +127,7 @@ export function InviteDialog({ onClose }: { onClose: () => void }) {
     setEmails(failed)
     setTyped('')
     void loadPending()
+    window.dispatchEvent(new Event('kollab:invites'))
     const ok = list.length - failed.length
     if (!ok) return
     if (notEmailed) toast('Invitation créée, mais l’email n’a pas pu partir : envoie-leur le lien')
@@ -137,6 +138,7 @@ export function InviteDialog({ onClose }: { onClose: () => void }) {
     setPending((l) => l.filter((x) => x.id !== inv.id))
     try {
       await backend.cancelEmailInvite(inv.id)
+      window.dispatchEvent(new Event('kollab:invites'))
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Annulation impossible')
       void loadPending()

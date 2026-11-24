@@ -1,6 +1,6 @@
 [
   {
-    "version": "0.6.5",
+    "version": "0.6.6",
     "date": "2026-11-24",
     "title": "Le téléphone, comme l'ordi",
     "items": [
@@ -9,6 +9,19 @@
       "Chat plein écran, salons dans une fenêtre",
       "En-tête avec le logo, le projet et les membres en ligne",
       "Revues dans la barre du bas, Équipe et Mon compte dans Plus"
+    ]
+  },
+  {
+    "version": "0.6.5",
+    "date": "2026-11-24",
+    "title": "La tâche et sa PR, d'abord",
+    "items": [
+      "Ma journée montre l'état de la PR de chaque tâche",
+      "Colle le lien ou le numéro d'une PR pour la relier",
+      "Tableau filtré par personne",
+      "Invitations en attente visibles dans Équipe",
+      "Sprints modifiables, date de début au choix, bilan des sprints terminés",
+      "Lien d'invitation : inscription directe et visite pour les invités"
     ]
   },
   {

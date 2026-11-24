@@ -83,7 +83,9 @@ function EyeIcon({ open }: { open: boolean }) {
 
 export function Login() {
   const { backend } = useStore()
-  const [mode, setMode] = useState<Mode>(() => (new URLSearchParams(location.search).has('inscription') ? 'signup' : 'signin'))
+  // Lien d'invitation : la personne n'a sans doute pas encore de compte, on ouvre l'inscription.
+  const invited = new URLSearchParams(location.search).has('invitation')
+  const [mode, setMode] = useState<Mode>(() => (new URLSearchParams(location.search).has('inscription') || invited ? 'signup' : 'signin'))
   const [first, setFirst] = useState('')
   const [last, setLast] = useState('')
   const [email, setEmail] = useState('')
@@ -177,8 +179,8 @@ export function Login() {
           )}
 
           <div>
-            <h1>{HEADINGS[mode].title}</h1>
-            <p className="muted" style={{ margin: '4px 0 0' }}>{HEADINGS[mode].sub}</p>
+            <h1>{invited && mode !== 'forgot' ? 'Ton équipe t’attend' : HEADINGS[mode].title}</h1>
+            <p className="muted" style={{ margin: '4px 0 0' }}>{invited && mode !== 'forgot' ? (signup ? 'Crée ton compte pour rejoindre le projet. Déjà un compte ? Connecte-toi.' : 'Connecte-toi pour rejoindre le projet.') : HEADINGS[mode].sub}</p>
           </div>
 
           {sent ? (
