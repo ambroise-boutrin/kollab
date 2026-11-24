@@ -67,7 +67,16 @@ export function PrPicker({ value, onChange, onMerged, task, card = false }: {
   const pulls = useAsync(open && repo ? () => listPulls(repo, 'open') : null, [open, repo?.owner, repo?.repo])
   const prByBranch = useMemo(() => new Map((pulls.data ?? []).map((p) => [p.branch, p])), [pulls.data])
   const fresh = branchName(task.kind, task.title)
-  const typed = typedBranch(q, task.kind)
+  // Lien collé (https://github.com/…/pull/12) ou numéro (#12) : on relie cette PR telle quelle.
+  const pasted = (() => {
+    if (!repo) return null
+    const t = q.trim()
+    const u = parsePrUrl(t)
+    if (u) return { url: `https://github.com/${u.owner}/${u.repo}/pull/${u.number}`, n: u.number }
+    const m = /^#?(\d{1,6})$/.exec(t)
+    return m ? { url: `https://github.com/${repo.owner}/${repo.repo}/pull/${m[1]}`, n: Number(m[1]) } : null
+  })()
+  const typed = pasted ? null : typedBranch(q, task.kind)
   const typedFree = !!typed && !(branches.data ?? []).some((b) => b.name === typed || b.name === q.trim())
   const shown = useMemo(() => {
     const s = q.trim().toLowerCase()
@@ -130,8 +139,17 @@ export function PrPicker({ value, onChange, onMerged, task, card = false }: {
         <div className="branch-menu in-modal" role="listbox" aria-label={`Branches de ${repo.owner}/${repo.repo}`}>
           <label className="branch-search">
             <Icon name="search" size={16} />
-            <input autoFocus={!touchScreen()} placeholder="Chercher ou nommer une branche" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Chercher une branche" />
+            <input autoFocus={!touchScreen()} placeholder="Branche, ou lien d'une PR" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Chercher une branche" />
           </label>
+          {pasted && (
+            <button type="button" role="option" aria-selected={false} className="branch-row new" disabled={!!busy} onClick={() => void run('pasted', async () => {
+              await getPull(parsePrUrl(pasted.url)!, pasted.n)
+              return pasted.url
+            })}>
+              <span className="branch-plus"><Icon name="pr" size={14} /></span>
+              <span className="branch-name">{busy === 'pasted' ? 'Vérification…' : <>Lier la PR <code>#{pasted.n}</code></>}</span>
+            </button>
+          )}
           {canWrite && typedFree && typed && (
             <button type="button" role="option" aria-selected={false} className="branch-row new" disabled={!!busy || !task.title.trim()} onClick={() => void run('typed', () => createTaskPr(repo, task, typed))}>
               <span className="branch-plus"><Icon name="plus" size={14} /></span>
