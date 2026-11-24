@@ -227,6 +227,8 @@ export interface Backend {
   /** Relie un salon Kollab à un salon Discord existant, ou à un nouveau salon du même nom (`null`). */
   linkDiscordChannel(channelId: string, discordChannelId: string | null): Promise<DiscordLink>
   unlinkDiscordChannel(channelId: string): Promise<void>
+  /** Chaque salon Discord devient un salon Kollab relié ; un salon du même nom est repris (fusion). */
+  importDiscordChannels(): Promise<{ merged: number; created: number; failed: number }>
 }
 
 export interface PushApi {

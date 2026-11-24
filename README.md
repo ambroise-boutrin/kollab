@@ -16,7 +16,8 @@ Sans configuration, Kollab démarre en **mode démo** : les données restent dan
 1. Crée un projet sur [supabase.com](https://supabase.com).
 2. Applique le schéma : `supabase db push` (ou colle `supabase/migrations/*.sql` dans l'éditeur SQL).
 3. Dans *Authentication › Providers*, active **GitHub**, **Google**, **Discord** et **Email**, et active *Manual linking* pour pouvoir relier plusieurs comptes.
-4. Déploie la fonction Discord : `supabase functions deploy notify-discord`.
+4. Déploie les fonctions Discord : `supabase functions deploy notify-discord` et `supabase functions deploy discord --no-verify-jwt`.
+   Pour les salons reliés, crée une appli sur le [portail développeur Discord](https://discord.com/developers/applications) : active *Message Content Intent* (onglet Bot), ajoute la redirection `https://<projet>.supabase.co/functions/v1/discord` (onglet OAuth2), puis range `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` et `DISCORD_BOT_TOKEN` dans les secrets des fonctions.
 5. Copie `.env.example` en `.env.local` et renseigne `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY`.
 
 ## Structure

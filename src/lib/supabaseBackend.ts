@@ -932,6 +932,10 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     async unlinkDiscordChannel(channelId) {
       await discordCall('unlink', { channelId })
     },
+
+    async importDiscordChannels() {
+      return discordCall<{ merged: number; created: number; failed: number }>('import')
+    },
   }
 
   /** Appel à la fonction serveur Discord ; son message d'erreur est montré tel quel. */

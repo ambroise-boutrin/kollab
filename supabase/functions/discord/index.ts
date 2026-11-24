@@ -130,16 +130,40 @@ Deno.serve(async (req) => {
         }
         const { data: taken } = await db.from('channel_discord').select('channel_id').eq('discord_channel_id', target.id).maybeSingle()
         if (taken && taken.channel_id !== channel.id) return fail('Ce salon Discord est déjà relié à un autre salon.')
-        const old = await db.from('channel_discord').select('webhook_id, webhook_token').eq('channel_id', channel.id).maybeSingle()
-        const hook = await bot<{ id: string; token: string }>(`/channels/${target.id}/webhooks`, { method: 'POST', body: JSON.stringify({ name: 'Kollab' }) })
-        const row = {
-          channel_id: channel.id, group_id: body.groupId, discord_channel_id: target.id, discord_channel_name: target.name,
-          webhook_id: hook.id, webhook_token: hook.token, last_message_id: target.last_message_id ?? null, linked_by: me.user.id, linked_at: new Date().toISOString(),
-        }
-        const { error } = await db.from('channel_discord').upsert(row)
-        if (error) throw error
-        if (old.data) await fetch(`${API}/webhooks/${old.data.webhook_id}/${old.data.webhook_token}`, { method: 'DELETE' }).catch(() => undefined)
+        await attach(db, body.groupId, channel.id, target, me.user.id)
         return json({ channelId: channel.id, discordChannelId: target.id, discordChannelName: target.name })
+      }
+      case 'import': {
+        // Tous les salons Discord deviennent des salons Kollab reliés ; même nom = même salon.
+        if (!isAdmin) return fail('Seul un admin importe les salons.', 403)
+        const guild = await guildOf(db, body.groupId)
+        if (!guild) return fail('Relie d’abord ton serveur Discord.')
+        const all = (await bot<DChannel[]>(`/guilds/${guild}/channels`)).filter((c) => c.type === 0 || c.type === 5).sort((a, b) => a.position - b.position)
+        const { data: linked } = await db.from('channel_discord').select('channel_id, discord_channel_id').eq('group_id', body.groupId)
+        const { data: mine } = await db.from('channels').select('id, name').eq('group_id', body.groupId).order('created_at')
+        const usedK = new Set((linked ?? []).map((l) => l.channel_id as string))
+        const usedD = new Set((linked ?? []).map((l) => l.discord_channel_id as string))
+        let merged = 0, created = 0, failed = 0
+        for (const d of all) {
+          if (usedD.has(d.id)) continue
+          try {
+            let k = (mine ?? []).find((c) => !usedK.has(c.id) && same(c.name, d.name))
+            if (k) merged++
+            else {
+              const { data, error } = await db.from('channels').insert({ group_id: body.groupId, name: d.name.slice(0, 40) }).select('id, name').single()
+              if (error) throw error
+              k = data
+              created++
+            }
+            await attach(db, body.groupId, k!.id, d, me.user.id)
+            usedK.add(k!.id)
+            usedD.add(d.id)
+          } catch (e) {
+            failed++
+            console.error('import', d.id, String(e))
+          }
+        }
+        return json({ merged, created, failed })
       }
       case 'unlink': {
         if (!isAdmin) return fail('Seul un admin délie un salon.', 403)
@@ -172,6 +196,24 @@ Deno.serve(async (req) => {
 async function guildOf(db: SupabaseClient, groupId: string) {
   const { data } = await db.from('group_discord').select('guild_id').eq('group_id', groupId).maybeSingle()
   return (data?.guild_id as string | undefined) ?? null
+}
+
+/** Même salon des deux côtés : casse, accents, espaces et tirets ignorés. */
+const same = (a: string, b: string) => {
+  const n = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s_-]+/g, '-').replace(/^-|-$/g, '')
+  return n(a) === n(b)
+}
+
+/** Relie un salon Kollab à un salon Discord : webhook « Kollab » créé, ancien webhook retiré. */
+async function attach(db: SupabaseClient, groupId: string, channelId: string, target: DChannel, userId: string) {
+  const old = await db.from('channel_discord').select('webhook_id, webhook_token').eq('channel_id', channelId).maybeSingle()
+  const hook = await bot<{ id: string; token: string }>(`/channels/${target.id}/webhooks`, { method: 'POST', body: JSON.stringify({ name: 'Kollab' }) })
+  const { error } = await db.from('channel_discord').upsert({
+    channel_id: channelId, group_id: groupId, discord_channel_id: target.id, discord_channel_name: target.name,
+    webhook_id: hook.id, webhook_token: hook.token, last_message_id: target.last_message_id ?? null, linked_by: userId, linked_at: new Date().toISOString(),
+  })
+  if (error) throw error
+  if (old.data) await fetch(`${API}/webhooks/${old.data.webhook_id}/${old.data.webhook_token}`, { method: 'DELETE' }).catch(() => undefined)
 }
 
 async function unlink(db: SupabaseClient, groupId: string, channelId: string) {

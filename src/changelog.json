@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.6.2",
+    "date": "2026-11-24",
+    "title": "Discord dans le chat",
+    "items": [
+      "Relie ton serveur Discord une seule fois, dans une petite fenêtre",
+      "Tous les salons Discord arrivent dans le chat, ceux du même nom sont fusionnés",
+      "Les messages passent dans les deux sens, avec le nom et la photo de chacun",
+      "Bouton « Relier à Discord » en haut de chaque salon"
+    ]
+  },
+  {
     "version": "0.6.1",
     "date": "2026-11-24",
     "title": "GitHub relié une bonne fois",

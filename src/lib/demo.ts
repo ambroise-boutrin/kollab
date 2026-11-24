@@ -864,6 +864,29 @@ export const demoBackend: Backend = {
     return link
   },
 
+  async importDiscordChannels() {
+    const norm = (x: string) => x.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s_-]+/g, '-')
+    let merged = 0, created = 0
+    update((s) => {
+      const d = demoDiscord(s)
+      const links = [...d.links]
+      for (const c of DEMO_DISCORD) {
+        if (links.some((l) => l.discordChannelId === c.id) || !s.workspace) continue
+        let k = s.workspace.channels.find((x) => norm(x.name) === norm(c.name) && !links.some((l) => l.channelId === x.id))
+        if (k) merged++
+        else {
+          k = { id: newId(), name: c.name }
+          s.workspace.channels.push(k)
+          created++
+        }
+        links.push({ channelId: k.id, discordChannelId: c.id, discordChannelName: c.name })
+      }
+      s.discord = { guild: d.guild, links }
+    })
+    emit({ kind: 'refresh' })
+    return { merged, created, failed: 0 }
+  },
+
   async unlinkDiscordChannel(channelId) {
     update((s) => {
       const d = demoDiscord(s)
