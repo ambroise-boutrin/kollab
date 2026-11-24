@@ -6,6 +6,7 @@ import { APP_VERSION, checkNow, IS_DESKTOP, RELEASES } from '../lib/updates'
 
 const LEGAL = [
   { label: "Conditions d'utilisation", path: LEGAL_PATHS.cgu },
+  { label: 'Conditions de vente', path: LEGAL_PATHS.cgv },
   { label: 'Confidentialité', path: LEGAL_PATHS.confidentialite },
   { label: 'Cookies', path: LEGAL_PATHS.cookies },
   { label: 'Mentions légales', path: LEGAL_PATHS.mentions },
