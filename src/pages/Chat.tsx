@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Avatar, AvatarGroup } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { VoiceJoin } from '../components/VoiceBar'
+import { DiscordLinkDialog, DiscordMark } from '../components/DiscordLinkDialog'
+import { initials } from '../components/Avatar'
 import { Popover } from '../components/Popover'
 import { Modal } from '../components/Modal'
 import { LogoMark } from '../components/Logo'
@@ -10,7 +12,7 @@ import { PrStatus } from '../components/PrLink'
 import { useToast } from '../components/Toast'
 import { ghToken, listPulls, projectRepo } from '../lib/github'
 import { useStore, useWorkspace } from '../lib/store'
-import { STATUSES, type Member, type Message, type Task } from '../lib/types'
+import { STATUSES, type DiscordGuild, type DiscordLink, type Member, type Message, type Task } from '../lib/types'
 import { useAsync } from '../lib/useAsync'
 
 const QUICK = ['👍', '❤️', '😂', '🎉', '👀', '✅']
@@ -123,6 +125,18 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
   const repo = projectRepo(ws)
 
   const openTask = (id: string) => navigate(`/tableau?tache=${id}`)
+
+  // Discord : serveur du projet et salons reliés.
+  const isAdmin = (members.find((m) => m.id === user?.id) ?? (backend.mode === 'demo' ? members[0] : undefined))?.role === 'admin'
+  const [discord, setDiscord] = useState<{ guild: DiscordGuild | null; links: DiscordLink[] }>({ guild: null, links: [] })
+  const [discordOpen, setDiscordOpen] = useState(false)
+  const reloadDiscord = async () => setDiscord(await backend.discordState().catch(() => ({ guild: null, links: [] })))
+  useEffect(() => {
+    let alive = true
+    void backend.discordState().then((d) => alive && setDiscord(d), () => undefined)
+    return () => { alive = false }
+  }, [backend, ws.group.id])
+  const linkOf = (id: string) => discord.links.find((l) => l.channelId === id)
 
   useEffect(() => {
     let alive = true
@@ -282,6 +296,7 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
         {channels.map((c) => (
           <button key={c.id} className={`channel${c.id === channelId ? ' active' : ''}`} onClick={() => setChannelId(c.id)}>
             # {c.name}
+            {linkOf(c.id) && <span className="channel-discord" title={`Relié à # ${linkOf(c.id)!.discordChannelName} sur Discord`}><DiscordMark size={20} /></span>}
           </button>
         ))}
       </nav>
@@ -294,10 +309,17 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
           {!docked && (
             <button className="chan-pick show-phone-flex" aria-haspopup="dialog" onClick={() => setPickChan(true)}>
               <strong># {channel?.name} <Icon name="chevron" size={14} /></strong>
-              <span>{channels.length} salon{channels.length > 1 ? 's' : ''} · {members.filter((m) => online.includes(m.id)).length} en ligne</span>
+              <span>{channels.length} salon{channels.length > 1 ? 's' : ''} · {members.filter((m) => online.includes(m.id)).length} en ligne{channel && linkOf(channel.id) ? ' · Discord' : ''}</span>
             </button>
           )}
           <div className="thread-tools">
+            {channel && (linkOf(channel.id) ? (
+              <button className="discord-pill" onClick={() => isAdmin && setDiscordOpen(true)} disabled={!isAdmin} title="Messages partagés avec Discord">
+                <DiscordMark size={18} /> # {linkOf(channel.id)!.discordChannelName}
+              </button>
+            ) : isAdmin && (
+              <button className="btn discord small" onClick={() => setDiscordOpen(true)}>Relier à Discord</button>
+            ))}
             <VoiceJoin />
             <AvatarGroup members={members.filter((m) => online.includes(m.id))} size={26} max={5} online={online} />
           </div>
@@ -316,16 +338,21 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
             const newDay = !prev || new Date(prev.createdAt).toDateString() !== new Date(m.createdAt).toDateString()
             const grouped = !newDay && prev?.authorId === m.authorId && new Date(m.createdAt).getTime() - new Date(prev.createdAt).getTime() < 5 * 60000
             const author = members.find((x) => x.id === m.authorId)
-            const mine = m.authorId === me
+            const mine = m.authorId === me && !m.discord
             return (
               <div key={m.id} className="msg-wrap">
                 {newDay && <div className="day-sep"><span>{dayLabel(m.createdAt)}</span></div>}
                 <div className={`msg${mine ? ' mine' : ''}${grouped ? ' grouped' : ''}${touched === m.id ? ' touched' : ''}`} onPointerUp={(e) => e.pointerType === 'touch' && setTouched((t) => (t === m.id ? null : m.id))}>
-                  {!mine && (grouped ? <span className="msg-gutter" /> : <Avatar member={author} size={34} online={!!author && online.includes(author.id)} />)}
+                  {!mine && (grouped ? <span className="msg-gutter" /> : m.discord && !author ? (
+                    <span className="avatar discord-avatar" style={{ width: 34, height: 34, fontSize: 14 }} title={`${m.discord.name} · Discord`}>
+                      {m.discord.avatar ? <img src={m.discord.avatar} alt="" width={34} height={34} /> : initials(m.discord.name)}
+                    </span>
+                  ) : <Avatar member={author} size={34} online={!!author && online.includes(author.id)} />)}
                   <div className="msg-body">
                     {!grouped && (
                       <span className="msg-meta">
-                        {!mine && <strong>{author?.name ?? 'Ancien membre'}</strong>}
+                        {!mine && <strong>{author?.name ?? m.discord?.name ?? 'Ancien membre'}</strong>}
+                        {m.discord && <span className="discord-tag">Discord</span>}
                         <span>{time(m.createdAt)}</span>
                       </span>
                     )}
@@ -397,6 +424,11 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
                 </button>
               ))}
             </div>
+            {isAdmin && channel && (
+              <button className="btn discord chan-discord" onClick={() => { setPickChan(false); setDiscordOpen(true) }}>
+                {linkOf(channel.id) ? `Discord : # ${linkOf(channel.id)!.discordChannelName}` : 'Relier à Discord'}
+              </button>
+            )}
           </Modal>
         )}
 
@@ -421,7 +453,7 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
               value={text}
               onChange={(e) => { setText(e.target.value); setPick(0) }}
               onKeyDown={onKey}
-              placeholder={`Écrire dans #${channel?.name ?? ''}`}
+              placeholder={`Écrire dans #${channel?.name ?? ''}${channel && linkOf(channel.id) ? ' · Discord le voit aussi' : ''}`}
               autoComplete="off"
             />
             <button className="btn small" aria-label="Envoyer" disabled={!text.trim()}>
@@ -430,6 +462,9 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
           </form>
         </div>
       </section>
+      {discordOpen && channel && (
+        <DiscordLinkDialog channel={channel} guild={discord.guild} links={discord.links} onClose={() => setDiscordOpen(false)} onChange={reloadDiscord} />
+      )}
     </div>
   )
 }

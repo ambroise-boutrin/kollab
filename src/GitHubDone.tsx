@@ -15,8 +15,15 @@ export default function GitHubDone() {
     const failed = /error=/.test(window.location.hash + window.location.search)
     // Retour avec une session : la liaison est faite (Google, Discord…). Pour GitHub, on attend aussi le jeton.
     const signedIn = /access_token=/.test(window.location.hash) || /code=/.test(window.location.search)
+    // Retour de Discord (ajout du bot) : le serveur a déjà tout rangé, rien à attendre.
+    const discord = new URLSearchParams(window.location.search).get('discord')
     void (async () => {
-      if (failed) return setState('fail')
+      if (failed || discord === 'fail') return setState('fail')
+      if (discord === 'ok') {
+        setState('ok')
+        setTimeout(() => window.close(), 900)
+        return
+      }
       for (let i = 0; i < 20 && alive; i++) {
         if ((await backend.syncGitHub().catch(() => false)) || (signedIn && i >= 4)) {
           setState('ok')

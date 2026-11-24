@@ -16,6 +16,8 @@ await p.goto(BASE + '/app/sprints'); await p.waitForTimeout(600); await p.locato
 await p.goto(BASE + '/app/sprints?poker=1'); await p.waitForTimeout(600); await check('poker')
 await p.goto(BASE + '/app/documents'); await p.waitForTimeout(600); await p.locator('.note-card.appear').first().click(); await p.waitForTimeout(1200); await check('note'); await p.keyboard.press('Escape'); await p.waitForTimeout(400)
 await p.locator('.doc-card.kind-pdf').first().click(); await p.waitForTimeout(1200); await check('pdf'); await p.keyboard.press('Escape')
+await p.goto(BASE + '/app/chat'); await p.waitForTimeout(600); if (await p.locator('.discord-pill:visible').count()) await p.locator('.discord-pill:visible').first().click(); else { await p.locator('.chan-pick').click(); await p.waitForTimeout(300); await p.locator('.chan-discord').click() }; await p.waitForTimeout(500); await check('discord'); if (!await p.locator('.discord-card').count()) { bad++; console.log('FAIL no discord cards') }
+await p.keyboard.press('Escape')
 await p.goto(BASE + '/app/'); await p.waitForTimeout(500); await p.keyboard.press('Control+k'); await p.waitForTimeout(300); await check('cmdk')
 await ctx.close() }
 console.log(bad ? `${bad} problème(s)` : 'OK'); await b.close(); process.exit(bad ? 1 : 0) })()
