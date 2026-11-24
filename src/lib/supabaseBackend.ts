@@ -4,7 +4,7 @@ import { createClient, type SupabaseClient, type User as SbUser } from '@supabas
 import type { Backend, RoomEvent, User, Workspace } from './backend'
 import { disablePush } from './push'
 import { CGU_VERSION } from './legal'
-import type { AppNotification, Channel, DocumentItem, Note, Sprint, Invite, ReactionChange, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
+import type { AppNotification, Channel, DiscordChannel, DiscordLink, DocumentItem, Note, Sprint, Invite, ReactionChange, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
 
 interface TaskRow {
   id: string
@@ -62,11 +62,12 @@ const toDocument = (r: DocumentRow): DocumentItem => ({ id: r.id, name: r.name, 
 interface MessageRow {
   id: string
   channel_id: string
-  author_id: string
+  author_id: string | null
   body: string
   created_at: string
   edited_at?: string | null
   deleted_at?: string | null
+  discord_author?: { name: string; avatar?: string | null } | null
 }
 
 const toTask = (r: TaskRow): Task => ({
@@ -95,8 +96,9 @@ const toNotification = (r: NotificationRow): AppNotification => ({
 
 const toMessage = (r: MessageRow): Message => ({
   id: r.id,
+  discord: r.discord_author ? { name: r.discord_author.name, avatar: r.discord_author.avatar ?? null } : null,
   channelId: r.channel_id,
-  authorId: r.author_id,
+  authorId: r.author_id ?? '',
   body: r.deleted_at ? '' : r.body,
   createdAt: r.created_at,
   editedAt: r.edited_at ?? null,
@@ -888,5 +890,58 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       // Best effort : une notification ratée ne doit pas bloquer l'action.
       await sb.functions.invoke('notify-discord', { body: { groupId, event } }).catch(() => undefined)
     },
+
+    async discordState() {
+      if (!groupId) return { guild: null, links: [] }
+      const [g, l] = await Promise.all([
+        sb.from('group_discord').select('guild_id, guild_name, guild_icon').eq('group_id', groupId).maybeSingle(),
+        sb.rpc('discord_links', { gid: groupId }),
+      ])
+      // Base pas encore à jour : Discord simplement absent.
+      if (g.error || l.error) return { guild: null, links: [] }
+      const row = g.data as { guild_id: string; guild_name: string; guild_icon: string | null } | null
+      return {
+        guild: row ? { id: row.guild_id, name: row.guild_name, iconUrl: row.guild_icon ? `https://cdn.discordapp.com/icons/${row.guild_id}/${row.guild_icon}.png?size=64` : null } : null,
+        links: ((l.data ?? []) as { channel_id: string; discord_channel_id: string; discord_channel_name: string }[]).map((r) => ({
+          channelId: r.channel_id, discordChannelId: r.discord_channel_id, discordChannelName: r.discord_channel_name,
+        })),
+      }
+    },
+
+    async connectDiscord() {
+      const { url } = await discordCall<{ url: string }>('start')
+      const gid = groupId
+      await oauthWindow(url, async () => {
+        const { data } = await sb.from('group_discord').select('group_id').eq('group_id', gid).maybeSingle()
+        return !!data
+      }, 'Discord')
+    },
+
+    async disconnectDiscord() {
+      await discordCall('disconnect')
+    },
+
+    async listDiscordChannels() {
+      return (await discordCall<{ channels: DiscordChannel[] }>('channels')).channels
+    },
+
+    async linkDiscordChannel(channelId, discordChannelId) {
+      return discordCall<DiscordLink>('link', discordChannelId ? { channelId, discordChannelId } : { channelId, create: true })
+    },
+
+    async unlinkDiscordChannel(channelId) {
+      await discordCall('unlink', { channelId })
+    },
+  }
+
+  /** Appel à la fonction serveur Discord ; son message d'erreur est montré tel quel. */
+  async function discordCall<T = unknown>(action: string, extra: Record<string, unknown> = {}): Promise<T> {
+    const { data, error } = await sb.functions.invoke('discord', { body: { action, groupId, ...extra } })
+    if (error) {
+      const ctx = (error as { context?: Response }).context
+      const msg = ctx ? ((await ctx.json().catch(() => null)) as { error?: string } | null)?.error : null
+      throw new Error(msg ?? 'Discord ne répond pas, réessaie dans un instant.')
+    }
+    return data as T
   }
 }

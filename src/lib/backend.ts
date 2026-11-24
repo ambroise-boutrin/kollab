@@ -1,4 +1,4 @@
-import type { AppNotification, EmailInvite, Channel, DocumentItem, Note, Sprint, ReactionChange, ActivityItem, Group, Invite, LinkItem, Member, Message, ProfilePatch, Provider, Role, Task } from './types'
+import type { AppNotification, DiscordChannel, DiscordGuild, DiscordLink, EmailInvite, Channel, DocumentItem, Note, Sprint, ReactionChange, ActivityItem, Group, Invite, LinkItem, Member, Message, ProfilePatch, Provider, Role, Task } from './types'
 
 export interface User {
   id: string
@@ -215,6 +215,18 @@ export interface Backend {
 
   setDiscordWebhook(url: string | null): Promise<void>
   notifyDiscord(event: DiscordEvent): Promise<void>
+
+  /** Serveur Discord relié au projet ouvert et salons reliés. */
+  discordState(): Promise<{ guild: DiscordGuild | null; links: DiscordLink[] }>
+  /** Ajoute le bot Kollab à un serveur Discord, dans une petite fenêtre (admin, une seule fois). */
+  connectDiscord(): Promise<void>
+  /** Délie le serveur et tous les salons. */
+  disconnectDiscord(): Promise<void>
+  /** Salons texte du serveur relié. */
+  listDiscordChannels(): Promise<DiscordChannel[]>
+  /** Relie un salon Kollab à un salon Discord existant, ou à un nouveau salon du même nom (`null`). */
+  linkDiscordChannel(channelId: string, discordChannelId: string | null): Promise<DiscordLink>
+  unlinkDiscordChannel(channelId: string): Promise<void>
 }
 
 export interface PushApi {

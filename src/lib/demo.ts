@@ -1,5 +1,5 @@
 import { newId, type Backend, type RoomEvent, type TrashItem, type GroupSetup, type LiveHandlers, type User, type Workspace } from './backend'
-import type { ActivityItem, AppNotification, EmailInvite, DocumentItem, Note, Sprint, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task } from './types'
+import type { ActivityItem, DiscordChannel, DiscordGuild, DiscordLink, AppNotification, EmailInvite, DocumentItem, Note, Sprint, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task } from './types'
 
 /**
  * Mode démo : tout est stocké dans le navigateur. Plusieurs onglets ouverts
@@ -33,7 +33,19 @@ interface DemoState {
   activity?: ActivityItem[]
   /** Contenu des documents texte (base64 Yjs). */
   noteStates?: Record<string, string>
+  /** Discord simulé : serveur et salons reliés. */
+  discord?: { guild: DiscordGuild | null; links: DiscordLink[] }
 }
+
+const DEMO_DISCORD: DiscordChannel[] = [
+  { id: 'd-general', name: 'général', category: 'Équipe' },
+  { id: 'd-dev', name: 'dev', category: 'Équipe' },
+  { id: 'd-annonces', name: 'annonces', category: 'Équipe' },
+  { id: 'd-design', name: 'design', category: 'Projets' },
+  { id: 'd-bugs', name: 'bugs', category: 'Projets' },
+]
+const demoDiscord = (s: DemoState) =>
+  s.discord ?? { guild: { id: 'demo', name: 'Équipe Kollab', iconUrl: null }, links: [{ channelId: 'general', discordChannelId: 'd-general', discordChannelName: 'général' }] }
 
 /** Fichiers envoyés en démo : gardés en mémoire le temps de la session. */
 const demoFiles = new Map<string, string>()
@@ -115,6 +127,7 @@ function seedMessages(w?: Workspace): Message[] {
     { id: newId(), channelId: 'general', authorId: 'sk', body: 'Bonjour tout le monde, point rapide à 10 h ?', createdAt: at(60 * 20) },
     { id: newId(), channelId: 'general', authorId: 'me', body: 'Ok pour moi 👍', createdAt: at(60 * 20 - 3), reactions: [{ emoji: '👍', userIds: ['sk', 'lm'] }] },
     { id: newId(), channelId: 'general', authorId: 'lm', body: `Salut ! ${ref('Visionneuse PDF')} est prête, @Moi tu peux relire ?`, createdAt: at(42), reactions: [{ emoji: '🎉', userIds: ['sk'] }, { emoji: '👀', userIds: ['me'] }] },
+    { id: newId(), channelId: 'general', authorId: '', discord: { name: 'Tom', avatar: null }, body: 'Je regarde aussi ce soir, depuis Discord.', createdAt: at(36) },
     { id: newId(), channelId: 'general', authorId: 'sk', body: `Je prends ${ref('Table des groupes')} cet après-midi.`, createdAt: at(30) },
     { id: newId(), channelId: 'general', authorId: 'me', body: 'Parfait, je relis la PDF juste après le déjeuner.', createdAt: at(12) },
     { id: newId(), channelId: 'code', authorId: 'lm', body: `Le glisser-déposer marche sur mobile, reste ${ref('Le menu se ferme mal sur iPhone')}.`, createdAt: at(90) },
@@ -813,5 +826,48 @@ export const demoBackend: Backend = {
 
   async notifyDiscord() {
     // Rien à envoyer en mode démo.
+  },
+
+  async discordState() {
+    return demoDiscord(read())
+  },
+
+  async connectDiscord() {
+    await new Promise((r) => setTimeout(r, 900))
+    update((s) => {
+      s.discord = { guild: { id: 'demo', name: 'Équipe Kollab', iconUrl: null }, links: demoDiscord(s).links }
+    })
+  },
+
+  async disconnectDiscord() {
+    update((s) => {
+      s.discord = { guild: null, links: [] }
+    })
+  },
+
+  async listDiscordChannels() {
+    const extra = (read().discord?.links ?? []).filter((l) => !DEMO_DISCORD.some((c) => c.id === l.discordChannelId))
+    return [...DEMO_DISCORD, ...extra.map((l) => ({ id: l.discordChannelId, name: l.discordChannelName, category: 'Kollab' }))]
+  },
+
+  async linkDiscordChannel(channelId, discordChannelId) {
+    const s0 = read()
+    const name = s0.workspace?.channels.find((c) => c.id === channelId)?.name ?? 'kollab'
+    const target = discordChannelId ? DEMO_DISCORD.find((c) => c.id === discordChannelId) ?? { id: discordChannelId, name } : { id: `d-${newId().slice(0, 6)}`, name: name.toLowerCase().replace(/\s+/g, '-') }
+    const taken = demoDiscord(s0).links.find((l) => l.discordChannelId === target.id && l.channelId !== channelId)
+    if (taken) throw new Error('Ce salon Discord est déjà relié à un autre salon.')
+    const link: DiscordLink = { channelId, discordChannelId: target.id, discordChannelName: target.name }
+    update((s) => {
+      const d = demoDiscord(s)
+      s.discord = { guild: d.guild, links: [...d.links.filter((l) => l.channelId !== channelId), link] }
+    })
+    return link
+  },
+
+  async unlinkDiscordChannel(channelId) {
+    update((s) => {
+      const d = demoDiscord(s)
+      s.discord = { guild: d.guild, links: d.links.filter((l) => l.channelId !== channelId) }
+    })
   },
 }

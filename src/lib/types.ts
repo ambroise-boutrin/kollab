@@ -89,6 +89,27 @@ export interface Channel {
   name: string
 }
 
+/** Serveur Discord relié au projet. */
+export interface DiscordGuild {
+  id: string
+  name: string
+  iconUrl: string | null
+}
+
+/** Salon Discord du serveur relié. */
+export interface DiscordChannel {
+  id: string
+  name: string
+  category: string | null
+}
+
+/** Salon Kollab relié à un salon Discord. */
+export interface DiscordLink {
+  channelId: string
+  discordChannelId: string
+  discordChannelName: string
+}
+
 export interface Message {
   id: string
   channelId: string
@@ -99,6 +120,8 @@ export interface Message {
   /** Message supprimé : on garde sa place (« Message supprimé »). */
   deletedAt?: string | null
   reactions?: Reaction[]
+  /** Message écrit sur Discord : nom et avatar de son auteur là-bas. */
+  discord?: { name: string; avatar: string | null } | null
 }
 
 export interface Reaction {
