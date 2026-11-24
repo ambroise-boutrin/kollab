@@ -32,6 +32,8 @@ export interface Member {
   statusColor?: string | null
   /** Heure où le statut perso s'efface (null : jamais). */
   statusUntil?: string | null
+  /** Reçoit le résumé du lundi par email (oui par défaut). */
+  weeklyEmail?: boolean
 }
 
 /** Statut perso encore valable. */
@@ -49,7 +51,7 @@ export const PRESENCE: Record<PresenceStatus, { label: string; color: string }> 
   away: { label: 'Absent', color: '#8A90A2' },
 }
 
-export type ProfilePatch = Partial<Pick<Member, 'name' | 'color' | 'status' | 'statusText' | 'statusColor' | 'statusUntil'>>
+export type ProfilePatch = Partial<Pick<Member, 'name' | 'color' | 'status' | 'statusText' | 'statusColor' | 'statusUntil' | 'weeklyEmail'>>
 
 export interface Task {
   id: string

@@ -305,7 +305,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const saveTaskRef = useRef(saveTask)
-  saveTaskRef.current = saveTask
+  useEffect(() => { saveTaskRef.current = saveTask }, [saveTask])
 
   const createTask = useCallback(
     async (partial: Pick<Task, 'title' | 'status'> & Partial<Task>) => {

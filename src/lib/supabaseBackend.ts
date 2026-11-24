@@ -219,11 +219,12 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     async updateProfile(patch) {
       const { data } = await sb.auth.getUser()
       if (!data.user) return
-      const { statusText, statusColor, statusUntil, ...rest } = patch
+      const { statusText, statusColor, statusUntil, weeklyEmail, ...rest } = patch
       const row: Record<string, unknown> = { ...rest }
       if (statusText !== undefined) row.status_text = statusText
       if (statusColor !== undefined) row.status_color = statusColor
       if (statusUntil !== undefined) row.status_until = statusUntil
+      if (weeklyEmail !== undefined) row.weekly_email = weeklyEmail
       must(await sb.from('profiles').update(row).eq('id', data.user.id))
     },
 
@@ -308,7 +309,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
 
       const [group, members, tasks, channels, links, documents, sprints, notes] = await Promise.all([
         sb.from('groups').select('*').eq('id', groupId).single(),
-        sb.from('group_members').select('*, profiles(name, color, title, status, avatar_url, status_text, status_color, status_until)').eq('group_id', groupId),
+        sb.from('group_members').select('*, profiles(name, color, title, status, avatar_url, status_text, status_color, status_until, weekly_email)').eq('group_id', groupId),
         sb.from('tasks').select('*').eq('group_id', groupId).order('position'),
         sb.from('channels').select('id, name').eq('group_id', groupId).order('created_at'),
         sb.from('links').select('*').eq('group_id', groupId).order('created_at'),
@@ -321,7 +322,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         user_id: string
         role: Role
         title?: string | null
-        profiles: { name: string; color: string; title: string; status: PresenceStatus; avatar_url: string | null; status_text?: string | null; status_color?: string | null; status_until?: string | null } | null
+        profiles: { name: string; color: string; title: string; status: PresenceStatus; avatar_url: string | null; status_text?: string | null; status_color?: string | null; status_until?: string | null; weekly_email?: boolean | null } | null
       }
       return {
         group: { id: g.id, name: g.name, inviteCode: g.invite_code, discordWebhookSet: g.discord_webhook_set, logoUrl: g.logo_url ?? null, color: g.color ?? null, sprintDays: g.sprint_days ?? null, dailyTime: g.daily_time ?? null },
@@ -337,6 +338,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
             statusText: m.profiles?.status_text ?? '',
             statusColor: m.profiles?.status_color ?? null,
             statusUntil: m.profiles?.status_until ?? null,
+            weeklyEmail: m.profiles?.weekly_email ?? true,
           }),
         ),
         tasks: (must(tasks) as TaskRow[]).filter((r) => !r.deleted_at).map(toTask),
