@@ -2,9 +2,9 @@
 // Lancer : npm run build && npx vite preview --port 4319 puis npm run smoke
 const { chromium } = require('playwright')
 const BASE = process.env.SMOKE_URL || 'http://localhost:4319'
-;(async () => { const b = await chromium.launch(); let bad = 0
+;(async () => { const b = await chromium.launch({ args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] }); let bad = 0
 for (const [w,h,tag] of [[1440,900,'d'],[390,844,'m']]) {
-const ctx = await b.newContext({ viewport: { width: w, height: h } }); const p = await ctx.newPage()
+const ctx = await b.newContext({ viewport: { width: w, height: h }, permissions: ['microphone', 'camera'] }); const p = await ctx.newPage()
 const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('console', m => m.type() === 'error' && !/Failed to load resource|favicon/.test(m.text()) && errs.push('console: ' + m.text()))
 await p.addInitScript(() => { try { sessionStorage.setItem('kollab-demo-tour', 'done') } catch {} })
 await p.goto(BASE + '/app/?demo=1'); await p.waitForTimeout(1000)
@@ -18,6 +18,7 @@ await p.goto(BASE + '/app/documents'); await p.waitForTimeout(600); await p.loca
 await p.locator('.doc-card.kind-pdf').first().click(); await p.waitForTimeout(1200); await check('pdf'); await p.keyboard.press('Escape')
 await p.goto(BASE + '/app/chat'); await p.waitForTimeout(600); if (await p.locator('.discord-pill:visible').count()) await p.locator('.discord-pill:visible').first().click(); else { await p.locator('.chan-pick').click(); await p.waitForTimeout(300); await p.locator('.chan-discord').click() }; await p.waitForTimeout(500); await check('discord'); if (!await p.locator('.discord-card').count()) { bad++; console.log('FAIL no discord cards') }
 await p.keyboard.press('Escape')
+await p.goto(BASE + '/app/chat'); await p.waitForTimeout(600); if (!await p.locator('.call-ic').count()) { bad++; console.log('FAIL no call icons') } else { await p.locator('.call-ic').first().click(); await p.waitForTimeout(3500); await check('call'); if (!await p.locator('.call-stage .call-tile').count()) { bad++; console.log('FAIL call not active') } await p.locator('.cb.end').click(); await p.waitForTimeout(400) }
 await p.goto(BASE + '/app/'); await p.waitForTimeout(500); await p.keyboard.press('Control+k'); await p.waitForTimeout(300); await check('cmdk')
 await ctx.close() }
 console.log(bad ? `${bad} problème(s)` : 'OK'); await b.close(); process.exit(bad ? 1 : 0) })()

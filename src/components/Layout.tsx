@@ -18,8 +18,8 @@ import { ProjectMark } from './ProjectMark'
 import { NotificationBell, usePushOpen } from './Notifications'
 import { InviteDialog } from './InviteDialog'
 import { CommandPalette, openSearch } from './CommandPalette'
-import { VoiceProvider } from '../lib/voice'
-import { VoiceBar } from './VoiceBar'
+import { CallProvider } from '../lib/calls'
+import { CallButtons, CallLayer } from './Call'
 import { ChatBubble, Dock, DockToggle } from './Dock'
 import { OfflineBar } from './OfflineBar'
 
@@ -114,7 +114,8 @@ function ProjectSwitcher({ onNew, compact = false }: { onNew: (mode: 'create' | 
 
 /** En haut à droite : les membres, ceux en ligne d'abord. */
 export function MembersStack() {
-  const { workspace, online } = useStore()
+  const { workspace, online, user } = useStore()
+  const me = user?.id ?? 'me'
   const navigate = useNavigate()
   if (!workspace) return null
   const sorted = [...workspace.members].sort((a, b) => Number(online.includes(b.id)) - Number(online.includes(a.id)))
@@ -131,6 +132,7 @@ export function MembersStack() {
           <strong>{m.name}</strong>
           <span className="muted">{liveStatus(m) || (on ? PRESENCE[m.status ?? 'available'].label : 'Hors ligne')}{m.title ? ` · ${m.title}` : ''}</span>
         </span>
+        {on && m.id !== me && <CallButtons targets={[m.id]} channelId={null} label={m.name} size="sm" />}
       </div>
     )
   }
@@ -234,7 +236,7 @@ export function Layout() {
   const myOpen = workspace?.tasks.filter((t) => t.assigneeIds.includes(user?.id ?? 'me') && t.status !== 'done').length ?? 0
 
   return (
-    <VoiceProvider>
+    <CallProvider>
     <div className="shell">
       <nav className="sidebar" aria-label="Navigation principale">
         <div className="brand"><LogoMark size={24} /> Kollab</div>
@@ -288,7 +290,7 @@ export function Layout() {
       <Dock />
       <ChatBubble />
       <CommandPalette />
-      <VoiceBar />
+      <CallLayer />
 
       <nav className="tabbar" aria-label="Navigation" data-tour="nav">
         {TABS.map((n) => (
@@ -330,6 +332,6 @@ export function Layout() {
       {!DEMO_SESSION && <AppTour />}
       <DesktopMenu onNewProject={openNew} />
     </div>
-    </VoiceProvider>
+    </CallProvider>
   )
 }
