@@ -315,12 +315,16 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     },
 
     async linkedProviders() {
-      const { data } = await sb.auth.getUserIdentities()
-      return (data?.identities ?? []).map((i) => i.provider as Provider)
+      const [{ data }, acc] = await Promise.all([sb.auth.getUserIdentities(), sb.from('discord_accounts').select('user_id').maybeSingle()])
+      const list = (data?.identities ?? []).map((i) => i.provider as Provider)
+      // Discord se relie par l'appli Discord de Kollab (même fenêtre que dans le chat), pas par la connexion Supabase.
+      if (acc.data && !list.includes('discord')) list.push('discord')
+      return list
     },
 
     async link(provider) {
       if (provider === 'email') throw new Error("L'email se relie depuis la connexion par lien magique.")
+      if (provider === 'discord') return this.connectDiscordAccount()
       const back = `${IS_TAURI ? WEB_APP : window.location.origin + APP_BASE}/?gh-popup=1`
       const res = await sb.auth.linkIdentity({ provider, options: { redirectTo: back, skipBrowserRedirect: true, ...(provider === 'github' ? { scopes: GITHUB_SCOPES } : {}) } })
       if (res.error) {
@@ -383,6 +387,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     },
 
     async unlink(provider) {
+      if (provider === 'discord') await this.unlinkDiscordAccount().catch(() => undefined)
       const { data } = await sb.auth.getUserIdentities()
       const identity = data?.identities.find((i) => i.provider === provider)
       if (!identity) return
