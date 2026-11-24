@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { newId, type Backend, type GroupSummary, type User, type Workspace } from './backend'
 import { APP_BASE, IS_TAURI } from './base'
 import { demoBackend, startDemoSession } from './demo'
+import { setPrState } from './prState'
 import { flushOutbox, markNewTask, pendingList, withOffline } from './offline'
 import { createSupabaseBackend } from './supabaseBackend'
 import type { AppNotification, Message, ReactionChange, Task } from './types'
@@ -265,6 +266,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (!ref || !alive) continue
         try {
           const pr = await gh.getPull(ref, ref.number)
+          let checks = null
+          if (!pr.merged && pr.state === 'open' && gh.ghToken()) checks = gh.summarize(await gh.checkRuns(ref, pr.sha).catch(() => []))
+          setPrState(t.prUrl!, { merged: pr.merged, closed: pr.state === 'closed' && !pr.merged, draft: pr.draft, checks: checks && checks.total ? checks : null })
           const latest = workspaceRef.current?.tasks.find((x) => x.id === t.id)
           if (pr.merged && latest && latest.status !== 'done') await saveTaskRef.current({ ...latest, status: 'done' })
         } catch {

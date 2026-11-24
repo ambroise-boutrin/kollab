@@ -8,7 +8,7 @@ import type { Message, Task } from './types'
 
 export interface Pending {
   id: string
-  method: 'saveTask' | 'deleteTask' | 'sendMessage' | 'updateSprint' | 'updateProfile' | 'saveNote'
+  method: 'saveTask' | 'deleteTask' | 'sendMessage' | 'updateSprint' | 'updateProfile' | 'saveNote' | 'addComment'
   args: unknown[]
   label: string
   kind: 'task' | 'new' | 'message' | 'other'
@@ -156,6 +156,15 @@ export function withOffline(b: Backend): Backend {
     },
     listGroups: () => cached('groups', () => b.listGroups()),
     listMessages: (cid) => cached(`msg:${cid}`, () => b.listMessages(cid)),
+    async listComments(tid) {
+      const list = await cached(`com:${tid}`, () => b.listComments(tid))
+      const mine = pendingList().filter((p) => p.method === 'addComment' && p.args[0] === tid)
+      return [...list, ...mine.map((p) => ({ id: p.id, taskId: tid, authorId: me?.id ?? '', body: p.args[1] as string, createdAt: p.at }))]
+    },
+    addComment: (tid, body) =>
+      orQueue(() => b.addComment(tid, body), { method: 'addComment', args: [tid, body], kind: 'message', label: `Commentaire « ${body.length > 40 ? `${body.slice(0, 40)}…` : body} »` }, () => ({
+        id: `local-${Date.now()}`, taskId: tid, authorId: me?.id ?? '', body, createdAt: new Date().toISOString(),
+      })),
     loadNote: (id) => cached(`note:${id}`, () => b.loadNote(id)),
     saveTask: (task) =>
       orQueue(() => b.saveTask(task), {

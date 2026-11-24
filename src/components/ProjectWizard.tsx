@@ -107,7 +107,12 @@ export function ProjectWizard({ onClose, onDone }: { onClose: () => void; onDone
       await tryIt('rythme', () => backend.setGroupPrefs({ color: d.color, sprintDays: d.weeks ? d.weeks * 7 : null, dailyTime: d.daily }, id))
       if (d.weeks) {
         const start = isoDay(new Date())
-        await tryIt('sprint', () => backend.createSprint({ name: 'Sprint 1', goal: '', startsOn: start, endsOn: addDays(start, d.weeks! * 7 - 1), status: 'active' }))
+        await tryIt('sprint', async () => {
+          const sprint = await backend.createSprint({ name: 'Sprint 1', goal: '', startsOn: start, endsOn: addDays(start, d.weeks! * 7 - 1), status: 'active' })
+          // Les tâches du modèle vont dans le sprint 1 : le tableau n'est pas vide au départ.
+          const ws = await backend.loadWorkspace(id)
+          for (const t of ws?.tasks ?? []) if (!t.sprintId) await backend.saveTask({ ...t, sprintId: sprint.id })
+        })
       }
       if (user && d.myTitle) await tryIt('ton rôle', () => backend.setMemberTitle(user.id, d.myTitle))
       for (const inv of d.invites) {

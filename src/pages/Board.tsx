@@ -19,11 +19,14 @@ import { activeSprint, boardTasks, daysLeft, shortDate } from '../lib/sprints'
 import { useStore, useWorkspace } from '../lib/store'
 import { KINDS, STATUSES, type Task, type TaskStatus } from '../lib/types'
 import { TaskDrawer } from './TaskDrawer'
+import { DueBadge } from '../components/TaskExtras'
+import { usePrState } from '../lib/prState'
 
 function TaskCard({ task, onOpen, overlay = false }: { task: Task; onOpen?: () => void; overlay?: boolean }) {
   const { workspace, online } = useStore()
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id, disabled: overlay })
   const people = workspace?.members.filter((m) => task.assigneeIds.includes(m.id)) ?? []
+  const pr = usePrState(task.prUrl)
   return (
     <button
       ref={overlay ? undefined : setNodeRef}
@@ -37,11 +40,24 @@ function TaskCard({ task, onOpen, overlay = false }: { task: Task; onOpen?: () =
       <span className="task-title">{task.title}</span>
       <span className="task-meta">
         {task.points != null && <span>{task.points} pts</span>}
-        {task.prUrl && <span>PR #{task.prUrl.split('/').pop()}</span>}
+        <DueBadge task={task} />
+        {task.prUrl && <PrChip url={task.prUrl} done={task.status === 'done'} state={pr} />}
         <AvatarGroup members={people} size={24} online={online} />
       </span>
     </button>
   )
+}
+
+/** PR liée : numéro, et son état quand on le connaît (fusionnée, tests). */
+function PrChip({ url, done, state }: { url: string; done: boolean; state: ReturnType<typeof usePrState> }) {
+  const n = url.split('/').pop()
+  const [label, tone] = state?.merged || (done && !state) ? ['fusionnée', 'merged']
+    : state?.closed ? ['fermée', 'closed']
+    : state?.checks?.failed ? [`tests ✗ ${state.checks.failed}`, 'fail']
+    : state?.checks?.running ? ['tests en cours', 'run']
+    : state?.checks ? ['tests ✓', 'ok']
+    : state?.draft ? ['brouillon', 'draft'] : [null, 'open']
+  return <span className={`pr-chip ${tone}`}>PR #{n}{label ? ` · ${label}` : ''}</span>
 }
 
 function Column({ status, label, tasks, onOpen, onAdd }: { status: TaskStatus; label: string; tasks: Task[]; onOpen: (t: Task) => void; onAdd: () => void }) {

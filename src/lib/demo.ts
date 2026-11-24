@@ -1,5 +1,5 @@
 import { newId, type Backend, type RoomEvent, type TrashItem, type GroupSetup, type LiveHandlers, type User, type Workspace } from './backend'
-import type { ActivityItem, AppNotification, EmailInvite, DocumentItem, Note, Sprint, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task } from './types'
+import type { ActivityItem, AppNotification, EmailInvite, DocumentItem, Note, Sprint, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task, TaskComment } from './types'
 
 /**
  * Mode démo : tout est stocké dans le navigateur. Plusieurs onglets ouverts
@@ -21,6 +21,7 @@ interface DemoState {
   providers: Provider[]
   workspace: Workspace | null
   messages: Message[]
+  comments?: TaskComment[]
   /** Les autres projets de l'utilisateur ; `workspace` est le projet ouvert. */
   others?: { workspace: Workspace; messages: Message[] }[]
   notifications?: AppNotification[]
@@ -75,11 +76,11 @@ function seed(user: User): Workspace {
     members: [{ ...ME, name: user.name }, ...TEAM],
     tasks: [
       t('Page de connexion GitHub', 'todo', 'feature', 5, [], 0),
-      t('Table des groupes', 'todo', 'feature', 3, ['sk'], 1),
+      { ...t('Table des groupes', 'todo', 'feature', 3, ['sk'], 1), dueOn: isoDay(-2) },
       t('Le menu se ferme mal sur iPhone', 'todo', 'bug', 2, [], 2),
       t('Tableau kanban glisser-déposer', 'doing', 'feature', 8, ['lm', 'me'], 0),
-      t('Invitations par lien', 'doing', 'feature', 5, ['me'], 1),
-      t('Visionneuse PDF', 'review', 'feature', 5, ['lm', 'me'], 0),
+      { ...t('Invitations par lien', 'doing', 'feature', 5, ['me'], 1), dueOn: isoDay(2) },
+      { ...t('Visionneuse PDF', 'review', 'feature', 5, ['lm', 'me'], 0), dueOn: isoDay(5) },
       t('Choisir le stack', 'done', 'research', 2, ['me'], 0, 3, -5),
       t('Schéma de la base', 'done', 'feature', 5, ['sk'], 1, 3, -3),
       t('Connexion Google', 'done', 'feature', 3, ['lm'], 2, 3, -2),
@@ -194,7 +195,12 @@ export function startDemoSession() {
     { id: newId(), kind: 'mention', title: 'Léa Martin t\'a mentionné dans #général', body: 'Salut ! La visionneuse PDF est prête, @Moi tu peux relire ?', link: '/chat?salon=general', groupId: 'demo', actorId: 'lm', data: {}, readAt: null, createdAt: at(42) },
     { id: newId(), kind: 'assigned', title: 'Visionneuse PDF', body: 'Léa Martin t\'a attribué cette tâche', link: `/tableau?tache=${workspace.tasks.find((t) => t.title === 'Visionneuse PDF')?.id}`, groupId: 'demo', actorId: 'lm', data: {}, readAt: null, createdAt: at(50) },
   ]
-  write({ ...s, user, providers: ['email'], workspace, messages: seedMessages(workspace), notifications })
+  const pdf = workspace.tasks.find((t) => t.title === 'Visionneuse PDF')?.id ?? ''
+  const comments: TaskComment[] = [
+    { id: newId(), taskId: pdf, authorId: 'lm', body: 'Le zoom marche, il reste le défilement sur iPhone.', createdAt: at(130) },
+    { id: newId(), taskId: pdf, authorId: 'sk', body: '@Moi tu peux relire avant ce soir ?', createdAt: at(55) },
+  ]
+  write({ ...s, user, providers: ['email'], workspace, messages: seedMessages(workspace), notifications, comments })
 }
 
 export const demoBackend: Backend = {
@@ -557,6 +563,18 @@ export const demoBackend: Backend = {
       if (s.workspace) s.workspace.tasks = s.workspace.tasks.filter((t) => t.id !== id)
     })
     emit({ kind: 'taskDeleted', id })
+  },
+
+  async listComments(taskId) {
+    return (read().comments ?? []).filter((c) => c.taskId === taskId)
+  },
+
+  async addComment(taskId, body) {
+    const c: TaskComment = { id: newId(), taskId, authorId: 'me', body, createdAt: new Date().toISOString() }
+    update((s) => {
+      s.comments = [...(s.comments ?? []), c]
+    })
+    return c
   },
 
   async listMessages(channelId) {

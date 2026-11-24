@@ -2205,3 +2205,74 @@ label.profile-row .profile-row-label { flex: none; width: 64px; color: var(--mut
 .gh-done-card.ok .gh-done-ico { background: var(--ok); }
 .gh-done-card.fail .gh-done-ico { background: var(--danger); }
 @keyframes gh-pulse { to { transform: scale(.9); } }
+
+/* Échéance */
+.due-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.due-chips button { border: 0; padding: 9px 13px; border-radius: 12px; background: var(--subtle, #F1F2F6); color: var(--text); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.due-chips button[aria-checked="true"] { background: var(--accent); color: #fff; font-weight: 700; }
+.due-chips button.other { background: none; box-shadow: inset 0 0 0 1.5px var(--line); }
+.due-chips button.other[aria-checked="true"] { background: var(--accent); box-shadow: none; }
+.due-chips button.none { background: none; color: var(--muted); }
+.due-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 8px; font-size: 12px; font-weight: 700; white-space: nowrap; background: var(--subtle, #F1F2F6); color: var(--text); }
+.due-badge.soon { background: #FFF3C4; color: #8A5A00; }
+.due-badge.late { background: #C2413A; color: #fff; }
+.cal { display: flex; flex-direction: column; gap: 14px; }
+.cal-head { display: flex; align-items: center; justify-content: space-between; }
+.cal-head b { text-transform: capitalize; }
+.cal-head .icon-btn:first-child svg { transform: rotate(90deg); }
+.cal-head .icon-btn.next svg { transform: rotate(-90deg); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+.cal-dow { color: var(--muted); font-size: 12px; font-weight: 700; padding: 4px 0; }
+.cal-grid button { border: 0; background: none; padding: 9px 0; border-radius: 10px; font: inherit; font-size: 14px; color: var(--text); cursor: pointer; }
+.cal-grid button.out { color: var(--muted); opacity: .6; }
+.cal-grid button.today { box-shadow: inset 0 0 0 1.5px var(--accent); font-weight: 700; }
+.cal-grid button.span { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.cal-grid button.on { background: var(--accent); color: #fff; font-weight: 800; }
+
+/* Carte du tableau : PR et son état */
+.pr-chip { font-size: 12px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.pr-chip.merged { color: #9B3FB8; }
+.pr-chip.fail { color: #C2413A; }
+.pr-chip.run { color: #B06E0F; }
+.pr-chip.ok { color: #2E7D4F; }
+.pr-chip.closed { color: var(--muted); text-decoration: line-through; }
+
+/* Accueil : échéances */
+.home-due { display: flex; flex-direction: column; gap: 10px; }
+.home-due.has-late { box-shadow: inset 0 0 0 1.5px #C2413A; }
+.due-late-title { color: #C2413A; }
+.due-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.due-list li { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.due-list li > i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.due-list a { flex: 1; min-width: 0; display: flex; flex-direction: column; color: var(--text); text-decoration: none; }
+.due-list a b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.due-list a span { font-size: 13px; }
+.due-late-n { color: #C2413A; }
+
+/* Commentaires d'une tâche */
+.tc { display: flex; flex-direction: column; gap: 14px; padding-top: 16px; box-shadow: 0 -1px 0 var(--line); }
+.tc-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.tc-head b { font-size: 16px; }
+.tc-head span { font-size: 13px; color: var(--muted); }
+.tc-empty { margin: 0; font-size: 14px; }
+.tc-list { display: flex; flex-direction: column; gap: 14px; }
+.tc-item { display: flex; gap: 10px; align-items: flex-start; }
+.tc-item > div { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
+.tc-item.mine { flex-direction: row-reverse; }
+.tc-item.mine > div { align-items: flex-end; }
+.tc-meta { font-size: 13px; }
+.tc-meta span { color: var(--muted); }
+.tc-bubble { margin-top: 4px; padding: 10px 12px; border-radius: 4px 14px 14px 14px; background: var(--subtle, #F1F2F6); font-size: 14px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
+.tc-item.mine .tc-bubble { border-radius: 14px 4px 14px 14px; background: var(--accent); color: #fff; }
+.tc-bubble .mention { color: var(--accent); }
+.tc-item.mine .tc-bubble .mention { color: #FFD23F; }
+.tc-ghost { width: 34px; height: 34px; border-radius: 50%; background: var(--line); flex: none; }
+.tc-form { position: relative; display: flex; gap: 8px; align-items: center; }
+.tc-input { flex: 1; min-width: 0; min-height: 46px; padding: 0 14px; border: 0; border-radius: 14px; background: var(--subtle, #F1F2F6); color: var(--text); font: inherit; font-size: 15px; }
+.tc-input:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+.tc-send { width: 46px; height: 46px; flex: none; border: 0; border-radius: 14px; background: var(--accent); color: #fff; display: grid; place-items: center; cursor: pointer; }
+.tc-send:disabled { opacity: .45; cursor: default; }
+.tc-suggest { position: absolute; left: 0; bottom: calc(100% + 6px); display: flex; flex-direction: column; min-width: 220px; padding: 6px; border-radius: 14px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line), 0 8px 24px rgba(20,20,43,.12); z-index: 5; }
+.tc-suggest button { display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 8px; border-radius: 10px; font: inherit; font-size: 14px; color: var(--text); text-align: left; cursor: pointer; }
+.tc-suggest button:hover { background: var(--subtle, #F1F2F6); }
+.ph-card .due-badge { align-self: flex-start; }
