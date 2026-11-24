@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Room, RoomEvent } from './backend'
 import { useStore } from './store'
+import { presenceOf } from './types'
 
 /**
  * Appels façon Skype, en pair à pair (WebRTC) : la voix et la vidéo vont directement d'un membre à l'autre,
@@ -121,6 +122,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const me = user?.id ?? 'me'
   const meRef = useRef(me)
   meRef.current = me
+  const workspaceRef = useRef(workspace)
+  workspaceRef.current = workspace
 
   const [call, setCall] = useState<CurrentCall | null>(null)
   const [incoming, setIncoming] = useState<IncomingCall | null>(null)
@@ -327,6 +330,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
       // En démo, tous les onglets sont « moi » : on sonne quand même pour pouvoir essayer.
       const forMe = demo || (to ? to.includes(meRef.current) : e.from !== meRef.current)
       if (!forMe || declined.current.has(callId) || callRef.current?.id === callId) return
+      // Ne pas déranger : pas de sonnerie, l'appelant laissera « Appel manqué » dans le chat.
+      if (!demo && presenceOf(workspaceRef.current?.members.find((m) => m.id === meRef.current)) === 'dnd') return
       lastRing.current = Date.now()
       if (incomingRef.current?.id !== callId)
         setIncoming({ id: callId, from: e.from, video: !!e.video, label: (e.label as string) ?? '', channelId: (e.channelId as string) ?? null, group: !to })
@@ -464,6 +469,14 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const start = useCallback<CallState['start']>(async ({ targets, channelId, label, video: withVideo }) => {
     if (callRef.current || !groupId) return
     setError(null)
+    // La personne est en Ne pas déranger : on ne sonne pas, on laisse directement un appel manqué.
+    const target = targets?.length === 1 ? workspace?.members.find((m) => m.id === targets[0]) : undefined
+    if (target && presenceOf(target) === 'dnd') {
+      const ch = channelId ?? workspace?.channels[0]?.id
+      if (ch && !demo) void backend.sendMessage(ch, `Appel manqué : @${target.name}. Rappelle quand tu peux.`).catch(() => {})
+      flash(`${target.name.split(' ')[0]} est en Ne pas déranger : appel manqué laissé dans le chat`)
+      return
+    }
     const id = crypto.randomUUID()
     try {
       await enterMedia(id, withVideo)
@@ -476,7 +489,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     callRef.current = c
     setCall(c)
     setMinimized(false)
-  }, [groupId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [groupId, workspace, demo, backend, flash]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const joinLive = useCallback(async (channelId: string, label: string) => {
     const l = live[channelId]

@@ -8,7 +8,8 @@ import { useToast } from './Toast'
 import { shrinkSquare } from '../lib/image'
 import { pushEnabled } from '../lib/push'
 import { DEMO_SESSION, leaveDemo, useStore } from '../lib/store'
-import { PRESENCE, liveStatus, type PresenceStatus, type Provider } from '../lib/types'
+import { PRESENCE, liveStatus, presenceOf, type PresenceStatus, type Provider } from '../lib/types'
+import { PRESENCE_ORDER, PresenceDot } from './Presence'
 import { StatusSheet, untilLabel } from './StatusSheet'
 import { PROVIDERS } from '../pages/Login'
 
@@ -83,11 +84,11 @@ export function PhoneAccount({ onClose }: { onClose: () => void }) {
           </div>
 
           <section className="ac-group" role="group" aria-label="Statut">
-            {(Object.keys(PRESENCE) as PresenceStatus[]).map((s) => (
-              <button key={s} className={me.status === s ? 'on' : ''} aria-pressed={me.status === s} onClick={() => void setStatus(s)}>
-                <i style={{ background: PRESENCE[s].color }} aria-hidden="true" />
+            {PRESENCE_ORDER.map((s) => (
+              <button key={s} className={presenceOf(me) === s ? 'on' : ''} aria-pressed={presenceOf(me) === s} onClick={() => void setStatus(s)}>
+                <PresenceDot status={s} className="" />
                 <span>{PRESENCE[s].label}</span>
-                {me.status === s && <Icon name="check" size={18} />}
+                {presenceOf(me) === s && <Icon name="check" size={18} />}
               </button>
             ))}
             <button onClick={() => setStatusOpen(true)}>

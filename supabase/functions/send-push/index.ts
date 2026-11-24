@@ -124,6 +124,9 @@ Deno.serve(async (req) => {
       .select('id, user_id, title, body, kind')
       .maybeSingle()
     if (!n) return new Response(null, { status: 204, headers: cors })
+    // Ne pas déranger : la notification reste dans la cloche, sans push sur le téléphone.
+    const { data: prof } = await admin.from('profiles').select('presence, presence_until').eq('id', n.user_id).maybeSingle()
+    if (prof?.presence === 'dnd' && (!prof.presence_until || new Date(prof.presence_until).getTime() > Date.now())) return new Response(null, { status: 204, headers: cors })
     const sent = await sendTo(n.user_id, { id: n.id, title: n.title, body: n.body, url: `/app/?notif=${n.id}`, tag: n.id })
     return json({ sent })
   } catch (e) {
