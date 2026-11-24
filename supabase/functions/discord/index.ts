@@ -49,7 +49,7 @@ const nameOf = (u: DUser, nick?: string | null) => nick || u.global_name || u.us
 const avatarOf = (u: DUser) =>
   u.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/${Number(BigInt(u.id) >> 22n) % 6}.png`
 /** Nom de salon accepté par Discord : minuscules, tirets. */
-const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 90) || 'kollab'
+const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 90) || 'kollab'
 
 // Signature de l'état OAuth (projet + personne), avec la clé partagée de la base.
 async function key(db: SupabaseClient) {
