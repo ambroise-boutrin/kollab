@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.6.9",
+    "date": "2026-11-24",
+    "title": "Le téléphone au doigt",
+    "items": [
+      "Chat bord à bord : la zone d'écriture tient sur une ligne",
+      "Clavier ouvert : le dernier message et la zone d'écriture restent visibles",
+      "Défilement plus fluide partout, sans zoom ni élastique",
+      "Tableau : un doigt posé ne bloque plus le défilement",
+      "Les messages courts s'affichent en haut et ne cachent plus les boutons"
+    ]
+  },
+  {
     "version": "0.6.8",
     "date": "2026-11-24",
     "title": "Salons, fichiers et ton compte Discord",

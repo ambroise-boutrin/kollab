@@ -19,6 +19,7 @@ import { activeSprint, boardTasks, daysLeft, shortDate } from '../lib/sprints'
 import { useStore, useWorkspace } from '../lib/store'
 import { KINDS, STATUSES, type Task, type TaskStatus } from '../lib/types'
 import { TaskDrawer } from './TaskDrawer'
+import { usePhone } from '../components/Modal'
 import { DueBadge, PrChip } from '../components/TaskExtras'
 import { usePrState } from '../lib/prState'
 
@@ -105,10 +106,14 @@ export function Board() {
   const setMine = (on: boolean) => setWho(on ? me : null)
   const people = ws.members.filter((m) => all.some((t) => t.assigneeIds.includes(m.id)))
   const [dragId, setDragId] = useState<string | null>(null)
+  const phone = usePhone()
+  const touch = useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } })
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     // Au doigt : appui long pour déplacer, sinon on fait défiler le tableau.
-    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } }),
+    // Téléphone : une seule colonne à l'écran, on change de statut par le bouton de la carte.
+    // Pas de glisser-déposer : un doigt posé un peu longtemps ne bloque plus le défilement.
+    phone ? null : touch,
     useSensor(KeyboardSensor),
   )
 

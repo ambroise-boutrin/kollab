@@ -25,5 +25,6 @@ export function blockPinchZoom() {
   const stop = (e: Event) => e.preventDefault()
   document.addEventListener('gesturestart', stop, { passive: false })
   document.addEventListener('gesturechange', stop, { passive: false })
-  document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault() }, { passive: false })
+  // Pas d'écouteur « touchmove » bloquant : il ralentissait chaque défilement au doigt.
+  // Le zoom à deux doigts est coupé en CSS (touch-action) et par gesturestart sur iOS.
 }
