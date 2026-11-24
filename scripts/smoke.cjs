@@ -10,13 +10,13 @@ await p.addInitScript(() => { try { sessionStorage.setItem('kollab-demo-tour', '
 await p.goto(BASE + '/app/?demo=1'); await p.waitForTimeout(1000)
 const check = async (name) => { const sw = await p.evaluate(() => document.documentElement.scrollWidth); if (sw > w + 1 || errs.length) { bad++; console.log('FAIL', tag, name, sw, errs.splice(0)) } }
 for (const path of ['/', '/tableau', '/sprints', '/revues', '/chat', '/documents', '/equipe', '/projet', '/reglages']) { await p.goto(BASE + '/app' + path); await p.waitForTimeout(700); await check(path) }
-await p.goto(BASE + '/app/tableau'); await p.waitForTimeout(600); await p.locator('.board .task').first().click(); await p.waitForTimeout(500); await check('task open'); if (!await p.locator('.task-modal, .pt-screen').count()) { bad++; console.log('FAIL no task modal') }
+await p.goto(BASE + '/app/tableau'); await p.waitForTimeout(600); await p.locator('.board .task:visible').first().click(); await p.waitForTimeout(500); await check('task open'); if (!await p.locator('.task-modal, .pt-screen').count()) { bad++; console.log('FAIL no task modal') }
 await p.keyboard.press('Escape')
 await p.goto(BASE + '/app/sprints'); await p.waitForTimeout(600); await p.locator('.backlog-title').first().click(); await p.waitForTimeout(500); await check('backlog task'); await p.keyboard.press('Escape')
 await p.goto(BASE + '/app/sprints?poker=1'); await p.waitForTimeout(600); await check('poker')
 await p.goto(BASE + '/app/documents'); await p.waitForTimeout(600); await p.locator('.note-card.appear').first().click(); await p.waitForTimeout(1200); await check('note'); await p.keyboard.press('Escape'); await p.waitForTimeout(400)
 await p.locator('.doc-card.kind-pdf').first().click(); await p.waitForTimeout(1200); await check('pdf'); await p.keyboard.press('Escape')
-await p.goto(BASE + '/app/chat'); await p.waitForTimeout(600); await p.locator('.discord-pill').first().click(); await p.waitForTimeout(500); await check('discord'); if (!await p.locator('.discord-card').count()) { bad++; console.log('FAIL no discord cards') }
+await p.goto(BASE + '/app/chat'); await p.waitForTimeout(600); if (await p.locator('.discord-pill:visible').count()) await p.locator('.discord-pill:visible').first().click(); else { await p.locator('.chan-pick').click(); await p.waitForTimeout(300); await p.locator('.chan-discord').click() }; await p.waitForTimeout(500); await check('discord'); if (!await p.locator('.discord-card').count()) { bad++; console.log('FAIL no discord cards') }
 await p.keyboard.press('Escape')
 await p.goto(BASE + '/app/'); await p.waitForTimeout(500); await p.keyboard.press('Control+k'); await p.waitForTimeout(300); await check('cmdk')
 await ctx.close() }

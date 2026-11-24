@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.6.6",
+    "date": "2026-11-24",
+    "title": "Le téléphone, comme l'ordi",
+    "items": [
+      "Accueil du téléphone avec les mêmes blocs que l'ordi : tuiles, Ma journée, En retard, Activité",
+      "Tableau : une colonne à la fois, onglets de couleur, étape suivante en un geste",
+      "Chat plein écran, salons dans une fenêtre",
+      "En-tête avec le logo, le projet et les membres en ligne",
+      "Revues dans la barre du bas, Équipe et Mon compte dans Plus"
+    ]
+  },
+  {
     "version": "0.6.5",
     "date": "2026-11-24",
     "title": "La tâche et sa PR, d'abord",
