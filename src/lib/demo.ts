@@ -1,5 +1,5 @@
 import { newId, type Backend, type RoomEvent, type TrashItem, type GroupSetup, type LiveHandlers, type User, type Workspace } from './backend'
-import type { ActivityItem, DiscordChannel, DiscordGuild, DiscordLink, AppNotification, EmailInvite, DocumentItem, Note, Sprint, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task, TaskComment } from './types'
+import type { ActivityItem, DiscordAccount, Attachment, Channel, DiscordChannel, DiscordGuild, DiscordLink, AppNotification, EmailInvite, DocumentItem, Note, Sprint, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task, TaskComment } from './types'
 
 /**
  * Mode démo : tout est stocké dans le navigateur. Plusieurs onglets ouverts
@@ -30,12 +30,13 @@ interface DemoState {
   trashedDocs?: DocumentItem[]
   trashedNotes?: Note[]
   trashedLinks?: LinkItem[]
+  trashedChannels?: Channel[]
   /** Historique des actions (le plus récent d'abord). */
   activity?: ActivityItem[]
   /** Contenu des documents texte (base64 Yjs). */
   noteStates?: Record<string, string>
   /** Discord simulé : serveur et salons reliés. */
-  discord?: { guild: DiscordGuild | null; links: DiscordLink[] }
+  discord?: { guild: DiscordGuild | null; links: DiscordLink[]; account?: DiscordAccount | null }
 }
 
 const DEMO_DISCORD: DiscordChannel[] = [
@@ -612,13 +613,22 @@ export const demoBackend: Backend = {
     return read().messages.filter((m) => m.channelId === channelId).map((m) => (m.deletedAt ? { ...m, body: '' } : m))
   },
 
-  async sendMessage(channelId, body) {
-    const message: Message = { id: newId(), channelId, authorId: 'me', body, createdAt: new Date().toISOString() }
+  async sendMessage(channelId, body, files = []) {
+    const attachments: Attachment[] = files.map((f) => {
+      const path = `demo/chat/${newId()}-${f.name}`
+      demoFiles.set(path, URL.createObjectURL(f))
+      return { path, name: f.name, size: f.size, mime: f.type || 'application/octet-stream' }
+    })
+    const message: Message = { id: newId(), channelId, authorId: 'me', body, createdAt: new Date().toISOString(), attachments }
     update((s) => {
       s.messages.push(message)
     })
     emit({ kind: 'message', message })
     return message
+  },
+
+  async attachmentUrls(paths) {
+    return Object.fromEntries(paths.filter((p) => demoFiles.has(p)).map((p) => [p, demoFiles.get(p)!]))
   },
 
   chatActions: () => true,
@@ -671,6 +681,30 @@ export const demoBackend: Backend = {
     return channel
   },
 
+  async renameChannel(id, name) {
+    const clean = name.trim().toLowerCase().replace(/^#/, '').replace(/\s+/g, '-').slice(0, 40)
+    if (!clean) throw new Error('Donne un nom au salon')
+    update((s) => {
+      const c = s.workspace?.channels.find((x) => x.id === id)
+      if (c) c.name = clean
+      const l = s.discord?.links.find((x) => x.channelId === id)
+      if (l) l.discordChannelName = clean
+    })
+    emit({ kind: 'refresh' })
+  },
+
+  async deleteChannel(id) {
+    update((s) => {
+      const c = s.workspace?.channels.find((x) => x.id === id)
+      if (!c || !s.workspace) return
+      s.workspace.channels = s.workspace.channels.filter((x) => x.id !== id)
+      s.trashedChannels = [...(s.trashedChannels ?? []), c]
+      s.trash = [{ kind: 'channel', id, title: `#${c.name}`, deletedAt: new Date().toISOString(), deletedBy: 'me' }, ...(s.trash ?? [])]
+      if (s.discord) s.discord.links = s.discord.links.filter((l) => l.channelId !== id)
+    })
+    emit({ kind: 'refresh' })
+  },
+
   async listTrash() {
     return read().trash ?? []
   },
@@ -691,6 +725,9 @@ export const demoBackend: Backend = {
       const link = (s.trashedLinks ?? []).find((l) => l.id === id)
       if (link && s.workspace) s.workspace.links.push(link)
       s.trashedLinks = (s.trashedLinks ?? []).filter((l) => l.id !== id)
+      const channel = (s.trashedChannels ?? []).find((c) => c.id === id)
+      if (channel && s.workspace) s.workspace.channels.push(channel)
+      s.trashedChannels = (s.trashedChannels ?? []).filter((c) => c.id !== id)
     })
     emit({ kind: 'refresh' })
   },
@@ -866,6 +903,19 @@ export const demoBackend: Backend = {
 
   async discordState() {
     return demoDiscord(read())
+  },
+
+  async connectDiscordAccount() {
+    await new Promise((r) => setTimeout(r, 900))
+    update((s) => {
+      s.discord = { ...demoDiscord(s), account: { name: 'moi_sur_discord', avatar: null } }
+    })
+  },
+
+  async unlinkDiscordAccount() {
+    update((s) => {
+      if (s.discord) s.discord.account = null
+    })
   },
 
   async connectDiscord() {
