@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { ActivityDialog, ActivityList, useActivity } from '../components/ActivityFeed'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
+import { Modal } from '../components/Modal'
 import { Popover } from '../components/Popover'
 import { useToast } from '../components/Toast'
 import { useStore, useWorkspace } from '../lib/store'
-import { PRESENCE, liveStatus, ROLES, TEAM_TITLES, type Role } from '../lib/types'
+import { PRESENCE, liveStatus, ROLES, TEAM_TITLES, type Member, type Role } from '../lib/types'
 
 export const openInvite = () => window.dispatchEvent(new Event('kollab:invite'))
 
@@ -20,6 +21,7 @@ export function Group() {
   const isAdmin = me?.role === 'admin'
   const activity = useActivity(8)
   const [history, setHistory] = useState(false)
+  const [proposing, setProposing] = useState(false)
 
   async function changeRole(memberId: string, next: Role) {
     try {
@@ -38,6 +40,27 @@ export function Group() {
       toast(title ? `Rôle : ${title}` : 'Rôle retiré')
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Changement impossible')
+    }
+  }
+
+  async function decline(m: Member) {
+    try {
+      await backend.declineTitle(m.id)
+      await reload()
+      toast(`Proposition de ${m.name.split(/\s+/)[0]} refusée`)
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Refus impossible')
+    }
+  }
+
+  async function propose(title: string) {
+    try {
+      await backend.requestTitle(title)
+      await reload()
+      setProposing(false)
+      toast(title ? 'Proposition envoyée aux admins' : 'Proposition retirée')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Envoi impossible')
     }
   }
 
@@ -74,6 +97,10 @@ export function Group() {
                     {m.title && !(TEAM_TITLES as readonly string[]).includes(m.title) && <option value={m.title}>{m.title}</option>}
                     {TEAM_TITLES.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
+                ) : m.id === me?.id && m.titleRequest !== undefined ? (
+                  <button className="member-title propose" onClick={() => setProposing(true)}>
+                    {m.titleRequest ? <>{m.title || 'Rôle non défini'} · <em>{m.titleRequest} en attente</em></> : m.title ? <>{m.title} · changer</> : 'Proposer mon rôle'}
+                  </button>
                 ) : (
                   <span className="member-title">{m.title || 'Rôle non défini'}</span>
                 )}
@@ -83,6 +110,15 @@ export function Group() {
                   </span>
                 </span>
               </div>
+              {isAdmin && m.titleRequest && (
+                <div className="title-ask">
+                  <span><b>{m.name.split(/\s+/)[0]}</b> propose : <b>{m.titleRequest}</b></span>
+                  <div>
+                    <button className="btn small" onClick={() => void changeTitle(m.id, m.titleRequest!)}>Valider</button>
+                    <button className="btn soft small" onClick={() => void decline(m)}>Refuser</button>
+                  </div>
+                </div>
+              )}
               <div className="member-stats">
                 <span><b>{open.length}</b> à faire</span>
                 <span><b>{doing.length}</b> en cours</span>
@@ -129,6 +165,18 @@ export function Group() {
           </button>
         )}
       </div>
+
+      {proposing && me && (
+        <Modal title="Ton rôle dans l'équipe" onClose={() => setProposing(false)}>
+          <p className="muted" style={{ margin: '0 0 14px' }}>Choisis ton rôle. Un admin le valide.</p>
+          <div className="title-choices">
+            {TEAM_TITLES.map((t) => (
+              <button key={t} aria-pressed={(me.titleRequest ?? me.title) === t} onClick={() => void propose(t)}>{t}</button>
+            ))}
+          </div>
+          {me.titleRequest && <button className="btn soft small" style={{ marginTop: 14 }} onClick={() => void propose('')}>Retirer ma proposition</button>}
+        </Modal>
+      )}
 
       <section className="card team-history">
         <div className="row-between">

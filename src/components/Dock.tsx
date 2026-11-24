@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Chat } from '../pages/Chat'
+import { useStore } from '../lib/store'
 import { Icon } from './Icon'
 
 const KEY = 'kollab-dock'
@@ -42,6 +43,29 @@ export function DockToggle() {
   return (
     <button className={`icon-btn dock-toggle${s.open ? ' on' : ''}`} aria-pressed={s.open} aria-label={s.open ? 'Fermer le chat à côté' : 'Ouvrir le chat à côté'} title="Chat à côté" onClick={() => set({ ...s, open: !s.open })}>
       <Icon name="panel" size={20} />
+    </button>
+  )
+}
+
+/** Bulle flottante en bas à droite : ouvre le chat à côté, avec les messages arrivés depuis. */
+export function ChatBubble() {
+  const [s, set] = useDock()
+  const { pathname } = useLocation()
+  const { incoming, user } = useStore()
+  const [unread, setUnread] = useState(0)
+  const seen = useRef<string | null>(null)
+  const hidden = s.open || pathname.startsWith('/chat')
+  useEffect(() => {
+    if (!incoming || incoming.id === seen.current) return
+    seen.current = incoming.id
+    if (!hidden && incoming.authorId !== user?.id) setUnread((n) => n + 1)
+  }, [incoming, hidden, user?.id])
+  useEffect(() => { if (hidden) setUnread(0) }, [hidden])
+  if (hidden) return null
+  return (
+    <button className="chat-bubble hide-phone" aria-label={unread ? `Ouvrir le chat, ${unread} nouveau${unread > 1 ? 'x' : ''} message${unread > 1 ? 's' : ''}` : 'Ouvrir le chat'} title="Chat" onClick={() => set({ ...s, open: true })}>
+      <Icon name="chat" size={26} />
+      {unread > 0 && <span className="chat-bubble-n">{unread > 9 ? '9+' : unread}</span>}
     </button>
   )
 }

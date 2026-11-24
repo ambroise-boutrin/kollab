@@ -134,23 +134,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [reactionChange, setReactionChange] = useState<ReactionChange | null>(null)
   const [notifications, setNotifications] = useState<AppNotification[]>([])
 
+  // Plusieurs rechargements peuvent se croiser (connexion, retour du réseau…) : seul le dernier compte,
+  // sinon un ancien résultat vide pouvait faire croire qu'on n'a aucun projet.
+  const reloadSeq = useRef(0)
   const reload = useCallback(async () => {
+    const seq = ++reloadSeq.current
     try {
       const u = await backend.currentUser()
-      setUser(u)
       if (u) {
         const [w, list] = await Promise.all([backend.loadWorkspace(rememberedGroup()), backend.listGroups()])
+        if (seq !== reloadSeq.current) return
+        setUser(u)
         setWorkspace(w)
         setGroups(list)
       } else {
+        if (seq !== reloadSeq.current) return
+        setUser(null)
         setWorkspace(null)
         setGroups([])
       }
       setLoadError(null)
     } catch (e) {
+      if (seq !== reloadSeq.current) return
       setLoadError(e instanceof Error ? e.message : 'Chargement impossible')
     } finally {
-      setReady(true)
+      if (seq === reloadSeq.current) setReady(true)
     }
   }, [])
 

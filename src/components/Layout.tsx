@@ -20,7 +20,7 @@ import { InviteDialog } from './InviteDialog'
 import { CommandPalette, openSearch } from './CommandPalette'
 import { VoiceProvider } from '../lib/voice'
 import { VoiceBar } from './VoiceBar'
-import { Dock, DockToggle } from './Dock'
+import { ChatBubble, Dock, DockToggle } from './Dock'
 import { OfflineBar } from './OfflineBar'
 
 const NAV: { to: string; label: string; icon: IconName; more?: boolean }[] = [
@@ -281,6 +281,7 @@ export function Layout() {
         <Outlet />
       </main>
       <Dock />
+      <ChatBubble />
       <CommandPalette />
       <VoiceBar />
 
