@@ -78,7 +78,7 @@ export function OfflineBar() {
             <section>
               <b>Ce qui marche hors ligne</b>
               <span className="muted">Tâches, tableau, sprints, documents déjà ouverts, messages (envoyés au retour).</span>
-              <span className="muted">Pas de vocal, ni de GitHub, ni de nouveaux fichiers.</span>
+              <span className="muted">Pas d'appels, ni de GitHub, ni de nouveaux fichiers.</span>
             </section>
           </div>
         </Modal>

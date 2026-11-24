@@ -1,6 +1,6 @@
 [
   {
-    "version": "0.6.7",
+    "version": "0.6.8",
     "date": "2026-11-24",
     "title": "Salons, fichiers et ton compte Discord",
     "items": [
@@ -8,6 +8,19 @@
       "Joins des fichiers et des images dans le chat : trombone, glisser-déposer ou coller",
       "Relie ton compte Discord : tes messages Discord s'affichent de ton côté",
       "L'historique des salons Discord arrive dans Kollab, fichiers compris"
+    ]
+  },
+  {
+    "version": "0.6.7",
+    "date": "2026-11-24",
+    "title": "De vrais appels",
+    "items": [
+      "Icônes appel et vidéo en haut du chat, à la place de « Lancer le vocal »",
+      "Appelle une personne depuis la liste des membres en ligne",
+      "Ça sonne chez les autres : Décrocher, Refuser ou En vidéo",
+      "Appel en plein écran, réductible en petite fenêtre",
+      "Partage d'écran en grand, visages à côté",
+      "Sans réponse après 30 s : appel manqué dans le chat"
     ]
   },
   {

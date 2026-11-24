@@ -92,7 +92,7 @@ const fr = {
     items: [
       { title: 'Poker planning', text: 'Tout le monde vote, les cartes se retournent ensemble.' },
       { title: 'Documents à plusieurs', text: 'Specs, notes, PDF et images, écrits ensemble.' },
-      { title: 'Vocal et visio', text: "Appel, caméra et partage d'écran." },
+      { title: 'Appels et visio', text: "Ça sonne, on décroche. Caméra et partage d'écran." },
       { title: 'Feuille de route', text: 'Sprints et grosses tâches sur une frise.' },
       { title: 'Échéances', text: 'Retards en rouge, commentaires avec @mentions.' },
       { title: 'Statut perso', text: 'En réunion, Focus, ou ton message.' },
@@ -158,7 +158,7 @@ const fr = {
     cta: 'Créer mon groupe',
     list: [
       'Groupes et membres sans limite fixe',
-      'Tableau, sprints, chat, vocal et documents',
+      'Tableau, sprints, chat, appels et documents',
       'Web, téléphone et ordinateur',
       'Les nouvelles fonctions dès leur sortie',
       "Données hébergées dans l'Union européenne",
@@ -168,7 +168,7 @@ const fr = {
     kicker: 'Feuille de route',
     title: 'Ce qui arrive dans Kollab.',
     cols: [
-      { when: 'Disponible', color: 'k-bg-mint', items: ['Tableau, sprints et poker planning', 'Chat, vocal et visio', 'Relecture des PR GitHub', 'Documents à plusieurs', 'Feuille de route et échéances', 'Hors ligne et résumé du lundi'] },
+      { when: 'Disponible', color: 'k-bg-mint', items: ['Tableau, sprints et poker planning', 'Chat, appels et visio', 'Relecture des PR GitHub', 'Documents à plusieurs', 'Feuille de route et échéances', 'Hors ligne et résumé du lundi'] },
       { when: 'Ensuite', color: 'k-bg-yellow', items: ['Salons Discord reliés au chat'] },
       { when: 'Plus tard', color: 'k-bg-lilac', items: ['PDF annotés ensemble', 'Tableaux blancs'] },
     ],
@@ -194,7 +194,7 @@ const fr = {
     tabsTitle: 'De la tâche à la fusion.',
     tabsSub: 'Branche, PR et tests sur chaque tâche. Le sprint et le chat autour.',
     tabs: ['Tâche et PR', 'Tableau', 'Chat', 'Téléphone'],
-    marquee: ['Tâche ↔ PR', 'Kanban', 'Chat', 'Revues de PR', 'Sprints', 'Poker planning', 'Vocal', 'Feuille de route', 'Ctrl+K', 'Discord', 'GitHub', 'Hors ligne'],
+    marquee: ['Tâche ↔ PR', 'Kanban', 'Chat', 'Revues de PR', 'Sprints', 'Poker planning', 'Appels', 'Feuille de route', 'Ctrl+K', 'Discord', 'GitHub', 'Hors ligne'],
     marqueeLabel: 'Ce que fait Kollab',
     statementA: 'Moins d’onglets.',
     statementB: 'Plus de code livré.',
@@ -257,7 +257,7 @@ const fr = {
       'Relecture des PR',
       'Sprints et poker planning',
       'Documents à plusieurs',
-      'Appels vocaux',
+      'Appels audio et vidéo',
       'Gratuit pour toute l’équipe',
     ],
     note: '« En partie » : via une extension, une offre payante ou de façon limitée. Offres gratuites, novembre 2026. Les marques citées appartiennent à leurs propriétaires.',
@@ -338,7 +338,7 @@ const en: Copy = {
     items: [
       { title: 'Planning poker', text: 'Everyone votes, the cards flip together.' },
       { title: 'Shared documents', text: 'Specs, notes, PDFs and images, written together.' },
-      { title: 'Voice and video', text: 'Calls, camera and screen sharing.' },
+      { title: 'Calls and video', text: 'It rings, you pick up. Camera and screen sharing.' },
       { title: 'Roadmap', text: 'Sprints and big tasks on a timeline.' },
       { title: 'Due dates', text: 'Late tasks in red, comments with @mentions.' },
       { title: 'Personal status', text: 'In a meeting, Focus, or your own message.' },
@@ -404,7 +404,7 @@ const en: Copy = {
     cta: 'Create my group',
     list: [
       'No fixed limit on groups or members',
-      'Board, sprints, chat, voice and documents',
+      'Board, sprints, chat, calls and documents',
       'Web, phone and desktop',
       'New features as soon as they ship',
       'Data hosted in the European Union',
@@ -414,7 +414,7 @@ const en: Copy = {
     kicker: 'Roadmap',
     title: "What's coming to Kollab.",
     cols: [
-      { when: 'Available', color: 'k-bg-mint', items: ['Board, sprints and planning poker', 'Chat, voice and video', 'GitHub PR reviews', 'Shared documents', 'Roadmap and due dates', 'Offline mode and Monday summary'] },
+      { when: 'Available', color: 'k-bg-mint', items: ['Board, sprints and planning poker', 'Chat, calls and video', 'GitHub PR reviews', 'Shared documents', 'Roadmap and due dates', 'Offline mode and Monday summary'] },
       { when: 'Next', color: 'k-bg-yellow', items: ['Discord channels linked to the chat'] },
       { when: 'Later', color: 'k-bg-lilac', items: ['PDFs annotated together', 'Whiteboards'] },
     ],
@@ -440,7 +440,7 @@ const en: Copy = {
     tabsTitle: 'From task to merge.',
     tabsSub: 'Branch, PR and checks on every task. Sprint and chat around it.',
     tabs: ['Task and PR', 'Board', 'Chat', 'Phone'],
-    marquee: ['Task ↔ PR', 'Kanban', 'Chat', 'PR reviews', 'Sprints', 'Planning poker', 'Voice', 'Roadmap', 'Ctrl+K', 'Discord', 'GitHub', 'Offline'],
+    marquee: ['Task ↔ PR', 'Kanban', 'Chat', 'PR reviews', 'Sprints', 'Planning poker', 'Calls', 'Roadmap', 'Ctrl+K', 'Discord', 'GitHub', 'Offline'],
     marqueeLabel: 'What Kollab does',
     statementA: 'Fewer tabs.',
     statementB: 'More shipped code.',
@@ -503,7 +503,7 @@ const en: Copy = {
       'PR reviews',
       'Sprints and planning poker',
       'Collaborative documents',
-      'Voice calls',
+      'Voice and video calls',
       'Free for the whole team',
     ],
     note: '“Partly”: via an add-on, a paid plan or limited. Free plans, November 2026. Trademarks belong to their owners.',
@@ -541,7 +541,7 @@ export type { Cell }
 
 /** Traductions anglaises de l'historique des versions (src/changelog.json reste en français). */
 export const CHANGELOG_EN: Record<string, { title: string; items: string[] }> = {
-  '0.6.7': {
+  '0.6.8': {
     title: 'Channels, files and your Discord account',
     items: [
       'Create, rename and delete channels; a deleted channel can be restored from the bin',
@@ -619,7 +619,7 @@ export const CHANGELOG_EN: Record<string, { title: string; items: string[] }> = 
       'Live planning poker',
       'Documents: PDFs and images, with preview',
       'Write together in the same document',
-      'Voice, video and screen sharing',
+      'Calls that ring, video and screen sharing',
       'Search everything with Ctrl+K',
       'Chat next to any page, home you can arrange',
       'Notifications on phone',
