@@ -335,7 +335,7 @@ function ProductTabs() {
     { bg: 'k-bg-yellow', title: p.board.title, text: <>{p.board.text}</>, media: <Demo name="attribution" label={p.board.alt} /> },
     { bg: 'k-bg-coral', title: p.chat.title, text: <>{p.chat.textA}<code>{p.chat.code}</code>{p.chat.textB}</>, media: <Demo name="chat" label={p.chat.video} /> },
     { bg: 'k-bg-mint', title: p.phone.title, text: <>{p.phone.text}</>, media: <PhoneDemo /> },
-    { bg: 'k-bg-ink', title: p.pr.title, text: <>{p.pr.text}</>, media: <DiffMock />, soon: true },
+    { bg: 'k-bg-ink', title: p.pr.title, text: <>{p.pr.text}</>, media: <DiffMock /> },
   ]
   const [i, setI] = useState(0)
   const [auto, setAuto] = useState(() => !reducedMotion())
@@ -374,7 +374,7 @@ function ProductTabs() {
         <div className="k-tabpanel" id="tab-panel" role="tabpanel" aria-labelledby={`tab-${i}`}>
           <div className={`k-tabmedia ${tab.bg}${i === 2 ? ' k-tabmedia-phone' : ''}`} key={i}>{tab.media}</div>
           <div className="k-tabtext" key={`t${i}`}>
-            <h3>{tab.title}{tab.soon && <Soon />}</h3>
+            <h3>{tab.title}</h3>
             <p>{tab.text}</p>
           </div>
         </div>
@@ -493,7 +493,7 @@ function ProductSection() {
             <div className="k-block-text">
               <span className="k-num">04</span>
               <h3>
-                {p.pr.title} <Soon />
+                {p.pr.title}
               </h3>
               <p>{p.pr.text}</p>
             </div>
