@@ -59,6 +59,12 @@ export function Sprints() {
 
   function moveTo(t: Task, sprintId: string | null) {
     void saveTask({ ...t, sprintId })
+    const s = ws.sprints.find((x) => x.id === sprintId)
+    const cap = s ? capacity(s) : null
+    if (!s || cap == null) return
+    const before = sprintPoints(ws.tasks.filter((x) => x.sprintId === s.id))
+    const after = before + (t.points ?? 0)
+    if (after > cap) toast(`${s.name} : ${after} pts prévus, l'équipe en fait ${cap} d'habitude`)
   }
 
   async function start(s: Sprint) {
@@ -69,6 +75,9 @@ export function Sprints() {
 
   const velocity = done.map((s) => ({ s, pts: sprintPoints(ws.tasks.filter((t) => t.sprintId === s.id && t.status === 'done')) }))
   const avg = velocity.length ? Math.round(velocity.reduce((n, v) => n + v.pts, 0) / velocity.length) : null
+  // Rythme habituel ramené à la durée du sprint (un sprint de 3 semaines peut porter plus qu'un de 1).
+  const perDay = velocity.length ? velocity.reduce((n, v) => n + v.pts, 0) / velocity.reduce((n, v) => n + sprintLength(v.s), 0) : null
+  const capacity = (s: Sprint) => (perDay ? Math.round(perDay * sprintLength(s)) : null)
 
   return (
     <div className="page sprints-page">
@@ -86,7 +95,7 @@ export function Sprints() {
       </div>
 
       {active ? (
-        <ActiveSprint sprint={active} canWrite={canWrite} onClose={() => setClosing(active)} onEdit={() => setEditing(active)} onOpen={setOpenId} />
+        <ActiveSprint sprint={active} cap={capacity(active)} canWrite={canWrite} onClose={() => setClosing(active)} onEdit={() => setEditing(active)} onOpen={setOpenId} />
       ) : (
         <section className="sprint-hero idle">
           <div>
@@ -146,6 +155,7 @@ export function Sprints() {
                     <strong>{s.name}</strong>
                     <span className="muted">{shortDate(s.startsOn)} → {shortDate(s.endsOn)} · {list.length} tâche{list.length > 1 ? 's' : ''} · {sprintPoints(list)} pts</span>
                     {s.goal && <span className="sprint-goal">{s.goal}</span>}
+                    <LoadBar pts={sprintPoints(list)} cap={capacity(s)} />
                   </div>
                   <div className="sprint-row-actions">
                     {canWrite && <button className="btn soft small" onClick={() => setEditing(s)}>Modifier</button>}
@@ -208,7 +218,7 @@ export function Sprints() {
   )
 }
 
-function ActiveSprint({ sprint, canWrite, onClose, onEdit, onOpen }: { sprint: Sprint; canWrite: boolean; onClose: () => void; onEdit: () => void; onOpen: (id: string) => void }) {
+function ActiveSprint({ sprint, cap, canWrite, onClose, onEdit, onOpen }: { sprint: Sprint; cap: number | null; canWrite: boolean; onClose: () => void; onEdit: () => void; onOpen: (id: string) => void }) {
   const ws = useWorkspace()
   const tasks = ws.tasks.filter((t) => t.sprintId === sprint.id)
   const { total, len, actual } = burndown(sprint, tasks)
@@ -238,6 +248,7 @@ function ActiveSprint({ sprint, canWrite, onClose, onEdit, onOpen }: { sprint: S
           <div><b>{tasks.filter((t) => t.status === 'done').length}/{tasks.length}</b><span>tâches</span></div>
         </div>
         <div className="sprint-progress" aria-label={`${pct} % terminé`}><i style={{ width: `${pct}%` }} /></div>
+        {cap != null && total > cap && <p className="sprint-over">{total} pts prévus, l'équipe en livre {cap} d'habitude. Retire des tâches ou garde-les en bonus.</p>}
         <div className="sprint-hero-foot">
           <span>{shortDate(sprint.startsOn)} → {shortDate(sprint.endsOn)}</span>
           <AvatarGroup members={people} size={26} />
@@ -283,6 +294,20 @@ function Burndown({ total, len, actual }: { total: number; len: number; actual: 
       </svg>
       <figcaption><span><i className="bd-key line" /> Restant</span><span><i className="bd-key ideal" /> Idéal</span></figcaption>
     </figure>
+  )
+}
+
+/** Charge d'un sprint comparée au rythme habituel de l'équipe. */
+function LoadBar({ pts, cap }: { pts: number; cap: number | null }) {
+  if (cap == null || cap <= 0) return null
+  const ratio = pts / cap
+  const cls = ratio > 1.1 ? 'over' : ratio >= 0.8 ? 'full' : 'ok'
+  const label = ratio > 1.1 ? 'Trop chargé' : ratio >= 0.8 ? 'Bien rempli' : 'Encore de la place'
+  return (
+    <span className={`load-bar ${cls}`} title={`${pts} pts prévus, rythme habituel ${cap} pts`}>
+      <span className="load-track"><i style={{ width: `${Math.min(100, ratio * 100)}%` }} /></span>
+      <span className="load-label">{label} · {pts}/{cap} pts</span>
+    </span>
   )
 }
 

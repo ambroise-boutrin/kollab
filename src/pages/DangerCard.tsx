@@ -27,7 +27,7 @@ export function DangerCard() {
       <div>
         <h2>Supprimer mon compte</h2>
         <p className="muted" style={{ margin: '2px 0 0', fontSize: 14 }}>
-          Ton profil, ta photo et tes messages sont effacés pour de bon. Si tu es le seul admin d'un groupe, un autre membre le devient.
+          Ton profil, ta photo et tes messages sont effacés pour de bon. Si tu es le seul admin d'un projet, un autre membre le devient.
         </p>
       </div>
       {open ? (

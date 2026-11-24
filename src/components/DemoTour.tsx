@@ -12,7 +12,7 @@ type Step = { path: string; target?: string; title: string; text: string }
 
 const STEPS: Step[] = [
   { path: '/', title: 'Bienvenue dans Kollab', text: "Une équipe d'exemple, déjà remplie. Le tour prend une minute." },
-  { path: '/', target: 'nav', title: 'La navigation', text: 'Accueil, tableau, chat et groupe.' },
+  { path: '/', target: 'nav', title: 'La navigation', text: 'Accueil, tableau, chat et équipe.' },
   { path: '/tableau', target: 'column', title: 'Les colonnes du sprint', text: 'Glisse une carte pour la faire avancer.' },
   { path: '/tableau', target: 'task', title: 'Une tâche', text: "Ouvre-la pour l'attribuer en voyant la charge de chacun." },
   { path: '/tableau', target: 'new-task', title: 'Nouvelle tâche', text: 'Type, estimation et PR liée.' },

@@ -377,6 +377,6 @@ export function useStore(): Store {
 /** Raccourci pour les écrans qui ont besoin d'un groupe chargé. */
 export function useWorkspace(): Workspace {
   const { workspace } = useStore()
-  if (!workspace) throw new Error('Aucun groupe chargé')
+  if (!workspace) throw new Error('Aucun projet chargé')
   return workspace
 }
