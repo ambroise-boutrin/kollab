@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.6.12",
+    "date": "2026-11-24",
+    "title": "GitHub plus sûr",
+    "items": [
+      "Ton jeton GitHub est chiffré sur le serveur et ne reste plus dans l'appareil",
+      "Nouvelle connexion GitHub : tu choisis les dépôts auxquels Kollab a accès",
+      "Rien à refaire : la connexion actuelle continue de marcher"
+    ]
+  },
+  {
     "version": "0.6.11",
     "date": "2026-11-24",
     "title": "Fusionner sans quitter Kollab",
