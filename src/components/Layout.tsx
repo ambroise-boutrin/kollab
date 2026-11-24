@@ -21,6 +21,7 @@ import { CommandPalette, openSearch } from './CommandPalette'
 import { VoiceProvider } from '../lib/voice'
 import { VoiceBar } from './VoiceBar'
 import { Dock, DockToggle } from './Dock'
+import { OfflineBar } from './OfflineBar'
 
 const NAV: { to: string; label: string; icon: IconName; more?: boolean }[] = [
   { to: '/', label: 'Accueil', icon: 'home' },
@@ -276,6 +277,7 @@ export function Layout() {
             Mode démo : les données restent dans ce navigateur. Ouvre un deuxième onglet pour voir le temps réel.
           </div>
         )}
+        {!DEMO_SESSION && backend.mode !== 'demo' && <OfflineBar />}
         <Outlet />
       </main>
       <Dock />

@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { newId, type Backend, type GroupSummary, type User, type Workspace } from './backend'
 import { APP_BASE, IS_TAURI } from './base'
 import { demoBackend, startDemoSession } from './demo'
+import { flushOutbox, markNewTask, pendingList, withOffline } from './offline'
 import { createSupabaseBackend } from './supabaseBackend'
 import type { AppNotification, Message, ReactionChange, Task } from './types'
 
@@ -28,7 +29,7 @@ function demoRequested(): boolean {
 export const DEMO_SESSION = demoRequested()
 if (DEMO_SESSION) startDemoSession()
 
-export const backend: Backend = !DEMO_SESSION && url && key ? createSupabaseBackend(url, key) : demoBackend
+export const backend: Backend = !DEMO_SESSION && url && key ? withOffline(createSupabaseBackend(url, key)) : demoBackend
 
 /** Quitte la démo et ouvre le vrai formulaire d'inscription. */
 export function leaveDemo() {
@@ -155,6 +156,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void reload()
     return backend.onAuthChange(() => void reload())
+  }, [reload])
+
+  // Retour du réseau : on recharge, on envoie ce qui attendait, puis on recharge encore.
+  useEffect(() => {
+    if (DEMO_SESSION) return
+    async function back() {
+      if (!navigator.onLine) return
+      if (!pendingList().length) return void reload()
+      await reload()
+      if (await flushOutbox(backend)) await reload()
+    }
+    void back()
+    window.addEventListener('online', back)
+    return () => window.removeEventListener('online', back)
   }, [reload])
 
   const groupId = workspace?.group.id
@@ -310,6 +325,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       setWorkspace((w) => (w ? { ...w, tasks: [...w.tasks, task] } : w))
       await backend.saveTask(task)
+      markNewTask(task)
       return task
     },
     [workspace],

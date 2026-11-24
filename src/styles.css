@@ -2180,3 +2180,17 @@ label.profile-row .profile-row-label { flex: none; width: 64px; color: var(--mut
   .rm-head h1 { font-size: 28px; }
   .rm-frame { margin-right: -16px; border-radius: 18px 0 0 18px; }
 }
+
+/* Hors ligne */
+.off-bar { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; border: 0; border-radius: 14px; background: #14142B; color: #fff; font: inherit; font-size: 14px; text-align: left; cursor: pointer; animation: off-in .2s ease-out; }
+.off-bar > span { flex: 1; }
+.off-bar.back { background: #2E7D4F; cursor: default; }
+.off-count { font-size: 13px; padding: 4px 8px; border-radius: 8px; background: #FFD23F; color: #14142B; }
+@keyframes off-in { from { opacity: 0; transform: translateY(-4px); } }
+.off-body { display: flex; flex-direction: column; gap: 14px; }
+.off-body section { padding: 16px; border-radius: 18px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); display: flex; flex-direction: column; gap: 10px; }
+.off-body section > span.muted { font-size: 14px; }
+.off-item { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.off-item i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.off-item > span { flex: 1; min-width: 0; }
+.off-item small { color: var(--muted); font-size: 12px; white-space: nowrap; }
