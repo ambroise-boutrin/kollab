@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEven
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Avatar, AvatarGroup } from '../components/Avatar'
 import { Icon } from '../components/Icon'
-import { VoiceJoin } from '../components/VoiceBar'
+import { CallButtons } from '../components/Call'
 import { DiscordLinkDialog, DiscordMark } from '../components/DiscordLinkDialog'
 import { initials } from '../components/Avatar'
 import { Popover } from '../components/Popover'
@@ -310,7 +310,7 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
             ) : isAdmin && (
               <button className="btn discord small" onClick={() => setDiscordOpen(true)}>Relier à Discord</button>
             ))}
-            <VoiceJoin />
+            {channel && <CallButtons targets={null} channelId={channel.id} label={`# ${channel.name}`} />}
             <AvatarGroup members={members.filter((m) => online.includes(m.id))} size={26} max={5} online={online} />
           </div>
         </header>
