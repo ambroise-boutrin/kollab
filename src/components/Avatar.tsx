@@ -1,4 +1,4 @@
-import { PRESENCE, liveStatus, type Member } from '../lib/types'
+import { PRESENCE, liveStatus, presenceOf, type Member } from '../lib/types'
 
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/)
@@ -8,15 +8,15 @@ export function initials(name: string): string {
 /** Photo ou initiales ; la pastille montre le statut quand la personne est en ligne. */
 export function Avatar({ member, size = 32, online = false }: { member: Member | undefined; size?: number; online?: boolean }) {
   if (!member) return null
-  const dot = online ? PRESENCE[member.status ?? 'available'].color : null
+  const pres = presenceOf(member)
   return (
     <span
       className="avatar"
       style={{ width: size, height: size, background: member.color, fontSize: Math.round(size * 0.4) }}
-      title={`${member.name}${liveStatus(member) ? ` · ${liveStatus(member)}` : online ? ` · ${PRESENCE[member.status ?? 'available'].label}` : ''}`}
+      title={`${member.name}${liveStatus(member) ? ` · ${liveStatus(member)}` : online ? ` · ${PRESENCE[pres].label}` : ''}`}
     >
       {member.avatarUrl ? <img src={member.avatarUrl} alt="" width={size} height={size} /> : initials(member.name)}
-      {dot && <i className="dot" style={{ background: dot }} />}
+      {online && <i className={`dot pres-${pres}`} style={{ ['--pc' as string]: PRESENCE[pres].color, background: pres === 'invisible' ? 'var(--surface)' : PRESENCE[pres].color }} />}
     </span>
   )
 }

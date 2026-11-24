@@ -27,6 +27,8 @@ export interface Member {
   /** Rôle proposé par la personne, en attente d'un admin. */
   titleRequest?: string | null
   status: PresenceStatus
+  /** Heure où la présence choisie revient à « Disponible » (null : jamais). */
+  presenceUntil?: string | null
   avatarUrl: string | null
   online?: boolean
   /** Statut perso (« En réunion »…), vide s'il n'y en a pas ou s'il a expiré. */
@@ -45,15 +47,29 @@ export function liveStatus(m: Pick<Member, 'statusText' | 'statusUntil'> | undef
   return m.statusText
 }
 
-export type PresenceStatus = 'available' | 'busy' | 'away'
+export type PresenceStatus = 'available' | 'busy' | 'dnd' | 'away' | 'invisible'
 
-export const PRESENCE: Record<PresenceStatus, { label: string; color: string }> = {
-  available: { label: 'Disponible', color: '#3FA36B' },
-  busy: { label: 'Occupé', color: '#D9822B' },
-  away: { label: 'Absent', color: '#8A90A2' },
+export const PRESENCE: Record<PresenceStatus, { label: string; color: string; hint: string }> = {
+  available: { label: 'Disponible', color: '#3FA36B', hint: 'Tout le monde peut te joindre' },
+  busy: { label: 'Occupé', color: '#D9822B', hint: 'Les appels sonnent quand même' },
+  dnd: { label: 'Ne pas déranger', color: '#D13B40', hint: 'Pas de sonnerie ni de notification' },
+  away: { label: 'Absent', color: '#8A90A2', hint: 'Tu reviens bientôt' },
+  invisible: { label: 'Invisible', color: '#8A90A2', hint: 'Tu parais hors ligne' },
 }
 
-export type ProfilePatch = Partial<Pick<Member, 'name' | 'color' | 'status' | 'statusText' | 'statusColor' | 'statusUntil' | 'weeklyEmail'>>
+/** Présence encore valable : à la fin de la durée choisie, on redevient disponible. */
+export function presenceOf(m: Pick<Member, 'status' | 'presenceUntil'> | undefined): PresenceStatus {
+  if (!m?.status || !(m.status in PRESENCE)) return 'available'
+  if (m.presenceUntil && new Date(m.presenceUntil).getTime() <= Date.now()) return 'available'
+  return m.status
+}
+
+/** Valeur pour l'ancienne colonne status (apps déjà installées). */
+export function legacyPresence(s: PresenceStatus): 'available' | 'busy' | 'away' {
+  return s === 'dnd' ? 'busy' : s === 'invisible' ? 'away' : s
+}
+
+export type ProfilePatch = Partial<Pick<Member, 'name' | 'color' | 'status' | 'presenceUntil' | 'statusText' | 'statusColor' | 'statusUntil' | 'weeklyEmail'>>
 
 export interface Task {
   id: string

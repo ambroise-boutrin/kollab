@@ -46,11 +46,13 @@ export function StatusSheet({ me, onClose }: { me: Member; onClose: () => void }
     try {
       const t = clear ? '' : (custom.trim() || text).slice(0, 60)
       const p = STATUS_PRESETS.find((x) => x.text === t)
+      const until = t ? DURATIONS.find((d) => d.id === duration)!.until() : null
       await backend.updateProfile({
         statusText: t,
         statusColor: t ? p?.color ?? 'var(--accent)' : null,
-        statusUntil: t ? DURATIONS.find((d) => d.id === duration)!.until() : null,
-        ...(p ? { status: p.presence } : clear ? { status: 'available' as const } : {}),
+        statusUntil: until,
+        // La présence associée s'efface en même temps que le message.
+        ...(p ? { status: p.presence, presenceUntil: until } : clear ? { status: 'available' as const, presenceUntil: null } : {}),
       })
       await reload()
       toast(t ? 'Statut mis' : 'Statut effacé')

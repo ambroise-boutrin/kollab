@@ -92,7 +92,7 @@ const fr = {
     items: [
       { title: 'Poker planning', text: 'Tout le monde vote, les cartes se retournent ensemble.' },
       { title: 'Documents à plusieurs', text: 'Specs, notes, PDF et images, écrits ensemble.' },
-      { title: 'Appels et visio', text: "Ça sonne, on décroche. Caméra et partage d'écran." },
+      { title: 'Appels et visio', text: "Ça sonne, on décroche. Caméra, partage d'écran et Ne pas déranger." },
       { title: 'Feuille de route', text: 'Sprints et grosses tâches sur une frise.' },
       { title: 'Échéances', text: 'Retards en rouge, commentaires avec @mentions.' },
       { title: 'Statut perso', text: 'En réunion, Focus, ou ton message.' },
@@ -338,7 +338,7 @@ const en: Copy = {
     items: [
       { title: 'Planning poker', text: 'Everyone votes, the cards flip together.' },
       { title: 'Shared documents', text: 'Specs, notes, PDFs and images, written together.' },
-      { title: 'Calls and video', text: 'It rings, you pick up. Camera and screen sharing.' },
+      { title: 'Calls and video', text: 'It rings, you pick up. Camera, screen sharing and Do not disturb.' },
       { title: 'Roadmap', text: 'Sprints and big tasks on a timeline.' },
       { title: 'Due dates', text: 'Late tasks in red, comments with @mentions.' },
       { title: 'Personal status', text: 'In a meeting, Focus, or your own message.' },
@@ -619,7 +619,7 @@ export const CHANGELOG_EN: Record<string, { title: string; items: string[] }> = 
       'Live planning poker',
       'Documents: PDFs and images, with preview',
       'Write together in the same document',
-      'Calls that ring, video and screen sharing',
+      'Calls that ring, video, screen sharing and Do not disturb',
       'Search everything with Ctrl+K',
       'Chat next to any page, home you can arrange',
       'Notifications on phone',

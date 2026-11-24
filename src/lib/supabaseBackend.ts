@@ -5,6 +5,7 @@ import type { Backend, RoomEvent, User, Workspace } from './backend'
 import { disablePush } from './push'
 import { CGU_VERSION } from './legal'
 import type { AppNotification, Attachment, Channel, DiscordChannel, DiscordLink, DocumentItem, Note, Sprint, Invite, ReactionChange, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
+import { PRESENCE, legacyPresence } from './types'
 
 interface TaskRow {
   id: string
@@ -288,8 +289,14 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     async updateProfile(patch) {
       const { data } = await sb.auth.getUser()
       if (!data.user) return
-      const { statusText, statusColor, statusUntil, weeklyEmail, ...rest } = patch
+      const { statusText, statusColor, statusUntil, weeklyEmail, status, presenceUntil, ...rest } = patch
       const row: Record<string, unknown> = { ...rest }
+      if (status !== undefined) {
+        row.status = legacyPresence(status)
+        // Colonnes de présence : si elles n'existent pas encore, on garde au moins l'ancien statut.
+        const r = await sb.from('profiles').update({ presence: status, presence_until: presenceUntil ?? null }).eq('id', data.user.id)
+        if (r.error && (status === 'dnd' || status === 'invisible')) throw new Error('Ce statut arrive bientôt')
+      }
       if (statusText !== undefined) row.status_text = statusText
       if (statusColor !== undefined) row.status_color = statusColor
       if (statusUntil !== undefined) row.status_until = statusUntil
@@ -426,9 +433,14 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       if (!memberships.length) return null
       groupId = (memberships.find((m) => m.group_id === wanted) ?? memberships[0]).group_id
 
+      const MEMBER_COLS = 'name, color, title, status, avatar_url, status_text, status_color, status_until, weekly_email'
+      const loadMembers = async () => {
+        const r = await sb.from('group_members').select(`*, profiles(${MEMBER_COLS}, presence, presence_until)`).eq('group_id', groupId)
+        return r.error ? sb.from('group_members').select(`*, profiles(${MEMBER_COLS})`).eq('group_id', groupId) : r
+      }
       const [group, members, tasks, channels, links, documents, sprints, notes] = await Promise.all([
         sb.from('groups').select('*').eq('id', groupId).single(),
-        sb.from('group_members').select('*, profiles(name, color, title, status, avatar_url, status_text, status_color, status_until, weekly_email)').eq('group_id', groupId),
+        loadMembers(),
         sb.from('tasks').select('*').eq('group_id', groupId).order('position'),
         sb.from('channels').select('id, name').eq('group_id', groupId).is('deleted_at', null).order('created_at'),
         sb.from('links').select('*').eq('group_id', groupId).order('created_at'),
@@ -442,7 +454,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         role: Role
         title?: string | null
         title_request?: string | null
-        profiles: { name: string; color: string; title: string; status: PresenceStatus; avatar_url: string | null; status_text?: string | null; status_color?: string | null; status_until?: string | null; weekly_email?: boolean | null } | null
+        profiles: { name: string; color: string; title: string; status: PresenceStatus; avatar_url: string | null; status_text?: string | null; status_color?: string | null; status_until?: string | null; weekly_email?: boolean | null; presence?: string | null; presence_until?: string | null } | null
       }
       return {
         group: { id: g.id, name: g.name, inviteCode: g.invite_code, discordWebhookSet: g.discord_webhook_set, logoUrl: g.logo_url ?? null, color: g.color ?? null, sprintDays: g.sprint_days ?? null, dailyTime: g.daily_time ?? null },
@@ -455,7 +467,8 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
             title: m.title || m.profiles?.title || '',
             // Absent tant que la colonne n'existe pas en base : la proposition de rôle reste cachée.
             titleRequest: 'title_request' in m ? (m.title_request ?? null) : undefined,
-            status: m.profiles?.status ?? 'available',
+            status: ((m.profiles?.presence && m.profiles.presence in PRESENCE ? m.profiles.presence : m.profiles?.status) ?? 'available') as PresenceStatus,
+            presenceUntil: m.profiles?.presence ? m.profiles?.presence_until ?? null : null,
             avatarUrl: m.profiles?.avatar_url ?? null,
             statusText: m.profiles?.status_text ?? '',
             statusColor: m.profiles?.status_color ?? null,

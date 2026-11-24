@@ -12,6 +12,18 @@
     ]
   },
   {
+    "version": "0.6.9",
+    "date": "2026-11-24",
+    "title": "Ta présence, comme dans Teams",
+    "items": [
+      "Disponible, Occupé, Ne pas déranger, Absent ou Invisible, depuis le menu en bas à gauche",
+      "Une durée au choix, puis retour à Disponible",
+      "Ne pas déranger : pas de sonnerie ni de notification, l'appel reste en « Appel manqué »",
+      "Invisible : tu parais hors ligne pour l'équipe",
+      "Pastille barrée ou creuse sur les photos"
+    ]
+  },
+  {
     "version": "0.6.8",
     "date": "2026-11-24",
     "title": "Salons, fichiers et ton compte Discord",
