@@ -257,7 +257,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const ws = workspaceRef.current
       if (!ws || document.visibilityState !== 'visible' || !navigator.onLine) return
       const gh = await import('./github')
-      const open = ws.tasks.filter((t) => t.prUrl && t.status !== 'done').slice(0, gh.ghToken() ? 30 : 8)
+      // Sans GitHub relié, on ne vérifie pas : le quota public (60 appels par heure) servirait à vide.
+      if (!gh.ghToken()) return
+      const open = ws.tasks.filter((t) => t.prUrl && t.status !== 'done').slice(0, 30)
       for (const t of open) {
         const ref = gh.parsePrUrl(t.prUrl)
         if (!ref || !alive) continue

@@ -1,5 +1,5 @@
 import { ghToken, setGhToken } from './github'
-import { APP_BASE } from './base'
+import { APP_BASE, IS_TAURI, WEB_APP } from './base'
 import { createClient, type SupabaseClient, type User as SbUser } from '@supabase/supabase-js'
 import type { Backend, RoomEvent, User, Workspace } from './backend'
 import { disablePush } from './push'
@@ -136,10 +136,59 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     const { data } = await sb.from('github_tokens').select('token').maybeSingle()
     if (data?.token) setGhToken(data.token as string)
   }
+  let saving: Promise<unknown> = Promise.resolve()
   function keepGhToken(token: string) {
     setGhToken(token)
-    void sb.from('github_tokens').upsert({ token, updated_at: new Date().toISOString() }).then(() => undefined)
+    window.dispatchEvent(new Event('kollab:gh-token'))
+    saving = Promise.resolve(sb.from('github_tokens').upsert({ token, updated_at: new Date().toISOString() }))
   }
+  /**
+   * Ouvre la connexion d'un service dans une petite fenêtre (popup sur le web, navigateur sur l'ordi)
+   * et attend que `ready` dise que c'est fait. Kollab reste ouvert derrière, rien à relancer.
+   */
+  async function oauthWindow(url: string, ready: () => Promise<boolean>, name: string) {
+    let popup: Window | null = null
+    if (IS_TAURI) {
+      const { openUrl } = await import('@tauri-apps/plugin-opener')
+      await openUrl(url)
+    } else {
+      const w = 520, h = 720
+      popup = window.open(url, 'kollab-connexion', `popup,width=${w},height=${h},left=${Math.round(window.screenX + (window.outerWidth - w) / 2)},top=${Math.round(window.screenY + (window.outerHeight - h) / 2)}`)
+      // Popup bloqué : on passe par la page entière, qui revient ensuite dans Kollab.
+      if (!popup) return void window.location.assign(url)
+    }
+    const started = Date.now()
+    await new Promise<void>((resolve, reject) => {
+      let over = false
+      let closedAt = 0
+      const finish = (err?: Error) => {
+        if (over) return
+        over = true
+        clearInterval(timer)
+        if (err) reject(err)
+        else resolve()
+      }
+      const timer = setInterval(() => {
+        void ready().then((ok) => {
+          if (ok) return finish()
+          if (Date.now() - started > 5 * 60e3) return finish(new Error(`Connexion ${name} abandonnée`))
+          if (popup?.closed) {
+            closedAt ||= Date.now()
+            // Fenêtre fermée : on laisse quelques secondes au compte pour enregistrer la connexion.
+            if (Date.now() - closedAt > 6000) finish(new Error(`Connexion ${name} annulée`))
+          }
+        }).catch(() => undefined)
+      }, 1500)
+    })
+  }
+
+  // Jeton perdu sur cet appareil (autre appareil, cache vidé) : on le reprend du compte au retour sur l'app.
+  const regain = () => {
+    if (!ghToken() && document.visibilityState === 'visible') void restoreGhToken().then(() => ghToken() && window.dispatchEvent(new Event('kollab:gh-token'))).catch(() => undefined)
+  }
+  document.addEventListener('visibilitychange', regain)
+  window.addEventListener('focus', regain)
+
   // Jeton refusé par GitHub : on l'oublie aussi sur le compte.
   window.addEventListener('kollab:gh-expired', () => {
     void sb.auth.getUser().then(({ data }) => data.user && sb.from('github_tokens').delete().eq('user_id', data.user.id))
@@ -252,21 +301,65 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
 
     async link(provider) {
       if (provider === 'email') throw new Error("L'email se relie depuis la connexion par lien magique.")
-      const res = await sb.auth.linkIdentity({ provider, options: { redirectTo: `${redirectTo}/reglages`, ...(provider === 'github' ? { scopes: GITHUB_SCOPES } : {}) } })
+      const back = `${IS_TAURI ? WEB_APP : window.location.origin + APP_BASE}/?gh-popup=1`
+      const res = await sb.auth.linkIdentity({ provider, options: { redirectTo: back, skipBrowserRedirect: true, ...(provider === 'github' ? { scopes: GITHUB_SCOPES } : {}) } })
       if (res.error) {
         const m = res.error.message
         if (/provider is not enabled/i.test(m)) throw new Error(`La connexion ${provider === 'github' ? 'GitHub' : provider === 'google' ? 'Google' : 'Discord'} n'est pas encore activée sur Kollab.`)
         if (/manual linking/i.test(m)) throw new Error("La liaison de comptes n'est pas encore activée sur Kollab.")
         throw res.error
       }
+      const name = provider === 'github' ? 'GitHub' : provider === 'google' ? 'Google' : 'Discord'
+      await oauthWindow(res.data.url, async () => {
+        const { data } = await sb.auth.getUserIdentities()
+        return !!data?.identities.some((i) => i.provider === provider)
+      }, name)
+      await sb.auth.refreshSession().catch(() => undefined)
     },
 
+    async syncGitHub() {
+      await saving.catch(() => undefined)
+      const local = ghToken()
+      if (local) {
+        await sb.from('github_tokens').upsert({ token: local, updated_at: new Date().toISOString() })
+        return true
+      }
+      const { data } = await sb.from('github_tokens').select('token').maybeSingle()
+      if (data?.token) {
+        setGhToken(data.token as string)
+        window.dispatchEvent(new Event('kollab:gh-token'))
+      }
+      return !!data?.token
+    },
+
+    /**
+     * Connexion GitHub dans une petite fenêtre, sans quitter Kollab : un popup sur le web,
+     * le navigateur sur l'appli d'ordi. La fenêtre range le jeton sur le compte ; ici on l'attend.
+     */
     async connectGitHub() {
       const linked = (await sb.auth.getUserIdentities()).data?.identities.some((i) => i.provider === 'github')
-      // Sans le #… de la page : Supabase ajoute le jeton après un #, un second # le rendrait illisible.
-      const options = { redirectTo: window.location.origin + window.location.pathname + window.location.search, scopes: GITHUB_SCOPES }
-      if (linked) must(await sb.auth.signInWithOAuth({ provider: 'github', options }))
-      else must(await sb.auth.linkIdentity({ provider: 'github', options }))
+      const back = `${IS_TAURI ? WEB_APP : window.location.origin + APP_BASE}/?gh-popup=1`
+      const options = { redirectTo: back, scopes: GITHUB_SCOPES, skipBrowserRedirect: true }
+      const { data, error } = linked
+        ? await sb.auth.signInWithOAuth({ provider: 'github', options })
+        : await sb.auth.linkIdentity({ provider: 'github', options })
+      if (error || !data?.url) throw new Error(error?.message ?? 'Connexion GitHub impossible')
+
+      const started = Date.now()
+      const before = ghToken()
+      await oauthWindow(data.url, async () => {
+        const now = ghToken()
+        if (now && now !== before) return true
+        const { data: row } = await sb.from('github_tokens').select('token, updated_at').maybeSingle()
+        if (row?.token && new Date(row.updated_at as string).getTime() >= started - 2000) {
+          setGhToken(row.token as string)
+          window.dispatchEvent(new Event('kollab:gh-token'))
+          return true
+        }
+        return false
+      }, 'GitHub')
+      // La fenêtre a pu changer la session du compte : on relit la nôtre.
+      await sb.auth.getSession()
     },
 
     async unlink(provider) {

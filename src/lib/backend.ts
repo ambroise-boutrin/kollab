@@ -115,6 +115,8 @@ export interface Backend {
   unlink(provider: Provider): Promise<void>
   /** Connexion GitHub avec accès aux dépôts (pour les PR et la CI). */
   connectGitHub(): Promise<void>
+  /** Range le jeton GitHub de cet appareil sur le compte, ou le récupère du compte. Vrai si GitHub est utilisable. */
+  syncGitHub(): Promise<boolean>
 
   /** Projets dont l'utilisateur est membre, du plus ancien au plus récent. */
   listGroups(): Promise<GroupSummary[]>
