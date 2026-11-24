@@ -114,6 +114,8 @@ function toUser(u: SbUser | null | undefined): User | null {
     id: u.id,
     name: meta.full_name ?? meta.user_name ?? meta.name ?? u.email?.split('@')[0] ?? 'Moi',
     email: u.email ?? null,
+    // Présentation déjà faite : drapeau du compte, ou compte de plus de 2 jours.
+    onboarded: meta.kollab_onboarded === true || Date.now() - Date.parse(u.created_at) > 2 * 86_400_000,
   }
 }
 
@@ -202,9 +204,20 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     mode: 'supabase',
 
     async currentUser() {
-      const { data } = await sb.auth.getUser()
-      if (data.user) await restoreGhToken().catch(() => undefined)
-      return toUser(data.user)
+      const { data, error } = await sb.auth.getUser()
+      let u = data.user
+      // Réseau lent ou jeton en cours de renouvellement : on garde la session de l'appareil
+      // plutôt que de renvoyer à la connexion (et à la création d'un projet).
+      if (!u && error && error.name !== 'AuthSessionMissingError') {
+        u = (await sb.auth.getSession()).data.session?.user ?? null
+        if (!u) throw new Error('Connexion au serveur impossible pour le moment')
+      }
+      if (u) await restoreGhToken().catch(() => undefined)
+      return toUser(u)
+    },
+
+    async markOnboarded() {
+      must(await sb.auth.updateUser({ data: { kollab_onboarded: true } }))
     },
 
     onAuthChange(cb) {
@@ -223,7 +236,8 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         if (event === 'SIGNED_IN' && u && u.user_metadata?.cgu_version !== CGU_VERSION) {
           setTimeout(() => void sb.auth.updateUser({ data: { cgu_version: CGU_VERSION, cgu_accepted_at: new Date().toISOString() } }), 0)
         }
-        cb(toUser(u))
+        // Un simple renouvellement de jeton ne change rien : pas de rechargement.
+        if (event !== 'TOKEN_REFRESHED') cb(toUser(u))
       })
       return () => data.subscription.unsubscribe()
     },
@@ -396,8 +410,9 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     },
 
     async loadWorkspace(wanted?: string | null): Promise<Workspace | null> {
-      const { data: auth } = await sb.auth.getUser()
-      if (!auth.user) return null
+      // Session de l'appareil : pas d'appel réseau qui pourrait échouer et faire croire à « aucun projet ».
+      const auth = { user: (await sb.auth.getSession()).data.session?.user }
+      if (!auth.user) throw new Error('Session expirée, reconnecte-toi')
       const memberships = (must(
         await sb.from('group_members').select('group_id, groups(id)').eq('user_id', auth.user.id).order('joined_at'),
       ) as unknown as { group_id: string; groups: { id: string } | null }[]).filter((m) => m.groups)
@@ -419,6 +434,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         user_id: string
         role: Role
         title?: string | null
+        title_request?: string | null
         profiles: { name: string; color: string; title: string; status: PresenceStatus; avatar_url: string | null; status_text?: string | null; status_color?: string | null; status_until?: string | null; weekly_email?: boolean | null } | null
       }
       return {
@@ -430,6 +446,8 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
             color: m.profiles?.color ?? '#5546E0',
             role: m.role,
             title: m.title || m.profiles?.title || '',
+            // Absent tant que la colonne n'existe pas en base : la proposition de rôle reste cachée.
+            titleRequest: 'title_request' in m ? (m.title_request ?? null) : undefined,
             status: m.profiles?.status ?? 'available',
             avatarUrl: m.profiles?.avatar_url ?? null,
             statusText: m.profiles?.status_text ?? '',
@@ -627,6 +645,14 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
 
     async setMemberTitle(memberId, title) {
       must(await sb.rpc('set_member_title', { gid: groupId, member: memberId, new_title: title }))
+    },
+
+    async requestTitle(title) {
+      must(await sb.rpc('request_member_title', { gid: groupId, new_title: title }))
+    },
+
+    async declineTitle(memberId) {
+      must(await sb.rpc('decline_member_title', { gid: groupId, member: memberId }))
     },
 
     async setGroupLogo(file, gid) {

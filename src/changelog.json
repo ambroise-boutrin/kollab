@@ -1,6 +1,6 @@
 [
   {
-    "version": "0.6.3",
+    "version": "0.6.4",
     "date": "2026-11-24",
     "title": "Discord dans le chat",
     "items": [
@@ -8,6 +8,17 @@
       "Tous les salons Discord arrivent dans le chat, ceux du même nom sont fusionnés",
       "Les messages passent dans les deux sens, avec le nom et la photo de chacun",
       "Bouton « Relier à Discord » en haut de chaque salon"
+    ]
+  },
+  {
+    "version": "0.6.3",
+    "date": "2026-11-24",
+    "title": "Tes projets, à chaque connexion",
+    "items": [
+      "Plus de présentation ni de projet à refaire quand tu te reconnectes",
+      "La visite de l'app ne revient plus sur chaque appareil",
+      "Bulle de chat en bas à droite",
+      "Propose ton rôle dans Équipe, un admin le valide"
     ]
   },
   {

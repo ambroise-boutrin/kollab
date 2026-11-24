@@ -12,15 +12,17 @@ const STEPS: TourStep[] = [
   { path: '/', target: 'profile', title: 'Ton compte', text: 'Profil, comptes liés, thème et réglages.' },
 ]
 
-/** Visite de l'app après l'introduction, une fois par appareil ; « Revoir la visite » la relance. */
+/** Visite de l'app après l'introduction, une fois par compte ; « Revoir la visite » la relance. */
 export function AppTour() {
-  const { user } = useStore()
+  const { user, backend } = useStore()
   const uid = user?.id ?? ''
-  const [open, setOpen] = useState(() => !!uid && !tourDone(uid))
+  // Déjà faite sur un autre appareil : le compte le sait, on ne la remontre pas.
+  const [open, setOpen] = useState(() => !!uid && !tourDone(uid) && !user?.onboarded)
   const close = useCallback(() => {
     finishTour(uid)
     setOpen(false)
-  }, [uid])
+    if (!user?.onboarded) void backend.markOnboarded().catch(() => undefined)
+  }, [uid, user?.onboarded, backend])
   useEffect(() => {
     const again = () => setOpen(true)
     window.addEventListener('kollab:tour', again)

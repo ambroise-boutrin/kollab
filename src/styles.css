@@ -2277,6 +2277,25 @@ label.profile-row .profile-row-label { flex: none; width: 64px; color: var(--mut
 .tc-suggest button:hover { background: var(--subtle, #F1F2F6); }
 .ph-card .due-badge { align-self: flex-start; }
 
+/* Bulle de chat flottante */
+.chat-bubble { position: fixed; right: 24px; bottom: 24px; z-index: 60; width: 60px; height: 60px; border-radius: 50%; border: 0; display: grid; place-items: center; background: var(--accent); color: #fff; cursor: pointer; box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 35%, transparent); animation: bubble-in .35s var(--ease, ease) both; transition: transform .15s ease; }
+.chat-bubble:hover { transform: scale(1.06); }
+.chat-bubble:active { transform: scale(.96); }
+.chat-bubble-n { position: absolute; top: -2px; right: -2px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: #E5484D; color: #fff; font-size: 12px; font-weight: 700; display: grid; place-items: center; border: 2px solid var(--bg); }
+@keyframes bubble-in { from { opacity: 0; transform: scale(.6) translateY(12px); } to { opacity: 1; transform: none; } }
+
+/* Rôle proposé par le membre */
+button.member-title.propose { border: 0; background: var(--subtle); border-radius: 10px; padding: 6px 10px; margin: 2px 0; font: inherit; font-size: 14px; font-weight: 600; color: var(--accent); cursor: pointer; }
+button.member-title.propose:hover { background: var(--line); }
+button.member-title.propose em { font-style: normal; color: #B06E0F; }
+.title-ask { display: grid; gap: 8px; width: 100%; padding: 10px 12px; border-radius: 14px; background: #FFF3C4; color: #6B4600; font-size: 13px; text-align: left; animation: appear .25s ease both; }
+.title-ask > div { display: flex; gap: 8px; }
+.title-choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.title-choices button { border: 0; border-radius: 12px; padding: 10px 14px; font: inherit; font-weight: 600; background: var(--subtle); color: var(--text); cursor: pointer; transition: background .15s ease, transform .1s ease; }
+.title-choices button:hover { background: var(--line); }
+.title-choices button:active { transform: scale(.97); }
+.title-choices button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+
 /* Discord ------------------------------------------------------------- */
 :root { --discord: #5865F2; --discord-soft: color-mix(in srgb, #5865F2 13%, var(--surface)); --discord-ink: #3F48B8; }
 .btn.discord { background: var(--discord); }

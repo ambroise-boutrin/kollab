@@ -24,6 +24,8 @@ export interface Member {
   role: Role
   /** Rôle dans l'équipe, ex. « Développeuse front ». */
   title: string
+  /** Rôle proposé par la personne, en attente d'un admin. */
+  titleRequest?: string | null
   status: PresenceStatus
   avatarUrl: string | null
   online?: boolean

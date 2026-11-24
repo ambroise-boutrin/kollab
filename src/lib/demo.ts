@@ -54,7 +54,7 @@ const demoFiles = new Map<string, string>()
 const ME: Member = { id: 'me', name: 'Moi', color: '#5546E0', role: 'admin', title: 'Product Owner', status: 'available', avatarUrl: null }
 const TEAM: Member[] = [
   { id: 'lm', name: 'Léa Martin', color: '#2E7D4F', role: 'member', title: 'Développeuse front', status: 'available', avatarUrl: null },
-  { id: 'sk', name: 'Sami Benali', color: '#2F6FD0', role: 'member', title: 'Développeur back', status: 'busy', avatarUrl: null },
+  { id: 'sk', name: 'Sami Benali', color: '#2F6FD0', role: 'member', title: 'Développeur back', titleRequest: 'Développeur full stack', status: 'busy', avatarUrl: null },
   { id: 'yo', name: 'Yohann Petit', color: '#B5462E', role: 'guest', title: 'Client', status: 'away', avatarUrl: null },
 ]
 
@@ -222,6 +222,8 @@ export const demoBackend: Backend = {
   async currentUser() {
     return read().user
   },
+
+  async markOnboarded() {},
 
   onAuthChange(cb) {
     authListeners.add(cb)
@@ -505,7 +507,23 @@ export const demoBackend: Backend = {
   async setMemberTitle(memberId, title) {
     update((s) => {
       const m = s.workspace?.members.find((x) => x.id === memberId)
-      if (m) m.title = title
+      if (m) { m.title = title; m.titleRequest = null }
+    })
+    emit({ kind: 'refresh' })
+  },
+
+  async requestTitle(title) {
+    update((s) => {
+      const m = s.workspace?.members.find((x) => x.id === s.user?.id) ?? s.workspace?.members[0]
+      if (m) m.titleRequest = title || null
+    })
+    emit({ kind: 'refresh' })
+  },
+
+  async declineTitle(memberId) {
+    update((s) => {
+      const m = s.workspace?.members.find((x) => x.id === memberId)
+      if (m) m.titleRequest = null
     })
     emit({ kind: 'refresh' })
   },

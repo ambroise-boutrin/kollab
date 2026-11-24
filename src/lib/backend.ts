@@ -4,6 +4,8 @@ export interface User {
   id: string
   name: string
   email: string | null
+  /** Présentation et visite déjà faites sur un appareil : on ne les remontre pas. */
+  onboarded?: boolean
 }
 
 export interface TrashItem {
@@ -91,6 +93,8 @@ export interface LiveHandlers {
 export interface Backend {
   mode: 'demo' | 'supabase'
   currentUser(): Promise<User | null>
+  /** Retient sur le compte que la présentation est faite (tous appareils). */
+  markOnboarded(): Promise<void>
   onAuthChange(cb: (user: User | null) => void): () => void
   signIn(provider: Provider, email?: string): Promise<{ emailSent?: boolean }>
   signOut(): Promise<void>
@@ -147,6 +151,9 @@ export interface Backend {
   setMemberRole(memberId: string, role: Role): Promise<void>
   /** Rôle dans l'équipe (Product Owner…), attribué par un admin du projet. */
   setMemberTitle(memberId: string, title: string): Promise<void>
+  /** Proposer son propre rôle (vide : retirer la proposition). Les admins sont prévenus. */
+  requestTitle(title: string): Promise<void>
+  declineTitle(memberId: string): Promise<void>
   /** Logo du projet ouvert (ou de `groupId`) ; null le retire. */
   setGroupLogo(file: Blob | null, groupId?: string): Promise<void>
   /** Couleur et rythme du projet ouvert (ou de `groupId`). */

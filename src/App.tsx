@@ -12,7 +12,7 @@ import { Roadmap } from './pages/Roadmap'
 import { Intro } from './pages/Intro'
 import { ProjectSettings } from './pages/ProjectSettings'
 import { Reviews } from './pages/Reviews'
-import { readIntro } from './lib/intro'
+import { dropIntro, readIntro } from './lib/intro'
 import { Home } from './pages/Home'
 import { LoadError } from './pages/LoadError'
 import { Login } from './pages/Login'
@@ -20,7 +20,7 @@ import { NewPassword } from './pages/NewPassword'
 import { Settings } from './pages/Settings'
 
 export function App() {
-  const { ready, user, workspace, loadError } = useStore()
+  const { ready, user, workspace, groups, loadError } = useStore()
   const [resetting, setResetting] = useState(() => new URLSearchParams(window.location.search).has('nouveau-mot-de-passe'))
   if (!ready) return null
   if (loadError) return <LoadError message={loadError} />
@@ -36,7 +36,12 @@ export function App() {
         }}
       />
     )
-  if (!workspace || readIntro(user.id)) return <Intro />
+  // Présentation seulement pour un compte sans projet, ou au milieu de la sienne (après avoir créé le projet).
+  const intro = readIntro(user.id)
+  const midIntro = intro && (groups.length === 0 || intro.step === 'comptes' || intro.step === 'equipe' || intro.step === 'fin')
+  if (intro && !midIntro) dropIntro(user.id)
+  if (!workspace && groups.length > 0) return <LoadError message="Ton projet n'a pas pu s'ouvrir. Tes projets sont bien là." />
+  if (!workspace || midIntro) return <Intro />
   return (
     <BrowserRouter basename={APP_BASE || '/'}>
       <Routes>
