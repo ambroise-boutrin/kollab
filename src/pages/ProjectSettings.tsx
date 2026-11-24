@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useGhLinked } from '../lib/useGhLinked'
 import { useNavigate } from 'react-router-dom'
 import { AvatarGroup } from '../components/Avatar'
 import { Icon } from '../components/Icon'
@@ -9,7 +10,7 @@ import { shrinkSquare } from '../lib/image'
 import { SectionsPage } from '../components/SectionsPage'
 import { useToast } from '../components/Toast'
 import type { TrashItem } from '../lib/backend'
-import { branchName, getRepo, ghToken, myRepos, parseRepo, projectRepoLink, type RepoInfo } from '../lib/github'
+import { branchName, getRepo, myRepos, parseRepo, projectRepoLink, type RepoInfo } from '../lib/github'
 import { normalizeRepo } from '../lib/presets'
 import { autoPrEnabled, rememberGroup, setAutoPr, useStore, useWorkspace } from '../lib/store'
 import { ROLES } from '../lib/types'
@@ -39,7 +40,8 @@ function RepoPicker({ onPick, onClose }: { onPick: (url: string) => void; onClos
   const { backend } = useStore()
   const toast = useToast()
   const [q, setQ] = useState('')
-  const repos = useAsync(ghToken() ? myRepos : null, [])
+  const linked = useGhLinked()
+  const repos = useAsync(linked ? myRepos : null, [linked])
   const typed = normalizeRepo(q)
   const shown = useMemo(() => (repos.data ?? []).filter((r) => !q || r.fullName.toLowerCase().includes(q.toLowerCase())).slice(0, 40), [repos.data, q])
   return (
@@ -54,7 +56,7 @@ function RepoPicker({ onPick, onClose }: { onPick: (url: string) => void; onClos
           <span className="pop-grow"><strong>{typed.replace('https://github.com/', '')}</strong><span className="muted">Relier ce dépôt</span></span>
         </button>
       )}
-      {!ghToken() ? (
+      {!linked ? (
         <div className="cta-card">
           <strong>Voir tes dépôts</strong>
           <span>Connecte GitHub pour choisir dans ta liste, y compris les dépôts privés.</span>
@@ -81,6 +83,7 @@ function RepoPicker({ onPick, onClose }: { onPick: (url: string) => void; onClos
 }
 
 export function ProjectSettings() {
+  const ghLinked = useGhLinked()
   const ws = useWorkspace()
   const { backend, user, reload, online } = useStore()
   const toast = useToast()
@@ -235,7 +238,7 @@ export function ProjectSettings() {
                     )}
                     <div className="repo-actions">
                       <button className="btn small" onClick={() => navigate('/revues')}>Voir les PR</button>
-                      {!ghToken() && <button className="btn soft small" onClick={() => void backend.connectGitHub().catch((e: Error) => toast(e.message))}>Connecter GitHub</button>}
+                      {!ghLinked && <button className="btn soft small" onClick={() => void backend.connectGitHub().catch((e: Error) => toast(e.message))}>Connecter GitHub</button>}
                     </div>
                   </section>
                 ) : (

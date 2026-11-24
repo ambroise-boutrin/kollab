@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useGhLinked } from '../lib/useGhLinked'
 import { Link } from 'react-router-dom'
 import { branchName, checkRuns, createTaskPr, getPull, ghToken, listBranches, listPulls, parsePrUrl, prFromBranch, projectRepo, summarize, typedBranch, type Pull } from '../lib/github'
 import { useStore } from '../lib/store'
@@ -61,7 +62,8 @@ export function PrPicker({ value, onChange, onMerged, task, card = false }: {
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
-  const branches = useAsync(open && repo ? () => listBranches(repo) : null, [open, repo?.owner, repo?.repo])
+  const canWrite = useGhLinked()
+  const branches = useAsync(open && repo ? () => listBranches(repo) : null, [open, repo?.owner, repo?.repo, canWrite])
   const pulls = useAsync(open && repo ? () => listPulls(repo, 'open') : null, [open, repo?.owner, repo?.repo])
   const prByBranch = useMemo(() => new Map((pulls.data ?? []).map((p) => [p.branch, p])), [pulls.data])
   const fresh = branchName(task.kind, task.title)
@@ -108,7 +110,6 @@ export function PrPicker({ value, onChange, onMerged, task, card = false }: {
     )
   }
 
-  const canWrite = !!ghToken()
   return (
     <div className="branch-picker" ref={ref}>
       {card ? (

@@ -314,6 +314,10 @@ export const demoBackend: Backend = {
       .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
   },
 
+  async syncGitHub() {
+    return false
+  },
+
   async connectGitHub() {
     throw new Error('Indisponible en démo : les dépôts publics restent lisibles')
   },

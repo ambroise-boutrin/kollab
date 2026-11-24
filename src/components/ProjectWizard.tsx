@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useGhLinked } from '../lib/useGhLinked'
 import { createPortal } from 'react-dom'
 import { Icon } from './Icon'
 import { Modal, touchScreen } from './Modal'
@@ -6,7 +7,7 @@ import { PROJECT_COLORS, ProjectMark } from './ProjectMark'
 import { inviteUrl } from './InviteDialog'
 import { useToast } from './Toast'
 import { shrinkSquare } from '../lib/image'
-import { ghToken, myRepos, type RepoInfo } from '../lib/github'
+import { myRepos, type RepoInfo } from '../lib/github'
 import { enablePush, pushSupport } from '../lib/push'
 import { normalizeRepo, PRESETS } from '../lib/presets'
 import { addDays, isoDay } from '../lib/sprints'
@@ -191,7 +192,7 @@ export function ProjectWizard({ onClose, onDone }: { onClose: () => void; onDone
           {step === 2 && <StepPreset d={d} set={set} />}
           {step === 3 && <StepRepo d={d} set={set} onConnect={() => {
             try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(d)) } catch { /* ignoré */ }
-            backend.connectGitHub().catch((e: Error) => { try { sessionStorage.removeItem(DRAFT_KEY) } catch { /* ignoré */ } toast(e.message) })
+            backend.connectGitHub().then(() => { try { sessionStorage.removeItem(DRAFT_KEY) } catch { /* ignoré */ } }).catch((e: Error) => { try { sessionStorage.removeItem(DRAFT_KEY) } catch { /* ignoré */ } toast(e.message) })
           }} />}
           {step === 4 && <StepTeam d={d} set={set} />}
           {step === 5 && <StepRhythm d={d} set={set} />}
@@ -270,8 +271,8 @@ function StepPreset({ d, set }: StepProps) {
 }
 
 function StepRepo({ d, set, onConnect }: StepProps & { onConnect: () => void }) {
-  const token = !!ghToken()
-  const repos = useAsync<RepoInfo[]>(token ? myRepos : null, [])
+  const token = useGhLinked()
+  const repos = useAsync<RepoInfo[]>(token ? myRepos : null, [token])
   const [q, setQ] = useState('')
   const shown = useMemo(() => {
     const s = q.trim().toLowerCase()

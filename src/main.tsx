@@ -30,6 +30,9 @@ const showApp = IS_TAURI || inApp || installed || invited
 
 const AppRoot = lazy(() => import('./AppRoot'))
 const Site = lazy(() => import('./site/Site'))
+const GitHubDone = lazy(() => import('./GitHubDone'))
+// Petite fenêtre de connexion GitHub ouverte par l'app : pas d'app complète dedans.
+const ghPopup = new URLSearchParams(search).has('gh-popup')
 
 if (showApp) {
   blockPinchZoom()
@@ -43,6 +46,6 @@ trackViewport()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Suspense fallback={null}>{showApp ? <AppRoot installed={installed} /> : <Site />}</Suspense>
+    <Suspense fallback={null}>{ghPopup ? <GitHubDone /> : showApp ? <AppRoot installed={installed} /> : <Site />}</Suspense>
   </StrictMode>,
 )

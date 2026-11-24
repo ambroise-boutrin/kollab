@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react'
+import { useGhLinked } from '../lib/useGhLinked'
 import { Link, useSearchParams } from 'react-router-dom'
 import { FileDiff } from '../components/Diff'
 import { Icon } from '../components/Icon'
@@ -35,13 +36,14 @@ function checkLabel(c: CheckRun): { label: string; cls: string } {
 
 /** Revues de code : PR du dépôt du projet, diff coloré, discussion, tests et relance de la CI. */
 export function Reviews() {
+  const linked = useGhLinked()
   const ws = useWorkspace()
   const { backend } = useStore()
   const toast = useToast()
   const repo = projectRepo(ws)
   const [params, setParams] = useSearchParams()
   const [state, setState] = useState<'open' | 'closed'>('open')
-  const pulls = useAsync(repo ? () => listPulls(repo, state) : null, [repo?.owner, repo?.repo, state], LIVE)
+  const pulls = useAsync(repo ? () => listPulls(repo, state) : null, [repo?.owner, repo?.repo, state, linked], LIVE)
   const selected = Number(params.get('pr')) || pulls.data?.[0]?.number || null
   const pr = pulls.data?.find((p) => p.number === selected) ?? null
 
@@ -69,7 +71,7 @@ export function Reviews() {
           <h1>Revues de code</h1>
           <p className="muted" style={{ margin: '2px 0 0', fontSize: 14 }}>{repo.owner}/{repo.repo}</p>
         </div>
-        {!ghToken() && <button className="btn dark small" onClick={() => void connect()}>Connecter GitHub</button>}
+        {!linked && <button className="btn dark small" onClick={() => void connect()}>Connecter GitHub</button>}
       </header>
 
       <div className="reviews-grid">
