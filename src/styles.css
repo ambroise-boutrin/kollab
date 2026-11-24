@@ -2608,3 +2608,22 @@ button.sprint-done-row:hover { background: var(--line); }
 .pr-opt span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pr-opt small { color: var(--muted); font-size: 13px; }
 .pr-dot { width: 18px; height: 18px; }
+.pres-wrap { position: relative; }
+.pres-chev { display: grid; transform: rotate(-90deg); color: var(--muted); transition: transform .15s ease; }
+.pres-item[aria-expanded='true'] { background: var(--subtle); }
+.pres-fly { position: absolute; left: calc(100% + 12px); top: -8px; z-index: 61; width: 230px; display: flex; flex-direction: column; gap: 1px; padding: 6px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 1px var(--line), 0 10px 30px rgba(var(--shadow-rgb), .12); animation: pop-in .15s ease both; }
+.pres-fly-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 0; border-radius: 10px; background: none; color: var(--text); font: inherit; font-size: 14px; font-weight: 500; text-align: left; cursor: pointer; }
+.pres-fly-item:hover { background: color-mix(in srgb, var(--pc) 12%, var(--surface)); }
+.pres-fly-item.on { background: color-mix(in srgb, var(--pc) 16%, var(--surface)); font-weight: 700; }
+.pres-fly-dur { display: flex; flex-direction: column; gap: 6px; padding: 8px 6px 4px; margin-top: 4px; border-top: 1px solid var(--line); }
+.pres-fly-dur > span { font-size: 12px; font-weight: 600; color: var(--muted); }
+.pres-fly-dur > div { display: flex; flex-wrap: wrap; gap: 4px; }
+.pres-fly-dur button { border: 0; border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 12px; font-weight: 600; background: var(--subtle); color: var(--text); cursor: pointer; }
+.pres-fly-dur button[aria-checked='true'] { background: var(--accent); color: #fff; }
+.profile-pop.compact .pres-fly { left: auto; right: 0; top: calc(100% + 4px); }
+@media (max-width: 820px) {
+  .pres-fly { position: static; width: auto; box-shadow: none; background: var(--subtle); margin: 2px 0 4px; animation: none; }
+  .pres-chev { transform: none; }
+  .pres-item[aria-expanded='true'] .pres-chev { transform: rotate(180deg); }
+}
+.sidebar:has(.pres-fly) { z-index: 40; }

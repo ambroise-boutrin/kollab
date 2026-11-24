@@ -73,3 +73,40 @@ export function PresenceSheet({ me, onClose, onMessage }: { me: Member; onClose:
     </Modal>
   )
 }
+
+const QUICK = DURATIONS.filter((d) => d.id !== '30')
+
+/** Menu flottant à côté de « Disponible » : un clic change la présence tout de suite. */
+export function PresenceFlyout({ me, onDone }: { me: Member; onDone: () => void }) {
+  const { backend, reload } = useStore()
+  const toast = useToast()
+  const current = presenceOf(me)
+  const [duration, setDuration] = useState('toujours')
+  async function choose(s: PresenceStatus) {
+    try {
+      const until = s === 'available' ? null : QUICK.find((d) => d.id === duration)!.until()
+      onDone()
+      await backend.updateProfile({ status: s, presenceUntil: until })
+      await reload()
+      if (until) toast(`${PRESENCE[s].label} ${untilLabel(until)}`)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Enregistrement impossible')
+    }
+  }
+  return (
+    <div className="pres-fly" role="menu" aria-label="Présence">
+      {PRESENCE_ORDER.map((s) => (
+        <button key={s} role="menuitemradio" aria-checked={current === s} className={`pres-fly-item${current === s ? ' on' : ''}`} style={{ ['--pc' as string]: PRESENCE[s].color }} onClick={() => void choose(s)}>
+          <PresenceDot status={s} className="pres-ic" />
+          <span>{PRESENCE[s].label}</span>
+        </button>
+      ))}
+      <div className="pres-fly-dur">
+        <span>Pendant</span>
+        <div role="radiogroup" aria-label="Pendant">
+          {QUICK.map((d) => <button key={d.id} role="radio" aria-checked={duration === d.id} onClick={() => setDuration(d.id)}>{d.label}</button>)}
+        </div>
+      </div>
+    </div>
+  )
+}

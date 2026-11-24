@@ -20,7 +20,7 @@ import { InviteDialog } from './InviteDialog'
 import { CommandPalette, openSearch } from './CommandPalette'
 import { CallProvider } from '../lib/calls'
 import { CallButtons, CallLayer } from './Call'
-import { PresenceDot, PresenceSheet } from './Presence'
+import { PresenceDot, PresenceFlyout } from './Presence'
 import { StatusSheet, untilLabel } from './StatusSheet'
 import { ChatBubble, Dock, DockToggle } from './Dock'
 import { OfflineBar } from './OfflineBar'
@@ -186,7 +186,7 @@ function ProfileMenu({ compact = false }: { compact?: boolean }) {
       label="Mon compte"
       className={compact ? 'profile-pop compact' : 'profile-pop'}
       button={({ open, toggle }) => (
-        <button className="profile-btn" aria-expanded={open} aria-haspopup="menu" onClick={toggle} aria-label="Mon compte" data-tour="profile">
+        <button className="profile-btn" aria-expanded={open} aria-haspopup="menu" onClick={() => { setPresenceOpen(false); toggle() }} aria-label="Mon compte" data-tour="profile">
           <Avatar member={me} size={compact ? 32 : 34} online={!!me && online.includes(me.id)} />
           {!compact && (
             <span className="switcher-text">
@@ -206,11 +206,14 @@ function ProfileMenu({ compact = false }: { compact?: boolean }) {
               <span className="muted">{user?.email ?? 'Compte de démonstration'}</span>
             </span>
           </div>
-          <button role="menuitem" className="pop-item pres-item" onClick={() => { close(); setPresenceOpen(true) }}>
-            <PresenceDot status={pres} className="pres-ic" />
-            <span className="pop-grow"><b>{PRESENCE[pres].label}</b>{me?.presenceUntil && pres !== 'available' && <span className="muted"> {untilLabel(me.presenceUntil)}</span>}</span>
-            <Icon name="chevron" size={16} />
-          </button>
+          <div className="pres-wrap">
+            <button role="menuitem" className="pop-item pres-item" aria-expanded={presenceOpen} aria-haspopup="menu" onClick={() => setPresenceOpen((o) => !o)}>
+              <PresenceDot status={pres} className="pres-ic" />
+              <span className="pop-grow"><b>{PRESENCE[pres].label}</b>{me?.presenceUntil && pres !== 'available' && <span className="muted"> {untilLabel(me.presenceUntil)}</span>}</span>
+              <span className="pres-chev"><Icon name="chevron" size={16} /></span>
+            </button>
+            {presenceOpen && me && <PresenceFlyout me={me} onDone={() => { setPresenceOpen(false); close() }} />}
+          </div>
           <button role="menuitem" className="pop-item" onClick={() => { close(); setStatusOpen(true) }}>
             <Icon name="edit" size={18} /> {liveStatus(me) ? <span className="pop-grow">{liveStatus(me)}</span> : 'Message de statut'}
           </button>
@@ -228,7 +231,6 @@ function ProfileMenu({ compact = false }: { compact?: boolean }) {
       )}
     </Popover>
     {account && <PhoneAccount onClose={() => setAccount(false)} />}
-    {presenceOpen && me && <PresenceSheet me={me} onClose={() => setPresenceOpen(false)} onMessage={() => setStatusOpen(true)} />}
     {statusOpen && me && <StatusSheet me={me} onClose={() => setStatusOpen(false)} />}
     </>
   )
