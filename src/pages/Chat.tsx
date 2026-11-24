@@ -7,7 +7,7 @@ import { DiscordLinkDialog, DiscordMark } from '../components/DiscordLinkDialog'
 import { initials } from '../components/Avatar'
 import { Popover } from '../components/Popover'
 import { PromptDialog } from '../components/PromptDialog'
-import { Modal } from '../components/Modal'
+import { Modal, usePhone } from '../components/Modal'
 import { LogoMark } from '../components/Logo'
 import { PrStatus } from '../components/PrLink'
 import { useToast } from '../components/Toast'
@@ -175,6 +175,18 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
   const [pickChan, setPickChan] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const phone = usePhone()
+  // Téléphone : quand le clavier s'ouvre (la liste rétrécit), le dernier message reste visible.
+  useEffect(() => {
+    const l = listRef.current
+    if (!l || typeof ResizeObserver === 'undefined') return
+    let atBottom = true
+    const watch = () => { atBottom = l.scrollHeight - l.scrollTop - l.clientHeight < 80 }
+    const ro = new ResizeObserver(() => { if (atBottom) l.scrollTop = l.scrollHeight })
+    l.addEventListener('scroll', watch, { passive: true })
+    ro.observe(l)
+    return () => { l.removeEventListener('scroll', watch); ro.disconnect() }
+  }, [])
   const repo = projectRepo(ws)
 
   const openTask = (id: string) => navigate(`/tableau?tache=${id}`)
@@ -590,7 +602,7 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
               onChange={(e) => { setText(e.target.value); setPick(0) }}
               onKeyDown={onKey}
               onPaste={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); addFiles(e.clipboardData.files) } }}
-              placeholder={`Écrire dans #${channel?.name ?? ''}${channel && linkOf(channel.id) ? ' · Discord le voit aussi' : ''}`}
+              placeholder={phone ? `Message #${channel?.name ?? ''}` : `Écrire dans #${channel?.name ?? ''}${channel && linkOf(channel.id) ? ' · Discord le voit aussi' : ''}`}
               autoComplete="off"
             />
             <button className="btn small" aria-label="Envoyer" disabled={sending || (!text.trim() && !files.length)}>
