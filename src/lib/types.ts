@@ -93,6 +93,12 @@ export interface Channel {
   name: string
 }
 
+/** Compte Discord d'une personne, relié à son compte Kollab. */
+export interface DiscordAccount {
+  name: string
+  avatar: string | null
+}
+
 /** Serveur Discord relié au projet. */
 export interface DiscordGuild {
   id: string
@@ -126,6 +132,16 @@ export interface Message {
   reactions?: Reaction[]
   /** Message écrit sur Discord : nom et avatar de son auteur là-bas. */
   discord?: { name: string; avatar: string | null } | null
+  /** Pièces jointes (fichiers du projet). */
+  attachments?: Attachment[]
+}
+
+/** Fichier joint à un message. `path` : emplacement dans le stockage du projet. */
+export interface Attachment {
+  path: string
+  name: string
+  size: number
+  mime: string
 }
 
 export interface TaskComment {

@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.6.8",
+    "date": "2026-11-24",
+    "title": "Salons, fichiers et ton compte Discord",
+    "items": [
+      "Crée, renomme et supprime tes salons ; un salon supprimé se restaure depuis la corbeille",
+      "Joins des fichiers et des images dans le chat : trombone, glisser-déposer ou coller",
+      "Relie ton compte Discord : tes messages Discord s'affichent de ton côté",
+      "L'historique des salons Discord arrive dans Kollab, fichiers compris"
+    ]
+  },
+  {
     "version": "0.6.7",
     "date": "2026-11-24",
     "title": "De vrais appels",

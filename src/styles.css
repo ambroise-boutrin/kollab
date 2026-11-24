@@ -2420,7 +2420,7 @@ button.member-title.propose em { font-style: normal; color: #B06E0F; }
   .chan-pick span { font-size: 12px; color: var(--muted); }
   /* Discord se règle depuis la fenêtre des salons : l'en-tête garde la place. */
   .page.chat .thread-tools .discord-pill, .page.chat .thread-tools .btn.discord { display: none; }
-  .chan-discord { width: 100%; margin-top: 12px; min-height: 48px; }
+  .chan-discord, .chan-new { width: 100%; margin-top: 12px; min-height: 48px; }
   .page.chat .messages { padding: 12px 16px; }
   .page.chat .msg:not(.mine) .bubble { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
   .page.chat .composer { background: var(--surface); border-top: 1px solid var(--line); padding: 10px 12px; }
@@ -2527,3 +2527,68 @@ button.sprint-done-row:hover { background: var(--line); }
   .discord-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .discord-guild { flex-basis: 100%; }
 }
+
+/* Salons modifiables et pièces jointes --------------------------------- */
+.channel-row { position: relative; display: flex; align-items: center; flex: none; }
+.channel-row .channel { flex: 1; min-width: 0; padding-right: 34px; }
+.channel-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.channel-more { position: absolute; right: 4px; top: 50%; margin-top: -14px; }
+.channel-more-btn { width: 28px; height: 28px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-size: 11px; letter-spacing: 1px; cursor: pointer; opacity: 0; transition: opacity .15s, background-color .15s; }
+.channel-row:hover .channel-more-btn, .channel-row.active .channel-more-btn, .channel-more-btn[aria-expanded='true'], .channel-more-btn:focus-visible { opacity: 1; }
+.channel-more-btn:hover { background: var(--subtle); color: var(--text); }
+.channel-new { color: var(--accent); font-weight: 600; margin-top: 6px; }
+.channel-new:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+@media (hover: none) { .channel-row.active .channel-more-btn { opacity: 1; } .channel-row:not(.active) .channel-more { display: none; } }
+@media (max-width: 820px) { .channel-new { margin-top: 0; white-space: nowrap; } .channel-row .channel { white-space: nowrap; } }
+
+.thread { position: relative; }
+.thread.dragging { outline: 3px dashed color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: -8px; }
+.drop-hint { position: absolute; inset: 0; z-index: 5; display: grid; place-content: center; justify-items: center; gap: 10px; background: color-mix(in srgb, var(--surface) 86%, transparent); color: var(--accent); pointer-events: none; animation: appear .15s var(--ease) both; }
+
+.attachments { display: flex; flex-direction: column; gap: 6px; max-width: 460px; }
+.attach-images { display: grid; gap: 4px; border-radius: 16px; overflow: hidden; }
+.attach-images.n2 { grid-template-columns: 1fr 1fr; } .attach-images.n3 { grid-template-columns: 1fr 1fr 1fr; }
+.attach-image { display: block; background: var(--subtle); }
+.attach-images.n1 .attach-image img { max-height: 320px; width: auto; max-width: 100%; }
+.attach-image img { display: block; width: 100%; height: 100%; object-fit: cover; aspect-ratio: auto; transition: transform .25s var(--ease); }
+.attach-images:not(.n1) .attach-image { aspect-ratio: 1; }
+.attach-image:hover img { transform: scale(1.03); }
+.attach-image .skeleton { display: block; width: 220px; height: 160px; }
+.attach-file { display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; border-radius: 14px; background: var(--subtle); color: var(--text); text-decoration: none; transition: background-color .15s; }
+.attach-file:hover { background: var(--line); }
+.attach-file > svg { color: var(--muted); flex: none; }
+.attach-ext { flex: none; min-width: 40px; height: 40px; padding: 0 6px; border-radius: 11px; display: grid; place-items: center; background: var(--accent); color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .3px; }
+.attach-ext.small { min-width: 30px; height: 30px; border-radius: 9px; font-size: 9px; }
+.attach-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.attach-text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.attach-text .muted { font-size: 12px; }
+
+.composer-files { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.composer-file { display: inline-flex; align-items: center; gap: 8px; max-width: 240px; padding: 5px 6px 5px 5px; border-radius: 12px; background: var(--subtle); animation: appear .18s var(--ease) both; }
+.composer-thumb { width: 30px; height: 30px; border-radius: 9px; object-fit: cover; background: var(--line); flex: none; display: block; }
+.composer-file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; }
+.composer-file button { flex: none; width: 24px; height: 24px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.composer-file button:hover { background: var(--line); color: var(--text); }
+.composer-ref svg { display: block; margin: auto; }
+.page.chat .channels { position: relative; z-index: 3; }
+.channel-more .pop { left: auto; right: 0; top: calc(100% + 4px); min-width: 170px; }
+.attach-images.n1 { display: inline-grid; width: fit-content; max-width: 100%; }
+.attach-images.n1 .attach-image img { max-height: 260px; }
+@media (max-width: 820px) {
+  .channel-more .pop { position: fixed; left: 12px; right: 12px; top: auto; bottom: calc(96px + env(safe-area-inset-bottom)); width: auto; }
+}
+.channel-row:has(.pop) { z-index: 5; }
+.attach-images.n1 .attach-image { background: transparent; }
+.attachments { align-items: flex-start; }
+.msg.mine .attachments { align-items: flex-end; margin-left: auto; }
+.discord-me { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: color-mix(in srgb, var(--discord) 10%, var(--surface)); margin-bottom: 4px; }
+.discord-me.on { background: color-mix(in srgb, var(--discord) 16%, var(--surface)); }
+.discord-me > img { width: 40px; height: 40px; border-radius: 50%; flex: none; }
+.discord-me-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.discord-me-text .muted { font-size: 13px; }
+@media (max-width: 520px) { .discord-me { flex-wrap: wrap; } .discord-me .btn { width: 100%; } }
+.chan-row-wrap { display: flex; gap: 6px; align-items: stretch; }
+.chan-row-wrap .chan-row { flex: 1; min-width: 0; }
+.chan-act { flex: none; width: 48px; border: 0; border-radius: 12px; background: var(--subtle); color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.chan-act.danger { color: var(--danger, #c0392b); }
+.chan-act:active { background: var(--line); }

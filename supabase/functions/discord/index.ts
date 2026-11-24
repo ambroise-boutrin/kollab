@@ -27,7 +27,7 @@ type DChannel = { id: string; name: string; type: number; position: number; pare
 type DUser = { id: string; username: string; global_name?: string | null; avatar?: string | null; bot?: boolean }
 type DMessage = {
   id: string; type: number; content: string; timestamp: string; webhook_id?: string
-  author: DUser; mentions: DUser[]; attachments: { url: string; filename: string }[]
+  author: DUser; mentions: DUser[]; attachments: { url: string; filename: string; size: number; content_type?: string }[]
   member?: { nick?: string | null }
 }
 
@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
   })
   const { data: me } = await asUser.auth.getUser()
   if (!me.user) return fail('Connecte-toi d’abord.', 401)
-  const body = (await req.json()) as { action: string; groupId: string; channelId?: string; discordChannelId?: string; create?: boolean }
+  const body = (await req.json()) as { action: string; groupId: string; channelId?: string; discordChannelId?: string; create?: boolean; who?: string }
   const { data: isMember } = await asUser.rpc('is_member', { gid: body.groupId })
   if (!isMember) return fail('forbidden', 403)
   const { data: isAdmin } = await asUser.rpc('is_admin', { gid: body.groupId })
@@ -95,12 +95,15 @@ Deno.serve(async (req) => {
   try {
     switch (body.action) {
       case 'start': {
-        if (!isAdmin) return fail('Seul un admin relie Discord.', 403)
-        const payload = btoa(JSON.stringify({ g: body.groupId, u: me.user.id, t: Date.now() }))
+        // who = 'me' : la personne relie seulement son compte Discord (pas de bot, tout membre peut le faire).
+        const mine = (body as { who?: string }).who === 'me'
+        if (!mine && !isAdmin) return fail('Seul un admin relie Discord.', 403)
+        const payload = btoa(JSON.stringify({ g: body.groupId, u: me.user.id, t: Date.now(), m: mine ? 'u' : 'b' }))
         const state = `${payload}.${await hmac(await key(db), payload)}`
         const q = new URLSearchParams({
-          client_id: Deno.env.get('DISCORD_CLIENT_ID')!, scope: 'identify bot', permissions: PERMISSIONS,
-          response_type: 'code', redirect_uri: SELF, state, prompt: 'consent', integration_type: '0',
+          client_id: Deno.env.get('DISCORD_CLIENT_ID')!, scope: mine ? 'identify' : 'identify bot',
+          response_type: 'code', redirect_uri: SELF, state, ...(mine ? {} : { prompt: 'consent' }),
+          ...(mine ? {} : { permissions: PERMISSIONS, integration_type: '0' }),
         })
         return json({ url: `https://discord.com/oauth2/authorize?${q}` })
       }
@@ -131,6 +134,7 @@ Deno.serve(async (req) => {
         const { data: taken } = await db.from('channel_discord').select('channel_id').eq('discord_channel_id', target.id).maybeSingle()
         if (taken && taken.channel_id !== channel.id) return fail('Ce salon Discord est déjà relié à un autre salon.')
         await attach(db, body.groupId, channel.id, target, me.user.id)
+        historyLater(db, [channel.id])
         return json({ channelId: channel.id, discordChannelId: target.id, discordChannelName: target.name })
       }
       case 'import': {
@@ -144,6 +148,8 @@ Deno.serve(async (req) => {
         const usedK = new Set((linked ?? []).map((l) => l.channel_id as string))
         const usedD = new Set((linked ?? []).map((l) => l.discord_channel_id as string))
         let merged = 0, created = 0, failed = 0
+        // Salons déjà reliés : on reprend aussi leur historique (les messages déjà là sont ignorés).
+        const toFill = (linked ?? []).map((l) => l.channel_id as string)
         for (const d of all) {
           if (usedD.has(d.id)) continue
           try {
@@ -158,12 +164,24 @@ Deno.serve(async (req) => {
             await attach(db, body.groupId, k!.id, d, me.user.id)
             usedK.add(k!.id)
             usedD.add(d.id)
+            toFill.push(k!.id)
           } catch (e) {
             failed++
             console.error('import', d.id, String(e))
           }
         }
+        historyLater(db, toFill)
         return json({ merged, created, failed })
+      }
+      case 'rename': {
+        // Le salon Discord relié prend le nouveau nom du salon Kollab.
+        if (!isAdmin) return fail('Seul un admin renomme un salon.', 403)
+        const { data: link } = await db.from('channel_discord').select('discord_channel_id').eq('channel_id', body.channelId!).eq('group_id', body.groupId).maybeSingle()
+        const { data: channel } = await db.from('channels').select('name').eq('id', body.channelId!).maybeSingle()
+        if (!link || !channel) return json({ skipped: true })
+        const d = await bot<DChannel>(`/channels/${link.discord_channel_id}`, { method: 'PATCH', body: JSON.stringify({ name: slug(channel.name) }) })
+        await db.from('channel_discord').update({ discord_channel_name: d.name }).eq('channel_id', body.channelId!)
+        return json({ ok: true })
       }
       case 'unlink': {
         if (!isAdmin) return fail('Seul un admin délie un salon.', 403)
@@ -232,10 +250,10 @@ async function callback(db: SupabaseClient, url: URL) {
   if (!code || url.searchParams.get('error')) return back(false)
   const [payload, sig] = state.split('.')
   if (!payload || sig !== (await hmac(await key(db), payload))) return back(false)
-  const { g, u, t } = JSON.parse(atob(payload)) as { g: string; u: string; t: number }
+  const { g, u, t, m } = JSON.parse(atob(payload)) as { g: string; u: string; t: number; m?: 'u' | 'b' }
   if (Date.now() - t > 15 * 60e3) return back(false)
   const { data: role } = await db.from('group_members').select('role').eq('group_id', g).eq('user_id', u).maybeSingle()
-  if (role?.role !== 'admin') return back(false)
+  if (!role || (m !== 'u' && role.role !== 'admin')) return back(false)
 
   // Le code ne vaut que pour Kollab : Discord confirme ainsi le serveur choisi.
   const res = await fetch(`${API}/oauth2/token`, {
@@ -250,7 +268,10 @@ async function callback(db: SupabaseClient, url: URL) {
     console.error('token', res.status, await res.text().catch(() => ''))
     return back(false)
   }
-  const token = (await res.json()) as { guild?: { id: string; name: string; icon: string | null } }
+  const token = (await res.json()) as { access_token: string; guild?: { id: string; name: string; icon: string | null } }
+  // Dans les deux cas, on retient le compte Discord de la personne : ses messages Discord seront à son nom.
+  const linked = await linkAccount(db, u, token.access_token)
+  if (m === 'u') return back(linked)
   if (!token.guild) return back(false)
   const { error } = await db.from('group_discord').upsert({
     group_id: g, guild_id: token.guild.id, guild_name: token.guild.name, guild_icon: token.guild.icon, linked_by: u, linked_at: new Date().toISOString(),
@@ -258,15 +279,32 @@ async function callback(db: SupabaseClient, url: URL) {
   return back(!error)
 }
 
+/** Relie le compte Discord (identifié par le jeton OAuth) au compte Kollab, et range ses anciens messages Discord à son nom. */
+async function linkAccount(db: SupabaseClient, userId: string, accessToken: string) {
+  const res = await fetch(`${API}/users/@me`, { headers: { Authorization: `Bearer ${accessToken}` } })
+  if (!res.ok) return false
+  const du = (await res.json()) as DUser
+  await db.from('discord_accounts').delete().eq('discord_id', du.id).neq('user_id', userId)
+  const { error } = await db.from('discord_accounts').upsert({
+    user_id: userId, discord_id: du.id, discord_name: nameOf(du), discord_avatar: du.avatar ? avatarOf(du) : null, linked_at: new Date().toISOString(),
+  })
+  if (error) { console.error('compte', error.message); return false }
+  const { data: groups } = await db.from('group_members').select('group_id').eq('user_id', userId)
+  const ids = (groups ?? []).map((r) => r.group_id as string)
+  if (ids.length) await db.from('messages').update({ author_id: userId }).is('author_id', null).eq('discord_author->>id', du.id).in('group_id', ids)
+  return true
+}
+
 // Kollab → Discord -----------------------------------------------------------------
 
 type RelayBody = { messageId: string; op?: 'insert' | 'update' | 'delete' }
+type Attachment = { path: string; name: string; size: number; mime: string }
 
 /** Texte Kollab lisible sur Discord : les tâches citées deviennent du gras. */
 const toDiscord = (body: string) => body.replace(/\[#([^\]]{1,200})\]\(tache:[\w-]+\)/g, '**#$1**').slice(0, 2000)
 
 async function relay(db: SupabaseClient, { messageId, op = 'insert' }: RelayBody) {
-  const { data: m } = await db.from('messages').select('id, channel_id, author_id, body, deleted_at, discord_message_id, discord_author').eq('id', messageId).maybeSingle()
+  const { data: m } = await db.from('messages').select('id, channel_id, author_id, body, deleted_at, discord_message_id, discord_author, attachments').eq('id', messageId).maybeSingle()
   if (!m || m.discord_author) return json({ skipped: true })
   const { data: link } = await db.from('channel_discord').select('webhook_id, webhook_token').eq('channel_id', m.channel_id).maybeSingle()
   if (!link) return json({ skipped: true })
@@ -285,12 +323,29 @@ async function relay(db: SupabaseClient, { messageId, op = 'insert' }: RelayBody
 
   if (m.discord_message_id || m.deleted_at) return json({ skipped: true })
   const { data: author } = await db.from('profiles').select('name, avatar_url').eq('id', m.author_id).maybeSingle()
+  // Compte Discord relié : le message s'affiche sous son nom et son avatar Discord.
+  const { data: acc } = await db.from('discord_accounts').select('discord_name, discord_avatar').eq('user_id', m.author_id).maybeSingle()
   // Discord refuse « discord » dans un nom de webhook.
-  const username = (author?.name || 'Kollab').replace(/discord/gi, 'D1scord').slice(0, 80)
-  const res = await fetch(`${hook}?wait=true`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content: toDiscord(m.body), username, avatar_url: author?.avatar_url ?? undefined, allowed_mentions: { parse: [] } }),
-  })
+  const username = (acc?.discord_name || author?.name || 'Kollab').replace(/discord/gi, 'D1scord').slice(0, 80)
+  const payload = { content: toDiscord(m.body), username, avatar_url: acc?.discord_avatar ?? author?.avatar_url ?? undefined, allowed_mentions: { parse: [] } }
+  // Pièces jointes : les fichiers partent avec le message (25 Mo au total au plus, limite Discord).
+  const files = (m.attachments ?? []) as Attachment[]
+  let res: Response
+  if (files.length) {
+    const form = new FormData()
+    form.append('payload_json', JSON.stringify(payload))
+    let total = 0
+    for (const [i, f] of files.slice(0, 10).entries()) {
+      if (total + f.size > 25 * 1024 * 1024) break
+      const { data: blob } = await db.storage.from('documents').download(f.path)
+      if (!blob) continue
+      total += f.size
+      form.append(`files[${i}]`, blob, f.name)
+    }
+    res = await fetch(`${hook}?wait=true`, { method: 'POST', body: form })
+  } else {
+    res = await fetch(`${hook}?wait=true`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+  }
   if (!res.ok) return json({ error: await res.text() }, 502)
   const sent = (await res.json()) as { id: string }
   await db.from('messages').update({ discord_message_id: sent.id }).eq('id', m.id)
@@ -306,17 +361,91 @@ function fromDiscord(m: DMessage, names: Map<string, string>) {
     .replace(/<@&\d+>/g, '@rôle')
     .replace(/<#(\d+)>/g, '#salon')
     .replace(/<a?:(\w+):\d+>/g, ':$1:')
-  for (const a of m.attachments) text += `${text ? '\n' : ''}${a.url}`
   return text.trim().slice(0, 4000)
+}
+
+type Link = { channel_id: string; group_id: string; discord_channel_id: string; webhook_id: string }
+
+/** Les fichiers Discord sont copiés dans Kollab : les liens Discord expirent au bout d'un jour. 25 Mo max par fichier. */
+async function copyFiles(db: SupabaseClient, groupId: string, files: DMessage['attachments']) {
+  const out: Attachment[] = []
+  for (const f of files) {
+    if (f.size > 25 * 1024 * 1024) continue
+    try {
+      const res = await fetch(f.url)
+      if (!res.ok) continue
+      const safe = f.filename.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w.-]+/g, '-').slice(-80) || 'fichier'
+      const path = `${groupId}/chat/${crypto.randomUUID()}-${safe}`
+      const mime = f.content_type || 'application/octet-stream'
+      const { error } = await db.storage.from('documents').upload(path, await res.blob(), { contentType: mime })
+      if (!error) out.push({ path, name: f.filename.slice(0, 200), size: f.size, mime })
+    } catch (e) {
+      console.error('fichier', f.filename, String(e))
+    }
+  }
+  return out
+}
+
+/** Range un message Discord dans Kollab. `old` : message d'avant la liaison, sans prévenir personne des mentions. */
+async function ingest(db: SupabaseClient, l: Link, m: DMessage, profileNames: Map<string, string>, old = false) {
+  if (m.webhook_id === l.webhook_id) return // nos propres envois
+  if (m.type !== 0 && m.type !== 19) return // messages normaux et réponses
+  const kollabOf = async (discordId: string) => {
+    const { data } = await db.rpc('discord_member', { discord_id: discordId, gid: l.group_id })
+    return (data as string | null) ?? null
+  }
+  const names = new Map<string, string>()
+  for (const u of m.mentions) {
+    const kid = await kollabOf(u.id)
+    if (kid && !profileNames.has(kid)) {
+      const { data } = await db.from('profiles').select('name').eq('id', kid).maybeSingle()
+      if (data?.name) profileNames.set(kid, data.name)
+    }
+    names.set(u.id, (kid && profileNames.get(kid)) || nameOf(u))
+  }
+  let body = fromDiscord(m, names)
+  if (!body && !m.attachments.length) return
+  // Déjà repris ? (l'historique et la lecture continue peuvent se croiser)
+  const { data: seen } = await db.from('messages').select('id').eq('discord_message_id', m.id).maybeSingle()
+  if (seen) return
+  const attachments = await copyFiles(db, l.group_id, m.attachments)
+  // Un caractère invisible après @ : l'historique ne déclenche pas de notifications de mention.
+  if (old) body = body.replace(/@/g, '@\u2060')
+  const { error } = await db.from('messages').insert({
+    group_id: l.group_id, channel_id: l.channel_id, author_id: await kollabOf(m.author.id),
+    body, created_at: m.timestamp, discord_message_id: m.id, ...(attachments.length ? { attachments } : {}),
+    discord_author: { id: m.author.id, name: nameOf(m.author, m.member?.nick), avatar: avatarOf(m.author) },
+  })
+  if (error && error.code !== '23505') console.error('insert', error.message)
+}
+
+/** Historique d'un salon Discord (les 2 000 derniers messages), repris une fois à la liaison. Les doublons sont ignorés. */
+async function history(db: SupabaseClient, channelId: string) {
+  const { data: l } = await db.from('channel_discord').select('channel_id, group_id, discord_channel_id, webhook_id').eq('channel_id', channelId).maybeSingle()
+  if (!l) return
+  const all: DMessage[] = []
+  let before = ''
+  for (let page = 0; page < 20; page++) {
+    const list = await bot<DMessage[]>(`/channels/${l.discord_channel_id}/messages?limit=100${before ? `&before=${before}` : ''}`)
+    if (!list.length) break
+    all.push(...list)
+    before = list.reduce((a, b) => (BigInt(a.id) < BigInt(b.id) ? a : b)).id
+    if (list.length < 100) break
+  }
+  const names = new Map<string, string>()
+  for (const m of all.sort((a, b) => (BigInt(a.id) < BigInt(b.id) ? -1 : 1))) await ingest(db, l, m, names, true)
+}
+
+/** Lance la reprise de l'historique sans faire attendre l'appli. */
+function historyLater(db: SupabaseClient, channelIds: string[]) {
+  const work = (async () => {
+    for (const id of channelIds) await history(db, id).catch((e) => console.error('history', id, String(e)))
+  })()
+  ;(globalThis as { EdgeRuntime?: { waitUntil(p: Promise<unknown>): void } }).EdgeRuntime?.waitUntil(work)
 }
 
 async function poll(db: SupabaseClient) {
   const until = Date.now() + 55_000
-  // Comptes Discord reliés à Kollab : leurs messages sont rangés à leur nom.
-  const kollabOf = async (discordId: string, groupId: string) => {
-    const { data } = await db.rpc('discord_member', { discord_id: discordId, gid: groupId })
-    return (data as string | null) ?? null
-  }
   const profileNames = new Map<string, string>()
   while (Date.now() < until) {
     const { data: links } = await db.from('channel_discord').select('channel_id, group_id, discord_channel_id, webhook_id, last_message_id')
@@ -327,29 +456,7 @@ async function poll(db: SupabaseClient) {
         const list = await bot<DMessage[]>(`/channels/${l.discord_channel_id}/messages?${q}`)
         if (!list.length) continue
         const fresh = [...list].sort((a, b) => (BigInt(a.id) < BigInt(b.id) ? -1 : 1))
-        if (l.last_message_id) {
-          for (const m of fresh) {
-            if (m.webhook_id === l.webhook_id) continue // nos propres envois
-            if (m.type !== 0 && m.type !== 19) continue // messages normaux et réponses
-            const names = new Map<string, string>()
-            for (const u of m.mentions) {
-              const kid = await kollabOf(u.id, l.group_id)
-              if (kid && !profileNames.has(kid)) {
-                const { data } = await db.from('profiles').select('name').eq('id', kid).maybeSingle()
-                if (data?.name) profileNames.set(kid, data.name)
-              }
-              names.set(u.id, (kid && profileNames.get(kid)) || nameOf(u))
-            }
-            const body = fromDiscord(m, names)
-            if (!body) continue
-            const { error } = await db.from('messages').insert({
-              group_id: l.group_id, channel_id: l.channel_id, author_id: await kollabOf(m.author.id, l.group_id),
-              body, created_at: m.timestamp, discord_message_id: m.id,
-              discord_author: { id: m.author.id, name: nameOf(m.author, m.member?.nick), avatar: avatarOf(m.author) },
-            })
-            if (error && error.code !== '23505') console.error('insert', error.message)
-          }
-        }
+        if (l.last_message_id) for (const m of fresh) await ingest(db, l, m, profileNames)
         await db.from('channel_discord').update({ last_message_id: fresh[fresh.length - 1].id }).eq('channel_id', l.channel_id)
       } catch (e) {
         console.error('salon', l.discord_channel_id, String(e))
