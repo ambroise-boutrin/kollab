@@ -4,6 +4,7 @@ import { Icon } from './Icon'
 import { Modal } from './Modal'
 import { useToast } from './Toast'
 import { addDays, isoDay } from '../lib/sprints'
+import { usePrState } from '../lib/prState'
 import { useStore } from '../lib/store'
 import type { Task, TaskComment } from '../lib/types'
 
@@ -217,4 +218,22 @@ export function TaskComments({ task, compact = false }: { task: Task; compact?: 
       </form>
     </section>
   )
+}
+
+/** État de la PR d'une tâche : fusionnée, tests, brouillon… */
+export function PrChip({ url, done, state }: { url: string; done: boolean; state: ReturnType<typeof usePrState> }) {
+  const n = url.split('/').pop()
+  const [label, tone] = state?.merged || (done && !state) ? ['fusionnée', 'merged']
+    : state?.closed ? ['fermée', 'closed']
+    : state?.checks?.failed ? [`tests ✗ ${state.checks.failed}`, 'fail']
+    : state?.checks?.running ? ['tests en cours', 'run']
+    : state?.checks ? ['tests ✓', 'ok']
+    : state?.draft ? ['brouillon', 'draft'] : [null, 'open']
+  return <span className={`pr-chip ${tone}`}>PR #{n}{label ? ` · ${label}` : ''}</span>
+}
+
+/** Pastille de PR qui lit son état elle-même (accueil). */
+export function TaskPrChip({ task }: { task: Pick<Task, 'prUrl' | 'status'> }) {
+  const state = usePrState(task.prUrl)
+  return task.prUrl ? <PrChip url={task.prUrl} done={task.status === 'done'} state={state} /> : null
 }

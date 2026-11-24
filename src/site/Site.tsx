@@ -299,11 +299,14 @@ function Marquee() {
   )
 }
 
-/** Faux diff pour la revue de PR, fonction à venir. */
+/** Faux diff pour la revue de PR. */
 function DiffMock() {
   const p = t.product.pr
   return (
     <div className="k-diff" aria-hidden="true">
+      <div className="k-flow">
+        {p.flow.map((f, n) => [n > 0 && <i key={`a${n}`}>→</i>, <span key={f} className={`k-flow-${n}`}>{f}</span>])}
+      </div>
       <div className="k-diff-head">
         <span className="k-diff-pr">#42</span> {p.prTitle}
         <span className="k-diff-ok">{p.approved}</span>
@@ -331,11 +334,12 @@ function DiffMock() {
  */
 function ProductTabs() {
   const p = t.product
+  // Le lien tâche ↔ branche ↔ PR d'abord : c'est ce qui distingue Kollab.
   const tabs = [
+    { bg: 'k-bg-ink', title: p.pr.title, text: <>{p.pr.text}</>, media: <DiffMock /> },
     { bg: 'k-bg-yellow', title: p.board.title, text: <>{p.board.text}</>, media: <Demo name="attribution" label={p.board.alt} /> },
     { bg: 'k-bg-coral', title: p.chat.title, text: <>{p.chat.textA}<code>{p.chat.code}</code>{p.chat.textB}</>, media: <Demo name="chat" label={p.chat.video} /> },
     { bg: 'k-bg-mint', title: p.phone.title, text: <>{p.phone.text}</>, media: <PhoneDemo /> },
-    { bg: 'k-bg-ink', title: p.pr.title, text: <>{p.pr.text}</>, media: <DiffMock /> },
   ]
   const [i, setI] = useState(0)
   const [auto, setAuto] = useState(() => !reducedMotion())
@@ -372,7 +376,7 @@ function ProductTabs() {
           ))}
         </div>
         <div className="k-tabpanel" id="tab-panel" role="tabpanel" aria-labelledby={`tab-${i}`}>
-          <div className={`k-tabmedia ${tab.bg}${i === 2 ? ' k-tabmedia-phone' : ''}`} key={i}>{tab.media}</div>
+          <div className={`k-tabmedia ${tab.bg}${i === 3 ? ' k-tabmedia-phone' : ''}`} key={i}>{tab.media}</div>
           <div className="k-tabtext" key={`t${i}`}>
             <h3>{tab.title}</h3>
             <p>{tab.text}</p>
