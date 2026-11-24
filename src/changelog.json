@@ -1,12 +1,24 @@
 [
   {
-    "version": "0.6.12",
+    "version": "0.6.13",
     "date": "2026-11-24",
     "title": "GitHub plus sûr",
     "items": [
       "Ton jeton GitHub est chiffré sur le serveur et ne reste plus dans l'appareil",
       "Nouvelle connexion GitHub : tu choisis les dépôts auxquels Kollab a accès",
       "Rien à refaire : la connexion actuelle continue de marcher"
+    ]
+  },
+  {
+    "version": "0.6.12",
+    "date": "2026-11-24",
+    "title": "Des documents qui se voient",
+    "items": [
+      "Chaque document a un type et sa couleur : compte rendu, daily, spec, rétro, cahier des charges",
+      "Nouveau document : choisis un modèle, il s'ouvre déjà rempli (date, présents, sprint, tâches de chacun)",
+      "Épingle les documents importants pour toute l'équipe",
+      "Les cases « À faire » deviennent des tâches du tableau en un clic, et se cochent quand la tâche est finie",
+      "Sommaire à côté du document, barre d'outils avec des mots"
     ]
   },
   {

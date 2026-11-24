@@ -41,6 +41,10 @@
       "title": "Conditions générales d'utilisation · Kollab",
       "description": "Les conditions d'utilisation du service Kollab."
     },
+    "/cgv": {
+      "title": "Conditions générales de vente · Kollab",
+      "description": "Abonnements Kollab : prix, paiement, renouvellement, résiliation et rétractation."
+    },
     "/confidentialite": {
       "title": "Politique de confidentialité · Kollab",
       "description": "Comment Kollab traite tes données personnelles (RGPD)."
@@ -80,6 +84,26 @@
     "/en/faq": {
       "title": "FAQ · Kollab",
       "description": "Price, setup, group size, data: answers about Kollab."
+    },
+    "/en/legal-notice": {
+      "title": "Legal notice · Kollab",
+      "description": "Publisher, hosting and intellectual property of Kollab."
+    },
+    "/en/terms": {
+      "title": "Terms of use · Kollab",
+      "description": "The terms of use of the Kollab service."
+    },
+    "/en/sales-terms": {
+      "title": "Terms of sale · Kollab",
+      "description": "Kollab subscriptions: prices, payment, renewal, cancellation and withdrawal."
+    },
+    "/en/privacy": {
+      "title": "Privacy policy · Kollab",
+      "description": "How Kollab handles your personal data (GDPR)."
+    },
+    "/en/cookies": {
+      "title": "Cookies and local storage · Kollab",
+      "description": "Kollab only uses strictly necessary storage, with no trackers."
     }
   },
   "alternates": [
@@ -114,6 +138,26 @@
     [
       "/faq",
       "/en/faq"
+    ],
+    [
+      "/mentions-legales",
+      "/en/legal-notice"
+    ],
+    [
+      "/cgu",
+      "/en/terms"
+    ],
+    [
+      "/cgv",
+      "/en/sales-terms"
+    ],
+    [
+      "/confidentialite",
+      "/en/privacy"
+    ],
+    [
+      "/cookies",
+      "/en/cookies"
     ]
   ]
 }

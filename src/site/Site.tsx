@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react'
 import { inject } from '@vercel/analytics'
 import { LogoMark } from '../components/Logo'
-import { LegalPage, LEGAL_DOCS, findLegal } from './legal'
+import { LegalPage, LEGAL_DOCS, findLegal, legalAlternate } from './legal'
 import changelog from '../changelog.json'
 import seo from './seo.json'
 import { CHANGELOG_EN, COMPARE_CELLS, COPY, ROUTES, langOf, matchRoute, type Cell, type PageKey } from './copy'
@@ -143,10 +143,11 @@ function Soon() {
 const NAV: PageKey[] = ['features', 'audience', 'pricing', 'download']
 const FOOTER_NAV: PageKey[] = ['features', 'audience', 'compare', 'pricing', 'download']
 
-/** Lien vers la même page dans l'autre langue (les pages légales n'existent qu'en français). */
+/** Lien vers la même page dans l'autre langue (pages juridiques comprises). */
 function LangSwitch({ current }: { current: PageKey | null }) {
   const other = LANG === 'fr' ? 'en' : 'fr'
-  const href = ROUTES[current ?? 'home'][other]
+  const legal = findLegal(PATH)
+  const href = legal ? legalAlternate(legal.doc, other) : ROUTES[current ?? 'home'][other]
   return (
     <a className="k-link k-lang" href={href} hrefLang={other} lang={other} title={t.langSwitch.title}>
       {t.langSwitch.label}
@@ -227,8 +228,8 @@ function Footer() {
           </nav>
           <nav aria-label={t.footer.legal}>
             <h2 className="k-footer-h">{t.footer.legal}</h2>
-            {LEGAL_DOCS.map((d) => (
-              <a key={d.path} href={d.path} hrefLang="fr">{d.title}</a>
+            {LEGAL_DOCS[LANG].map((d) => (
+              <a key={d.path} href={d.path}>{d.title}</a>
             ))}
             {t.footer.legalNote && <span className="k-footer-note">({t.footer.legalNote})</span>}
           </nav>
@@ -1083,7 +1084,7 @@ export default function Site() {
     inject({ mode: import.meta.env.PROD ? 'production' : 'development' })
   }, [])
   useEffect(() => {
-    const meta = SEO[legal ? legal.path : ROUTES[key][LANG]] ?? SEO['/']
+    const meta = SEO[legal ? legal.doc.path : ROUTES[key][LANG]] ?? SEO['/']
     document.title = meta.title
     document.documentElement.lang = LANG
     document.querySelector('meta[name="description"]')?.setAttribute('content', meta.description)
@@ -1091,7 +1092,7 @@ export default function Site() {
   return (
     <div className="site">
       <Header current={legal ? null : key} />
-      {legal ? <main><LegalPage doc={legal} /></main> : PAGES[key]()}
+      {legal ? <main><LegalPage doc={legal.doc} lang={legal.lang} /></main> : PAGES[key]()}
       <Footer />
     </div>
   )

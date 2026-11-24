@@ -1,4 +1,4 @@
-import type { AppNotification, DiscordChannel, DiscordGuild, DiscordLink, DiscordAccount, EmailInvite, Channel, DocumentItem, Note, Sprint, ReactionChange, ActivityItem, Group, Invite, LinkItem, Member, Message, ProfilePatch, Provider, Role, Task, TaskComment } from './types'
+import type { AppNotification, DiscordChannel, DiscordGuild, DiscordLink, DiscordAccount, EmailInvite, Channel, DocumentItem, Note, NoteKind, Sprint, ReactionChange, ActivityItem, Group, Invite, LinkItem, Member, Message, ProfilePatch, Provider, Role, Task, TaskComment } from './types'
 
 export interface User {
   id: string
@@ -202,10 +202,10 @@ export interface Backend {
 
   createSprint(sprint: Omit<Sprint, 'id' | 'closedAt'>): Promise<Sprint>
 
-  createNote(title: string): Promise<Note>
+  createNote(title: string, kind?: NoteKind): Promise<Note>
   /** Contenu Yjs du document, encodé en base64 ('' si vide). */
   loadNote(id: string): Promise<string>
-  saveNote(id: string, patch: { ystate?: string; preview?: string; title?: string }): Promise<void>
+  saveNote(id: string, patch: { ystate?: string; preview?: string; title?: string; kind?: NoteKind; pinned?: boolean }): Promise<void>
   /** Met le document à la corbeille. */
   removeNote(id: string): Promise<void>
   /**

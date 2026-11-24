@@ -291,7 +291,7 @@ const en: Copy = {
     news: 'Changelog',
     faq: 'FAQ',
     legal: 'Legal',
-    legalNote: 'in French',
+    legalNote: '',
   },
   soon: 'Soon',
   hero: {
