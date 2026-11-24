@@ -2296,6 +2296,24 @@ button.member-title.propose em { font-style: normal; color: #B06E0F; }
 .title-choices button:active { transform: scale(.97); }
 .title-choices button[aria-pressed="true"] { background: var(--accent); color: #fff; }
 
+/* Présentation : le parcours tâche → PR */
+.intro-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 6px; font-size: 14px; font-weight: 700; }
+.intro-flow span { padding: 6px 10px; border-radius: 10px; color: var(--text); animation: appear .3s ease both; }
+.intro-flow span:nth-of-type(2) { animation-delay: .08s; } .intro-flow span:nth-of-type(3) { animation-delay: .16s; } .intro-flow span:nth-of-type(4) { animation-delay: .24s; }
+.intro-flow i { font-style: normal; color: var(--muted); }
+.intro-reco { margin-left: 8px; padding: 2px 8px; border-radius: 8px; font-size: 12px; font-weight: 700; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); vertical-align: 2px; }
+
+/* Accueil : tâche ↔ PR mis en avant */
+.day-meta { display: inline-flex; align-items: center; gap: 8px; }
+.day-link { font-size: 12px; font-weight: 700; color: var(--accent); text-decoration: none; padding: 2px 8px; border-radius: 8px; background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.day-link:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.day-flow { display: grid; gap: 6px; padding: 12px 14px; margin-bottom: 8px; border-radius: 14px; background: #FFF3C4; color: #6B4600; text-decoration: none; font-size: 13px; font-weight: 600; transition: transform .15s ease; }
+.day-flow:hover { transform: translateY(-1px); }
+.day-flow-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.day-flow-chips b { padding: 3px 8px; border-radius: 8px; background: #fff; color: var(--text); font-size: 12px; }
+.day-flow-chips b:last-child { background: var(--ok); color: #fff; }
+.day-flow-chips i { font-style: normal; opacity: .6; }
+
 /* Discord ------------------------------------------------------------- */
 :root { --discord: #5865F2; --discord-soft: color-mix(in srgb, #5865F2 13%, var(--surface)); --discord-ink: #3F48B8; }
 .btn.discord { background: var(--discord); }

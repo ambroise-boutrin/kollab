@@ -79,7 +79,13 @@ export function Intro() {
         {state.step === 'bienvenue' && (
           <>
             <h1>Bienvenue{firstName ? `, ${firstName}` : ''}</h1>
-            <p className="intro-lead">Kollab réunit les tâches, le sprint et le chat de ton équipe.</p>
+            <p className="intro-lead">Chaque tâche a sa branche et sa PR. Kollab suit tout jusqu'à la fusion.</p>
+            <div className="intro-flow" aria-label="Tâche, branche, PR, terminé">
+              <span style={{ background: '#E7E3FF' }}>Tâche</span><i>→</i>
+              <span style={{ background: '#FFF3C4' }}>Branche</span><i>→</i>
+              <span style={{ background: '#D9F5E8' }}>PR · tests ✓</span><i>→</i>
+              <span style={{ background: 'var(--ok)', color: '#fff' }}>Terminé</span>
+            </div>
             <ul className="intro-list">
               <li><b style={{ background: '#E7E3FF' }}>1</b>Crée ou rejoins un projet</li>
               <li><b style={{ background: '#FFF3C4' }}>2</b>Relie tes comptes</li>
@@ -108,14 +114,14 @@ export function Intro() {
         {state.step === 'comptes' && (
           <>
             <h1>Relie tes comptes</h1>
-            <p className="intro-lead">Pour te connecter avec, et lier tes PR GitHub aux tâches.</p>
+            <p className="intro-lead">Relie GitHub : chaque tâche aura sa branche et sa PR, et passera en Terminé à la fusion.</p>
             <div className="stack" style={{ gap: 8 }}>
               {PROVIDERS.map((p) => {
                 const on = linked.includes(p.id)
                 return (
                   <div className="account" key={p.id}>
                     <span className="logo-box" style={{ background: p.bg }}><ProviderIcon path={p.icon} /></span>
-                    <strong style={{ flex: 1, fontWeight: 600 }}>{p.label}</strong>
+                    <strong style={{ flex: 1, fontWeight: 600 }}>{p.label}{p.id === 'github' && !on && <span className="intro-reco">Recommandé</span>}</strong>
                     {on ? <span className="tag" style={{ background: 'color-mix(in srgb, var(--ok) 15%, transparent)', color: 'var(--ok)' }}>Relié</span>
                       : <button className="btn small soft" onClick={() => void link(p.id)}>Relier</button>}
                   </div>
