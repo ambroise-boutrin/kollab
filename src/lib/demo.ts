@@ -1,5 +1,5 @@
 import { newId, type Backend, type RoomEvent, type TrashItem, type GroupSetup, type LiveHandlers, type User, type Workspace } from './backend'
-import type { ActivityItem, AppNotification, EmailInvite, DocumentItem, Note, Sprint, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task } from './types'
+import type { ActivityItem, AppNotification, EmailInvite, DocumentItem, Note, Sprint, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task, TaskComment } from './types'
 
 /**
  * Mode démo : tout est stocké dans le navigateur. Plusieurs onglets ouverts
@@ -21,6 +21,7 @@ interface DemoState {
   providers: Provider[]
   workspace: Workspace | null
   messages: Message[]
+  comments?: TaskComment[]
   /** Les autres projets de l'utilisateur ; `workspace` est le projet ouvert. */
   others?: { workspace: Workspace; messages: Message[] }[]
   notifications?: AppNotification[]
@@ -557,6 +558,18 @@ export const demoBackend: Backend = {
       if (s.workspace) s.workspace.tasks = s.workspace.tasks.filter((t) => t.id !== id)
     })
     emit({ kind: 'taskDeleted', id })
+  },
+
+  async listComments(taskId) {
+    return (read().comments ?? []).filter((c) => c.taskId === taskId)
+  },
+
+  async addComment(taskId, body) {
+    const c: TaskComment = { id: newId(), taskId, authorId: 'me', body, createdAt: new Date().toISOString() }
+    update((s) => {
+      s.comments = [...(s.comments ?? []), c]
+    })
+    return c
   },
 
   async listMessages(channelId) {

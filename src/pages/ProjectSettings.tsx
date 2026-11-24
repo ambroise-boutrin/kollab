@@ -193,7 +193,7 @@ export function ProjectSettings() {
                   <div className="stat-tile" style={{ ['--tile' as string]: 'var(--accent)' }}><b>{open.length}</b><span>tâches ouvertes</span></div>
                   <div className="stat-tile" style={{ ['--tile' as string]: 'var(--ok)' }}><b>{done}</b><span>terminées</span></div>
                   <div className="stat-tile" style={{ ['--tile' as string]: '#D98A1C' }}>
-                    <b>{pct} %</b><span>des points faits</span>
+                    <b>{pct} %</b><span>des points du projet, tous sprints</span>
                     <i className="stat-bar"><i style={{ width: `${pct}%` }} /></i>
                   </div>
                   <div className="stat-tile" style={{ ['--tile' as string]: '#2F6FD0' }}><b>{ws.channels.length}</b><span>salons</span></div>

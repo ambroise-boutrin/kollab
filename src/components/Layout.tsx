@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { boardTasks } from '../lib/sprints'
+import { boardProgress } from '../lib/sprints'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { DEMO_SESSION, leaveDemo, useStore } from '../lib/store'
 import { PRESENCE, liveStatus, type Member } from '../lib/types'
@@ -47,9 +47,8 @@ function ProjectSwitcher({ onNew, compact = false }: { onNew: (mode: 'create' | 
   const g = workspace.group
   const role = groups.find((x) => x.id === g.id)?.role
   const openTasks = workspace.tasks.filter((t) => t.status !== 'done').length
-  const board = boardTasks(workspace)
-  const pts = board.reduce((n, t) => n + (t.points ?? 0), 0)
-  const pct = pts ? Math.round((board.filter((t) => t.status === 'done').reduce((n, t) => n + (t.points ?? 0), 0) / pts) * 100) : 0
+  const progress = boardProgress(workspace)
+  const pct = progress.pct
   const unread = notifications.filter((n) => !n.readAt && (!n.groupId || n.groupId === g.id)).length
   const others = groups.filter((p) => p.id !== g.id)
   const count = workspace.members.length
@@ -79,7 +78,7 @@ function ProjectSwitcher({ onNew, compact = false }: { onNew: (mode: 'create' | 
                 </span>
                 <span className="pj-stats">
                   <span><b style={{ color: '#2F6FD0' }}>{openTasks}</b>tâche{openTasks > 1 ? 's' : ''} ouverte{openTasks > 1 ? 's' : ''}</span>
-                  <span><b style={{ color: 'var(--ok)' }}>{pct} %</b>du sprint</span>
+                  <span><b style={{ color: 'var(--ok)' }}>{pct} %</b>{progress.scope}</span>
                   <span><b style={{ color: '#C2413A' }}>{unread}</b>non lu{unread > 1 ? 's' : ''}</span>
                 </span>
               </button>
@@ -116,7 +115,8 @@ export function MembersStack() {
   const navigate = useNavigate()
   if (!workspace) return null
   const sorted = [...workspace.members].sort((a, b) => Number(online.includes(b.id)) - Number(online.includes(a.id)))
-  const shown = sorted.slice(0, 5)
+  // Dans la pile, seulement les personnes en ligne : le chiffre et les visages disent la même chose.
+  const shown = sorted.filter((m) => online.includes(m.id)).slice(0, 5)
   const rest = sorted.length - shown.length
   const onlineCount = workspace.members.filter((m) => online.includes(m.id)).length
   const row = (m: Member) => {
@@ -140,7 +140,7 @@ export function MembersStack() {
           {workspace.members.length > 1 && <span className="members-online"><b>{onlineCount}</b> en ligne</span>}
           <span className="stack-avatars">
             {shown.map((m) => <Avatar key={m.id} member={m} size={30} online={online.includes(m.id)} />)}
-            {rest > 0 && <span className="avatar more">+{rest}</span>}
+            {rest > 0 && <span className="avatar more" title={`${rest} hors ligne`}>+{rest}</span>}
           </span>
         </button>
       )}
