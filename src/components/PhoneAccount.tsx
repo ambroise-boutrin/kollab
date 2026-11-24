@@ -8,7 +8,8 @@ import { useToast } from './Toast'
 import { shrinkSquare } from '../lib/image'
 import { pushEnabled } from '../lib/push'
 import { DEMO_SESSION, leaveDemo, useStore } from '../lib/store'
-import { PRESENCE, type PresenceStatus, type Provider } from '../lib/types'
+import { PRESENCE, liveStatus, type PresenceStatus, type Provider } from '../lib/types'
+import { StatusSheet, untilLabel } from './StatusSheet'
 import { PROVIDERS } from '../pages/Login'
 
 /** « Mon compte » sur téléphone, plein écran : photo, statut, réglages en lignes, déconnexion. */
@@ -20,6 +21,7 @@ export function PhoneAccount({ onClose }: { onClose: () => void }) {
   const [linked, setLinked] = useState<Provider[]>([])
   const [push, setPush] = useState<boolean | null>(null)
   const [naming, setNaming] = useState(false)
+  const [statusOpen, setStatusOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -88,6 +90,11 @@ export function PhoneAccount({ onClose }: { onClose: () => void }) {
                 {me.status === s && <Icon name="check" size={18} />}
               </button>
             ))}
+            <button onClick={() => setStatusOpen(true)}>
+              {liveStatus(me) ? (
+                <><i style={{ background: me.statusColor ?? 'var(--accent)' }} aria-hidden="true" /><span><b>{liveStatus(me)}</b></span><em className="ac-until">{untilLabel(me.statusUntil)}</em></>
+              ) : <span className="ac-key">Ajouter un message de statut…</span>}
+            </button>
           </section>
 
           <section className="ac-group">
@@ -113,6 +120,7 @@ export function PhoneAccount({ onClose }: { onClose: () => void }) {
           </button>
         </div>
       </div>
+      {statusOpen && <StatusSheet me={me} onClose={() => setStatusOpen(false)} />}
       {naming && (
         <PromptDialog
           title="Ton nom"

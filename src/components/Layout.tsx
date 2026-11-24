@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { boardTasks } from '../lib/sprints'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { DEMO_SESSION, leaveDemo, useStore } from '../lib/store'
-import { PRESENCE, type Member } from '../lib/types'
+import { PRESENCE, liveStatus, type Member } from '../lib/types'
 import { AppTour } from './AppTour'
 import { Avatar } from './Avatar'
 import { DesktopMenu } from './DesktopMenu'
@@ -21,11 +21,13 @@ import { CommandPalette, openSearch } from './CommandPalette'
 import { VoiceProvider } from '../lib/voice'
 import { VoiceBar } from './VoiceBar'
 import { Dock, DockToggle } from './Dock'
+import { OfflineBar } from './OfflineBar'
 
 const NAV: { to: string; label: string; icon: IconName; more?: boolean }[] = [
   { to: '/', label: 'Accueil', icon: 'home' },
   { to: '/tableau', label: 'Tableau', icon: 'board' },
   { to: '/sprints', label: 'Sprints', icon: 'sprint', more: true },
+  { to: '/feuille-de-route', label: 'Feuille de route', icon: 'route', more: true },
   { to: '/revues', label: 'Revues', icon: 'pr', more: true },
   { to: '/chat', label: 'Chat', icon: 'chat' },
   { to: '/documents', label: 'Documents', icon: 'doc', more: true },
@@ -124,7 +126,7 @@ export function MembersStack() {
         <Avatar member={m} size={30} online={on} />
         <span className="pop-grow">
           <strong>{m.name}</strong>
-          <span className="muted">{on ? PRESENCE[m.status ?? 'available'].label : 'Hors ligne'}{m.title ? ` · ${m.title}` : ''}</span>
+          <span className="muted">{liveStatus(m) || (on ? PRESENCE[m.status ?? 'available'].label : 'Hors ligne')}{m.title ? ` · ${m.title}` : ''}</span>
         </span>
       </div>
     )
@@ -275,6 +277,7 @@ export function Layout() {
             Mode démo : les données restent dans ce navigateur. Ouvre un deuxième onglet pour voir le temps réel.
           </div>
         )}
+        {!DEMO_SESSION && backend.mode !== 'demo' && <OfflineBar />}
         <Outlet />
       </main>
       <Dock />

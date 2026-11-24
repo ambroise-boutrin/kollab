@@ -24,6 +24,7 @@ const PATHS = {
   upload: 'M12 16V5M7 10l5-5 5 5M5 20h14',
   external: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6',
   sprint: 'M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4M12 8v4l3 2',
+  route: 'M3 6h8M3 12h14M3 18h10M15 4v4M19 10v4M17 16v4',
   grid: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',
   cards: 'M4 7l7-3 3 12-7 3zM14 4.5l6 2.5-3.5 11.5',
   mic: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3',

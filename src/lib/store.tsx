@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { newId, type Backend, type GroupSummary, type User, type Workspace } from './backend'
 import { APP_BASE, IS_TAURI } from './base'
 import { demoBackend, startDemoSession } from './demo'
+import { flushOutbox, markNewTask, pendingList, withOffline } from './offline'
 import { createSupabaseBackend } from './supabaseBackend'
 import type { AppNotification, Message, ReactionChange, Task } from './types'
 
@@ -28,7 +29,7 @@ function demoRequested(): boolean {
 export const DEMO_SESSION = demoRequested()
 if (DEMO_SESSION) startDemoSession()
 
-export const backend: Backend = !DEMO_SESSION && url && key ? createSupabaseBackend(url, key) : demoBackend
+export const backend: Backend = !DEMO_SESSION && url && key ? withOffline(createSupabaseBackend(url, key)) : demoBackend
 
 /** Quitte la démo et ouvre le vrai formulaire d'inscription. */
 export function leaveDemo() {
@@ -157,6 +158,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return backend.onAuthChange(() => void reload())
   }, [reload])
 
+  // Retour du réseau : on recharge, on envoie ce qui attendait, puis on recharge encore.
+  useEffect(() => {
+    if (DEMO_SESSION) return
+    async function back() {
+      if (!navigator.onLine) return
+      if (!pendingList().length) return void reload()
+      await reload()
+      if (await flushOutbox(backend)) await reload()
+    }
+    void back()
+    window.addEventListener('online', back)
+    return () => window.removeEventListener('online', back)
+  }, [reload])
+
   const groupId = workspace?.group.id
   useEffect(() => {
     if (!groupId) return
@@ -233,6 +248,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
 
   const autoPrBusy = useRef(new Set<string>())
+
+  // PR fusionnée sur GitHub : la tâche passe « Terminé » toute seule, sans qu'on ait à l'ouvrir.
+  useEffect(() => {
+    if (!groupId || backend.mode === 'demo') return
+    let alive = true
+    async function sweep() {
+      const ws = workspaceRef.current
+      if (!ws || document.visibilityState !== 'visible' || !navigator.onLine) return
+      const gh = await import('./github')
+      const open = ws.tasks.filter((t) => t.prUrl && t.status !== 'done').slice(0, gh.ghToken() ? 30 : 8)
+      for (const t of open) {
+        const ref = gh.parsePrUrl(t.prUrl)
+        if (!ref || !alive) continue
+        try {
+          const pr = await gh.getPull(ref, ref.number)
+          const latest = workspaceRef.current?.tasks.find((x) => x.id === t.id)
+          if (pr.merged && latest && latest.status !== 'done') await saveTaskRef.current({ ...latest, status: 'done' })
+        } catch {
+          /* GitHub indisponible : on réessaiera */
+        }
+      }
+    }
+    const first = setTimeout(() => void sweep(), 4000)
+    const every = setInterval(() => void sweep(), 5 * 60e3)
+    const onShow = () => document.visibilityState === 'visible' && void sweep()
+    document.addEventListener('visibilitychange', onShow)
+    return () => { alive = false; clearTimeout(first); clearInterval(every); document.removeEventListener('visibilitychange', onShow) }
+  }, [groupId]) // eslint-disable-line react-hooks/exhaustive-deps
   const saveTask = useCallback(async (task: Task) => {
     const before = workspaceRef.current?.tasks.find((t) => t.id === task.id)
     // Date de fin tenue à jour tout de suite (la base fait de même).
@@ -261,6 +304,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const saveTaskRef = useRef(saveTask)
+  useEffect(() => { saveTaskRef.current = saveTask }, [saveTask])
+
   const createTask = useCallback(
     async (partial: Pick<Task, 'title' | 'status'> & Partial<Task>) => {
       const sameColumn = workspace?.tasks.filter((t) => t.status === partial.status) ?? []
@@ -279,6 +325,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       setWorkspace((w) => (w ? { ...w, tasks: [...w.tasks, task] } : w))
       await backend.saveTask(task)
+      markNewTask(task)
       return task
     },
     [workspace],

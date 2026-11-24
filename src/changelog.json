@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.6.0",
+    "date": "2026-11-24",
+    "title": "Ta semaine en un coup d'œil",
+    "items": [
+      "Feuille de route : sprints et grosses tâches sur une frise",
+      "Statut perso avec durée : En réunion, Focus, ou ton message",
+      "Couleur principale au choix, fond clair, sombre ou auto",
+      "Accueil en mode édition : glisse, redimensionne, masque",
+      "Tâche terminée toute seule quand sa PR est fusionnée",
+      "Hors ligne : tu continues, tout part au retour du réseau",
+      "Résumé du lundi par email"
+    ]
+  },
+  {
     "version": "0.5.3",
     "date": "2026-11-19",
     "title": "Un projet bien lancé",

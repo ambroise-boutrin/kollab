@@ -10,7 +10,7 @@ import { DockToggle } from '../components/Dock'
 import { Icon } from '../components/Icon'
 import { PhoneHome } from './PhoneHome'
 import { ActivityDialog, ActivityList, useActivity } from '../components/ActivityFeed'
-import { HomeLayoutDialog, useHomeLayout, type WidgetId } from '../components/HomeLayout'
+import { DEFAULT, HomeEditGrid, useHomeLayout, type WidgetId } from '../components/HomeLayout'
 import { boardTasks } from '../lib/sprints'
 import { useStore, useWorkspace } from '../lib/store'
 import { KINDS, STATUSES, type Task, type TaskStatus } from '../lib/types'
@@ -26,7 +26,7 @@ export function Home() {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [layout, setLayout] = useHomeLayout(ws.group.id)
-  const [customizing, setCustomizing] = useState(false)
+  const [editing, setEditing] = useState(false)
   const me = ws.members.find((m) => m.id === user?.id) ?? ws.members[0]
   const firstName = me?.name.split(/\s+/)[0] ?? ''
 
@@ -169,7 +169,7 @@ export function Home() {
           <MembersStack />
           <NotificationBell />
           <DockToggle />
-          <button className="icon-btn hide-phone" aria-label="Organiser l'accueil" title="Organiser l'accueil" onClick={() => setCustomizing(true)}><Icon name="layout" size={20} /></button>
+          <button className="icon-btn hide-phone" aria-label="Organiser l'accueil" title="Organiser l'accueil" aria-pressed={editing} onClick={() => setEditing(!editing)}><Icon name="layout" size={20} /></button>
           <button className="btn" onClick={openInvite}>Inviter<span className="hide-phone"> des membres</span></button>
         </div>
       </header>
@@ -193,15 +193,26 @@ export function Home() {
         </div>
       </div>
 
-      <div className="home-grid">
-        {(['main', 'side'] as const).map((col) => (
-          <div key={col} className={col === 'main' ? 'home-main' : 'home-side'}>
-            {layout[col].filter((id) => !layout.hidden.includes(id)).map((id) => <div key={id} className="home-widget">{widgets[id]}</div>)}
-          </div>
-        ))}
-      </div>
+      {editing && (
+        <div className="he-banner hide-phone" role="status">
+          <span><b>Mode édition.</b> Glisse les blocs pour les déplacer, change leur taille avec le coin, masque ce que tu ne veux pas.</span>
+          <button className="he-reset" onClick={() => setLayout(DEFAULT)}>Réinitialiser</button>
+          <button className="he-done" onClick={() => setEditing(false)}>Terminé</button>
+        </div>
+      )}
+      {editing ? <HomeEditGrid layout={layout} onChange={setLayout} widgets={widgets} /> : (
+        <div className="home-grid">
+          {(['main', 'side'] as const).map((col) => (
+            <div key={col} className={col === 'main' ? 'home-main' : 'home-side'}>
+              {layout[col].filter((id) => !layout.hidden.includes(id)).map((id) => {
+                const h = layout.heights?.[id]
+                return <div key={id} className={`home-widget${h ? ' sized' : ''}`} style={h ? { height: h } : undefined}>{widgets[id]}</div>
+              })}
+            </div>
+          ))}
+        </div>
+      )}
       {history && <ActivityDialog onClose={() => setHistory(false)} />}
-      {customizing && <HomeLayoutDialog layout={layout} onChange={setLayout} onClose={() => setCustomizing(false)} />}
     </div>
   )
 }

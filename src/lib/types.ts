@@ -27,6 +27,20 @@ export interface Member {
   status: PresenceStatus
   avatarUrl: string | null
   online?: boolean
+  /** Statut perso (« En réunion »…), vide s'il n'y en a pas ou s'il a expiré. */
+  statusText?: string
+  statusColor?: string | null
+  /** Heure où le statut perso s'efface (null : jamais). */
+  statusUntil?: string | null
+  /** Reçoit le résumé du lundi par email (oui par défaut). */
+  weeklyEmail?: boolean
+}
+
+/** Statut perso encore valable. */
+export function liveStatus(m: Pick<Member, 'statusText' | 'statusUntil'> | undefined): string {
+  if (!m?.statusText) return ''
+  if (m.statusUntil && new Date(m.statusUntil).getTime() <= Date.now()) return ''
+  return m.statusText
 }
 
 export type PresenceStatus = 'available' | 'busy' | 'away'
@@ -37,7 +51,7 @@ export const PRESENCE: Record<PresenceStatus, { label: string; color: string }> 
   away: { label: 'Absent', color: '#8A90A2' },
 }
 
-export type ProfilePatch = Partial<Pick<Member, 'name' | 'color' | 'status'>>
+export type ProfilePatch = Partial<Pick<Member, 'name' | 'color' | 'status' | 'statusText' | 'statusColor' | 'statusUntil' | 'weeklyEmail'>>
 
 export interface Task {
   id: string

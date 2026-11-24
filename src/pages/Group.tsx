@@ -5,7 +5,7 @@ import { Icon } from '../components/Icon'
 import { Popover } from '../components/Popover'
 import { useToast } from '../components/Toast'
 import { useStore, useWorkspace } from '../lib/store'
-import { PRESENCE, ROLES, TEAM_TITLES, type Role } from '../lib/types'
+import { PRESENCE, liveStatus, ROLES, TEAM_TITLES, type Role } from '../lib/types'
 
 export const openInvite = () => window.dispatchEvent(new Event('kollab:invite'))
 
@@ -79,7 +79,7 @@ export function Group() {
                 )}
                 <span className="muted">
                   <span className="member-presence" style={{ ['--p' as string]: on ? PRESENCE[m.status ?? 'available'].color : 'var(--muted)' }}>
-                    {on ? PRESENCE[m.status ?? 'available'].label : 'Hors ligne'}
+                    {liveStatus(m) || (on ? PRESENCE[m.status ?? 'available'].label : 'Hors ligne')}
                   </span>
                 </span>
               </div>
