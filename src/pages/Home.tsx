@@ -12,7 +12,7 @@ import { PhoneHome } from './PhoneHome'
 import { ActivityDialog, ActivityList, useActivity } from '../components/ActivityFeed'
 import { DEFAULT, HomeEditGrid, useHomeLayout, type WidgetId } from '../components/HomeLayout'
 import { boardProgress, boardTasks } from '../lib/sprints'
-import { DueBadge, daysUntil } from '../components/TaskExtras'
+import { DueBadge, TaskPrChip, daysUntil } from '../components/TaskExtras'
 
 const DOT: Record<string, string> = { todo: '#A3A9BA', doing: '#2F6FD0', review: '#D98A1C', done: '#2E7D4F' }
 import { useStore, useWorkspace } from '../lib/store'
@@ -71,6 +71,12 @@ export function Home() {
             <h2>Ma journée</h2>
             <Link to="/tableau" className="mini-more">Tout voir</Link>
           </div>
+          {mine.length > 0 && !ws.tasks.some((t) => t.prUrl) && (
+            <Link to={`/tableau?tache=${mine[0].id}`} className="day-flow">
+              <span className="day-flow-chips"><b>Tâche</b><i>→</i><b>Branche</b><i>→</i><b>PR</b><i>→</i><b>Terminé</b></span>
+              <span>Relie une tâche à sa branche : Kollab suit la PR et la passe en Terminé à la fusion.</span>
+            </Link>
+          )}
           {mine.length === 0 ? (
             <div className="day-empty">
               <strong>Rien pour toi pour l'instant.</strong>
@@ -85,7 +91,10 @@ export function Home() {
                     <span className="day-dot" />
                     <span>{t.title}</span>
                   </Link>
-                  <span className="muted day-meta">{STATUSES.find((s) => s.id === t.status)?.label}{t.points != null ? ` · ${t.points} pts` : ''}</span>
+                  <span className="muted day-meta">
+                    {t.prUrl ? <TaskPrChip task={t} /> : <Link to={`/tableau?tache=${t.id}`} className="day-link">Lier une branche</Link>}
+                    {STATUSES.find((s) => s.id === t.status)?.label}{t.points != null ? ` · ${t.points} pts` : ''}
+                  </span>
                   <button className="btn soft small" onClick={() => advance(t)}>{NEXT_LABEL[t.status]}</button>
                 </li>
               ))}

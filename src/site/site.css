@@ -556,3 +556,9 @@
 .k-case { min-width: 0; max-width: min(460px, 80vw); }
 .k-case-media { width: 100%; }
 .k-case-media.is-phone img, .k-case-media.is-phone video { max-width: 100%; min-width: 0; }
+
+/* Tâche → branche → tests → Terminé, au-dessus du diff */
+.k-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 14px 18px 4px; font-size: 13px; font-weight: 700; }
+.k-flow span { padding: 5px 10px; border-radius: 8px; color: #14142B; }
+.k-flow i { font-style: normal; color: rgba(255, 255, 255, .5); }
+.k-flow-0 { background: #C9C2FF; } .k-flow-1 { background: #FFE07A; font-family: ui-monospace, Menlo, monospace; } .k-flow-2 { background: #9BE3BF; } .k-flow-3 { background: #2E7D4F; color: #fff !important; }
