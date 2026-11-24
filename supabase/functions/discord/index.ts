@@ -131,6 +131,7 @@ Deno.serve(async (req) => {
         const { data: taken } = await db.from('channel_discord').select('channel_id').eq('discord_channel_id', target.id).maybeSingle()
         if (taken && taken.channel_id !== channel.id) return fail('Ce salon Discord est déjà relié à un autre salon.')
         await attach(db, body.groupId, channel.id, target, me.user.id)
+        historyLater(db, [channel.id])
         return json({ channelId: channel.id, discordChannelId: target.id, discordChannelName: target.name })
       }
       case 'import': {
@@ -144,6 +145,8 @@ Deno.serve(async (req) => {
         const usedK = new Set((linked ?? []).map((l) => l.channel_id as string))
         const usedD = new Set((linked ?? []).map((l) => l.discord_channel_id as string))
         let merged = 0, created = 0, failed = 0
+        // Salons déjà reliés : on reprend aussi leur historique (les messages déjà là sont ignorés).
+        const toFill = (linked ?? []).map((l) => l.channel_id as string)
         for (const d of all) {
           if (usedD.has(d.id)) continue
           try {
@@ -158,11 +161,13 @@ Deno.serve(async (req) => {
             await attach(db, body.groupId, k!.id, d, me.user.id)
             usedK.add(k!.id)
             usedD.add(d.id)
+            toFill.push(k!.id)
           } catch (e) {
             failed++
             console.error('import', d.id, String(e))
           }
         }
+        historyLater(db, toFill)
         return json({ merged, created, failed })
       }
       case 'unlink': {
@@ -310,13 +315,64 @@ function fromDiscord(m: DMessage, names: Map<string, string>) {
   return text.trim().slice(0, 4000)
 }
 
-async function poll(db: SupabaseClient) {
-  const until = Date.now() + 55_000
-  // Comptes Discord reliés à Kollab : leurs messages sont rangés à leur nom.
-  const kollabOf = async (discordId: string, groupId: string) => {
-    const { data } = await db.rpc('discord_member', { discord_id: discordId, gid: groupId })
+type Link = { channel_id: string; group_id: string; discord_channel_id: string; webhook_id: string }
+
+/** Range un message Discord dans Kollab. `old` : message d'avant la liaison, sans prévenir personne des mentions. */
+async function ingest(db: SupabaseClient, l: Link, m: DMessage, profileNames: Map<string, string>, old = false) {
+  if (m.webhook_id === l.webhook_id) return // nos propres envois
+  if (m.type !== 0 && m.type !== 19) return // messages normaux et réponses
+  const kollabOf = async (discordId: string) => {
+    const { data } = await db.rpc('discord_member', { discord_id: discordId, gid: l.group_id })
     return (data as string | null) ?? null
   }
+  const names = new Map<string, string>()
+  for (const u of m.mentions) {
+    const kid = await kollabOf(u.id)
+    if (kid && !profileNames.has(kid)) {
+      const { data } = await db.from('profiles').select('name').eq('id', kid).maybeSingle()
+      if (data?.name) profileNames.set(kid, data.name)
+    }
+    names.set(u.id, (kid && profileNames.get(kid)) || nameOf(u))
+  }
+  let body = fromDiscord(m, names)
+  if (!body) return
+  // Un caractère invisible après @ : l'historique ne déclenche pas de notifications de mention.
+  if (old) body = body.replace(/@/g, '@\u2060')
+  const { error } = await db.from('messages').insert({
+    group_id: l.group_id, channel_id: l.channel_id, author_id: await kollabOf(m.author.id),
+    body, created_at: m.timestamp, discord_message_id: m.id,
+    discord_author: { id: m.author.id, name: nameOf(m.author, m.member?.nick), avatar: avatarOf(m.author) },
+  })
+  if (error && error.code !== '23505') console.error('insert', error.message)
+}
+
+/** Historique d'un salon Discord (les 2 000 derniers messages), repris une fois à la liaison. Les doublons sont ignorés. */
+async function history(db: SupabaseClient, channelId: string) {
+  const { data: l } = await db.from('channel_discord').select('channel_id, group_id, discord_channel_id, webhook_id').eq('channel_id', channelId).maybeSingle()
+  if (!l) return
+  const all: DMessage[] = []
+  let before = ''
+  for (let page = 0; page < 20; page++) {
+    const list = await bot<DMessage[]>(`/channels/${l.discord_channel_id}/messages?limit=100${before ? `&before=${before}` : ''}`)
+    if (!list.length) break
+    all.push(...list)
+    before = list.reduce((a, b) => (BigInt(a.id) < BigInt(b.id) ? a : b)).id
+    if (list.length < 100) break
+  }
+  const names = new Map<string, string>()
+  for (const m of all.sort((a, b) => (BigInt(a.id) < BigInt(b.id) ? -1 : 1))) await ingest(db, l, m, names, true)
+}
+
+/** Lance la reprise de l'historique sans faire attendre l'appli. */
+function historyLater(db: SupabaseClient, channelIds: string[]) {
+  const work = (async () => {
+    for (const id of channelIds) await history(db, id).catch((e) => console.error('history', id, String(e)))
+  })()
+  ;(globalThis as { EdgeRuntime?: { waitUntil(p: Promise<unknown>): void } }).EdgeRuntime?.waitUntil(work)
+}
+
+async function poll(db: SupabaseClient) {
+  const until = Date.now() + 55_000
   const profileNames = new Map<string, string>()
   while (Date.now() < until) {
     const { data: links } = await db.from('channel_discord').select('channel_id, group_id, discord_channel_id, webhook_id, last_message_id')
@@ -327,29 +383,7 @@ async function poll(db: SupabaseClient) {
         const list = await bot<DMessage[]>(`/channels/${l.discord_channel_id}/messages?${q}`)
         if (!list.length) continue
         const fresh = [...list].sort((a, b) => (BigInt(a.id) < BigInt(b.id) ? -1 : 1))
-        if (l.last_message_id) {
-          for (const m of fresh) {
-            if (m.webhook_id === l.webhook_id) continue // nos propres envois
-            if (m.type !== 0 && m.type !== 19) continue // messages normaux et réponses
-            const names = new Map<string, string>()
-            for (const u of m.mentions) {
-              const kid = await kollabOf(u.id, l.group_id)
-              if (kid && !profileNames.has(kid)) {
-                const { data } = await db.from('profiles').select('name').eq('id', kid).maybeSingle()
-                if (data?.name) profileNames.set(kid, data.name)
-              }
-              names.set(u.id, (kid && profileNames.get(kid)) || nameOf(u))
-            }
-            const body = fromDiscord(m, names)
-            if (!body) continue
-            const { error } = await db.from('messages').insert({
-              group_id: l.group_id, channel_id: l.channel_id, author_id: await kollabOf(m.author.id, l.group_id),
-              body, created_at: m.timestamp, discord_message_id: m.id,
-              discord_author: { id: m.author.id, name: nameOf(m.author, m.member?.nick), avatar: avatarOf(m.author) },
-            })
-            if (error && error.code !== '23505') console.error('insert', error.message)
-          }
-        }
+        if (l.last_message_id) for (const m of fresh) await ingest(db, l, m, profileNames)
         await db.from('channel_discord').update({ last_message_id: fresh[fresh.length - 1].id }).eq('channel_id', l.channel_id)
       } catch (e) {
         console.error('salon', l.discord_channel_id, String(e))
