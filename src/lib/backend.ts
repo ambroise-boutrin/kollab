@@ -1,4 +1,4 @@
-import type { AppNotification, DiscordChannel, DiscordGuild, DiscordLink, EmailInvite, Channel, DocumentItem, Note, Sprint, ReactionChange, ActivityItem, Group, Invite, LinkItem, Member, Message, ProfilePatch, Provider, Role, Task, TaskComment } from './types'
+import type { AppNotification, DiscordChannel, DiscordGuild, DiscordLink, DiscordAccount, EmailInvite, Channel, DocumentItem, Note, Sprint, ReactionChange, ActivityItem, Group, Invite, LinkItem, Member, Message, ProfilePatch, Provider, Role, Task, TaskComment } from './types'
 
 export interface User {
   id: string
@@ -9,7 +9,7 @@ export interface User {
 }
 
 export interface TrashItem {
-  kind: 'task' | 'link' | 'document' | 'note'
+  kind: 'task' | 'link' | 'document' | 'note' | 'channel'
   id: string
   title: string
   deletedAt: string
@@ -170,7 +170,10 @@ export interface Backend {
   addComment(taskId: string, body: string): Promise<TaskComment>
 
   listMessages(channelId: string): Promise<Message[]>
-  sendMessage(channelId: string, body: string): Promise<Message>
+  /** Envoie un message, avec ses pièces jointes éventuelles (25 Mo max chacune). */
+  sendMessage(channelId: string, body: string, files?: File[]): Promise<Message>
+  /** Adresses temporaires des pièces jointes, par emplacement. */
+  attachmentUrls(paths: string[]): Promise<Record<string, string>>
   /** Réactions, modification et suppression disponibles (base à jour). */
   chatActions(): boolean
   editMessage(id: string, body: string): Promise<void>
@@ -181,6 +184,10 @@ export interface Backend {
 
   addLink(title: string, url: string): Promise<LinkItem>
   createChannel(name: string): Promise<Channel>
+  /** Renomme un salon (et son salon Discord s'il est relié). */
+  renameChannel(id: string, name: string): Promise<void>
+  /** Met un salon à la corbeille : ses messages restent, il se restaure 30 jours. Le salon Discord est seulement délié. */
+  deleteChannel(id: string): Promise<void>
 
   /** Corbeille du projet ouvert (null si la base ne la connaît pas encore). */
   listTrash(): Promise<TrashItem[] | null>
@@ -227,7 +234,11 @@ export interface Backend {
   notifyDiscord(event: DiscordEvent): Promise<void>
 
   /** Serveur Discord relié au projet ouvert et salons reliés. */
-  discordState(): Promise<{ guild: DiscordGuild | null; links: DiscordLink[] }>
+  /** `account` : compte Discord de la personne connectée, s'il est relié. */
+  discordState(): Promise<{ guild: DiscordGuild | null; links: DiscordLink[]; account?: DiscordAccount | null }>
+  /** Relie son propre compte Discord (petite fenêtre) : ses messages Discord sont rangés à son nom. */
+  connectDiscordAccount(): Promise<void>
+  unlinkDiscordAccount(): Promise<void>
   /** Ajoute le bot Kollab à un serveur Discord, dans une petite fenêtre (admin, une seule fois). */
   connectDiscord(): Promise<void>
   /** Délie le serveur et tous les salons. */

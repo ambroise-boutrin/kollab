@@ -1,6 +1,6 @@
 [
   {
-    "version": "0.6.8",
+    "version": "0.6.9",
     "date": "2026-11-24",
     "title": "Ta présence, comme dans Teams",
     "items": [
@@ -9,6 +9,17 @@
       "Ne pas déranger : pas de sonnerie ni de notification, l'appel reste en « Appel manqué »",
       "Invisible : tu parais hors ligne pour l'équipe",
       "Pastille barrée ou creuse sur les photos"
+    ]
+  },
+  {
+    "version": "0.6.8",
+    "date": "2026-11-24",
+    "title": "Salons, fichiers et ton compte Discord",
+    "items": [
+      "Crée, renomme et supprime tes salons ; un salon supprimé se restaure depuis la corbeille",
+      "Joins des fichiers et des images dans le chat : trombone, glisser-déposer ou coller",
+      "Relie ton compte Discord : tes messages Discord s'affichent de ton côté",
+      "L'historique des salons Discord arrive dans Kollab, fichiers compris"
     ]
   },
   {

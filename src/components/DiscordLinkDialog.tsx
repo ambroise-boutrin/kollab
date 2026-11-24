@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Modal } from './Modal'
 import { useToast } from './Toast'
 import { useStore } from '../lib/store'
-import type { Channel, DiscordChannel, DiscordGuild, DiscordLink } from '../lib/types'
+import type { Channel, DiscordAccount, DiscordChannel, DiscordGuild, DiscordLink } from '../lib/types'
 
 /** Couleurs des cartes de salons Discord, à tour de rôle. */
 const TINTS = ['indigo', 'green', 'orange', 'pink', 'blue', 'teal']
@@ -20,10 +20,13 @@ export function DiscordMark({ size = 20 }: { size?: number }) {
  * Relier un salon du chat à un salon Discord (piste A). Si le projet n'a pas encore de serveur Discord,
  * on le relie d'abord, une seule fois, dans une petite fenêtre Discord.
  */
-export function DiscordLinkDialog({ channel, guild, links, onClose, onChange }: {
+export function DiscordLinkDialog({ channel, guild, links, account, isAdmin = true, onClose, onChange }: {
   channel: Channel
   guild: DiscordGuild | null
   links: DiscordLink[]
+  /** Compte Discord de la personne connectée. */
+  account?: DiscordAccount | null
+  isAdmin?: boolean
   onClose: () => void
   /** État Discord à relire (serveur ou salons changés). */
   onChange: () => Promise<void>
@@ -33,7 +36,7 @@ export function DiscordLinkDialog({ channel, guild, links, onClose, onChange }: 
   const current = links.find((l) => l.channelId === channel.id) ?? null
   const [list, setList] = useState<DiscordChannel[] | null>(null)
   const [pick, setPick] = useState<string | null>(current?.discordChannelId ?? null)
-  const [busy, setBusy] = useState<'connect' | 'link' | 'unlink' | 'import' | null>(null)
+  const [busy, setBusy] = useState<'connect' | 'link' | 'unlink' | 'import' | 'me' | null>(null)
   const [step, setStep] = useState(0)
 
   useEffect(() => {
@@ -117,6 +120,56 @@ export function DiscordLinkDialog({ channel, guild, links, onClose, onChange }: 
     }
   }
 
+  async function linkMe() {
+    setBusy('me')
+    try {
+      await backend.connectDiscordAccount()
+      await onChange()
+      toast('Compte Discord relié : tes messages Discord sont à ton nom')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Connexion Discord impossible')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function unlinkMe() {
+    setBusy('me')
+    try {
+      await backend.unlinkDiscordAccount()
+      await onChange()
+      toast('Compte Discord délié')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Impossible de délier')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  /** Mon compte Discord : relié une fois, il range mes messages Discord de mon côté. */
+  const me = (
+    <div className={`discord-me${account ? ' on' : ''}`}>
+      {account?.avatar ? <img src={account.avatar} alt="" width={40} height={40} /> : <DiscordMark size={40} />}
+      <span className="discord-me-text">
+        <strong>{account ? account.name : 'Ton compte Discord'}</strong>
+        <span className="muted">{account ? 'Tes messages Discord s’affichent de ton côté, sous ton nom.' : 'Relie-le : tes messages Discord passeront de ton côté.'}</span>
+      </span>
+      {account
+        ? <button className="btn soft small" onClick={() => void unlinkMe()} disabled={!!busy}>Délier</button>
+        : <button className="btn discord small" onClick={() => void linkMe()} disabled={!!busy}>{busy === 'me' ? 'En attente…' : 'Relier mon compte'}</button>}
+    </div>
+  )
+
+  if (guild && !isAdmin) {
+    const link = links.find((l) => l.channelId === channel.id)
+    return (
+      <Modal title="Discord" onClose={onClose} footer={<button className="btn soft" onClick={onClose}>Fermer</button>}>
+        <p className="muted" style={{ marginTop: 0 }}>{link ? `# ${channel.name} est relié à # ${link.discordChannelName} sur ${guild.name}.` : `Serveur : ${guild.name}.`}</p>
+        {me}
+      </Modal>
+    )
+  }
+
   if (!guild) {
     const steps = ['Choisis ton serveur dans la petite fenêtre', 'Clique sur Autoriser', 'C’est fini : la fenêtre se ferme toute seule']
     return (
@@ -161,7 +214,8 @@ export function DiscordLinkDialog({ channel, guild, links, onClose, onChange }: 
         <button className="btn discord" onClick={() => void link()} disabled={!pick || !!busy || pick === current?.discordChannelId}>{busy === 'link' ? 'Liaison…' : 'Relier'}</button>
       </>
     }>
-      <p className="muted" style={{ marginTop: 0 }}>Choisis le salon Discord. Les messages passeront dans les deux sens.</p>
+      {me}
+      <p className="muted">Choisis le salon Discord. Les messages passeront dans les deux sens.</p>
       {list === null ? (
         <div className="discord-grid">{[0, 1, 2].map((i) => <span key={i} className="discord-card skeleton" />)}</div>
       ) : (

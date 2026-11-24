@@ -6,13 +6,14 @@ import { CallButtons } from '../components/Call'
 import { DiscordLinkDialog, DiscordMark } from '../components/DiscordLinkDialog'
 import { initials } from '../components/Avatar'
 import { Popover } from '../components/Popover'
+import { PromptDialog } from '../components/PromptDialog'
 import { Modal } from '../components/Modal'
 import { LogoMark } from '../components/Logo'
 import { PrStatus } from '../components/PrLink'
 import { useToast } from '../components/Toast'
 import { ghToken, listPulls, projectRepo } from '../lib/github'
 import { useStore, useWorkspace } from '../lib/store'
-import { STATUSES, type DiscordGuild, type DiscordLink, type Member, type Message, type Task } from '../lib/types'
+import { STATUSES, type Attachment, type Channel, type DiscordAccount, type DiscordGuild, type DiscordLink, type Member, type Message, type Task } from '../lib/types'
 import { useAsync } from '../lib/useAsync'
 
 const QUICK = ['👍', '❤️', '😂', '🎉', '👀', '✅']
@@ -86,6 +87,50 @@ function Refs({ body, tasks, members, open }: { body: string; tasks: Task[]; mem
   )
 }
 
+const sizeLabel = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} Ko` : `${(n / 1024 / 1024).toFixed(1).replace('.', ',')} Mo`)
+const extOf = (name: string) => (/\.(\w{1,5})$/.exec(name)?.[1] ?? 'fichier').toUpperCase()
+
+/** Pièces jointes d'un message : images en vignettes, autres fichiers en cartes. */
+function Attachments({ files, urls }: { files: Attachment[]; urls: Record<string, string> }) {
+  const images = files.filter((f) => f.mime.startsWith('image/'))
+  const others = files.filter((f) => !f.mime.startsWith('image/'))
+  return (
+    <div className="attachments">
+      {images.length > 0 && (
+        <div className={`attach-images n${Math.min(images.length, 3)}`}>
+          {images.map((f) => (
+            <a key={f.path} className="attach-image" href={urls[f.path]} target="_blank" rel="noreferrer" title={f.name}>
+              {urls[f.path] ? <img src={urls[f.path]} alt={f.name} loading="lazy" onLoad={(e) => {
+                // Image chargée en bas du fil : on garde le bas visible.
+                const list = e.currentTarget.closest('.messages')
+                if (list && list.scrollHeight - list.scrollTop - list.clientHeight < e.currentTarget.clientHeight + 120) list.scrollTop = list.scrollHeight
+              }} /> : <span className="skeleton" />}
+            </a>
+          ))}
+        </div>
+      )}
+      {others.map((f) => (
+        <a key={f.path} className="attach-file" href={urls[f.path]} target="_blank" rel="noreferrer" download={f.name}>
+          <span className="attach-ext">{extOf(f.name)}</span>
+          <span className="attach-text"><strong>{f.name}</strong><span className="muted">{sizeLabel(f.size)}</span></span>
+          <Icon name="download" size={18} />
+        </a>
+      ))}
+    </div>
+  )
+}
+
+/** Aperçu d'une image avant envoi. */
+function FileThumb({ file }: { file: File }) {
+  const [src, setSrc] = useState('')
+  useEffect(() => {
+    const u = URL.createObjectURL(file)
+    setSrc(u)
+    return () => URL.revokeObjectURL(u)
+  }, [file])
+  return src ? <img className="composer-thumb" src={src} alt="" /> : <span className="composer-thumb" />
+}
+
 function time(iso: string) {
   return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
@@ -103,7 +148,7 @@ type Suggestion = { key: string; label: string; hint: string; insert: string; me
 export function Chat({ docked = false }: { docked?: boolean } = {}) {
   const ws = useWorkspace()
   const { channels, members, tasks } = ws
-  const { backend, incoming, messageUpdate, reactionChange, online, createTask, user } = useStore()
+  const { backend, incoming, messageUpdate, reactionChange, online, createTask, user, reload } = useStore()
   const toast = useToast()
   const navigate = useNavigate()
   const me = user?.id ?? 'me'
@@ -119,6 +164,14 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
   const [editing, setEditing] = useState<{ id: string; body: string } | null>(null)
   /** Sur écran tactile : message touché, dont on montre les actions. */
   const [touched, setTouched] = useState<string | null>(null)
+  /** Fichiers prêts à partir avec le prochain message. */
+  const [files, setFiles] = useState<File[]>([])
+  const [dragging, setDragging] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [urls, setUrls] = useState<Record<string, string>>({})
+  const fileRef = useRef<HTMLInputElement>(null)
+  // Salons : création, renommage, suppression.
+  const [channelDialog, setChannelDialog] = useState<{ mode: 'new' | 'rename' | 'delete'; channel?: Channel } | null>(null)
   const [pickChan, setPickChan] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -128,7 +181,7 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
 
   // Discord : serveur du projet et salons reliés.
   const isAdmin = (members.find((m) => m.id === user?.id) ?? (backend.mode === 'demo' ? members[0] : undefined))?.role === 'admin'
-  const [discord, setDiscord] = useState<{ guild: DiscordGuild | null; links: DiscordLink[] }>({ guild: null, links: [] })
+  const [discord, setDiscord] = useState<{ guild: DiscordGuild | null; links: DiscordLink[]; account?: DiscordAccount | null }>({ guild: null, links: [] })
   const [discordOpen, setDiscordOpen] = useState(false)
   const reloadDiscord = async () => setDiscord(await backend.discordState().catch(() => ({ guild: null, links: [] })))
   useEffect(() => {
@@ -159,7 +212,28 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
   const lastId = messages.at(-1)?.id
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
+    // Pièces jointes : leur hauteur arrive un peu après.
+    const t = setTimeout(() => listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' }), 450)
+    return () => clearTimeout(t)
   }, [lastId])
+
+  // Adresses des pièces jointes affichées (valables une heure).
+  const missing = messages.flatMap((m) => m.attachments ?? []).map((a) => a.path).filter((p) => !(p in urls))
+  const missingKey = missing.join('|')
+  useEffect(() => {
+    if (!missing.length) return
+    let alive = true
+    void backend.attachmentUrls(missing).then((u) => alive && setUrls((x) => ({ ...x, ...Object.fromEntries(missing.map((p) => [p, ''])), ...u })), () => undefined)
+    return () => { alive = false }
+  }, [backend, missingKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function addFiles(list: FileList | File[] | null) {
+    const picked = [...(list ?? [])].filter((f) => f.size > 0)
+    const big = picked.find((f) => f.size > 25 * 1024 * 1024)
+    if (big) toast(`${big.name} dépasse 25 Mo`)
+    setFiles((fs) => [...fs, ...picked.filter((f) => f.size <= 25 * 1024 * 1024)].slice(0, 10))
+    inputRef.current?.focus()
+  }
 
   function applyReaction(messageId: string, emoji: string, userId: string, on: boolean) {
     setMessages((ms) =>
@@ -232,7 +306,7 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
       void send()
     }
     if (e.key === 'ArrowUp' && !text) {
-      const mine = [...messages].reverse().find((m) => m.authorId === me && !m.deletedAt)
+      const mine = [...messages].reverse().find((m) => m.authorId === me && !m.deletedAt && !m.discord)
       if (mine) { e.preventDefault(); setEditing({ id: mine.id, body: mine.body }) }
     }
   }
@@ -240,7 +314,22 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
   async function send(e?: FormEvent) {
     e?.preventDefault()
     const body = text.trim()
-    if (!body) return
+    if (sending || (!body && !files.length)) return
+    if (files.length) {
+      const pending = files
+      setSending(true)
+      try {
+        const msg = await backend.sendMessage(channelId, body, pending)
+        setText('')
+        setFiles([])
+        setMessages((ms) => (ms.some((m) => m.id === msg.id) ? ms : [...ms, msg]))
+      } catch (err) {
+        toast(err instanceof Error ? err.message : 'Envoi impossible')
+      } finally {
+        setSending(false)
+      }
+      return
+    }
     setText('')
     const cmd = /^\/t[aâ]che\s+(.+)/i.exec(body)
     if (cmd) {
@@ -294,15 +383,34 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
       <nav className="channels" aria-label="Salons" data-tour="channels">
         <h1 style={{ padding: '0 12px 10px' }}>Chat</h1>
         {channels.map((c) => (
-          <button key={c.id} className={`channel${c.id === channelId ? ' active' : ''}`} onClick={() => setChannelId(c.id)}>
-            # {c.name}
-            {linkOf(c.id) && <span className="channel-discord" title={`Relié à # ${linkOf(c.id)!.discordChannelName} sur Discord`}><DiscordMark size={20} /></span>}
-          </button>
+          <div key={c.id} className={`channel-row${c.id === channelId ? ' active' : ''}`}>
+            <button className={`channel${c.id === channelId ? ' active' : ''}`} onClick={() => setChannelId(c.id)}>
+              <span className="channel-name"># {c.name}</span>
+              {linkOf(c.id) && <span className="channel-discord" title={`Relié à # ${linkOf(c.id)!.discordChannelName} sur Discord`}><DiscordMark size={20} /></span>}
+            </button>
+            {isAdmin && (
+              <Popover label={`Options de #${c.name}`} className="channel-more" button={({ open, toggle }) => (
+                <button className="channel-more-btn" aria-expanded={open} aria-label={`Options de #${c.name}`} onClick={toggle}>•••</button>
+              )}>
+                {(close) => (
+                  <>
+                    <button className="pop-item" onClick={() => { close(); setChannelDialog({ mode: 'rename', channel: c }) }}>Renommer</button>
+                    <button className="pop-item danger" onClick={() => { close(); setChannelDialog({ mode: 'delete', channel: c }) }} disabled={channels.length < 2}>Supprimer</button>
+                  </>
+                )}
+              </Popover>
+            )}
+          </div>
         ))}
+        <button className="channel channel-new" onClick={() => setChannelDialog({ mode: 'new' })}><Icon name="plus" size={16} /> Nouveau salon</button>
       </nav>
       )}
 
-      <section className="card thread" aria-label={`Salon ${channel?.name ?? ''}`}>
+      <section className={`card thread${dragging ? ' dragging' : ''}`} aria-label={`Salon ${channel?.name ?? ''}`}
+        onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDragging(true) } }}
+        onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragging(false) }}
+        onDrop={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); setDragging(false); addFiles(e.dataTransfer.files) } }}>
+        {dragging && <div className="drop-hint" aria-hidden="true"><Icon name="upload" size={28} /><strong>Dépose pour joindre à #{channel?.name}</strong></div>}
         <header className="thread-head">
           <h2 className="hide-phone"># {channel?.name}</h2>
           {!docked && <span className="chan-logo show-phone-flex" aria-hidden="true"><LogoMark size={28} /></span>}
@@ -314,7 +422,7 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
           )}
           <div className="thread-tools">
             {channel && (linkOf(channel.id) ? (
-              <button className="discord-pill" onClick={() => isAdmin && setDiscordOpen(true)} disabled={!isAdmin} title="Messages partagés avec Discord">
+              <button className="discord-pill" onClick={() => setDiscordOpen(true)} title="Messages partagés avec Discord">
                 <DiscordMark size={18} /> # {linkOf(channel.id)!.discordChannelName}
               </button>
             ) : isAdmin && (
@@ -338,7 +446,8 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
             const newDay = !prev || new Date(prev.createdAt).toDateString() !== new Date(m.createdAt).toDateString()
             const grouped = !newDay && prev?.authorId === m.authorId && new Date(m.createdAt).getTime() - new Date(prev.createdAt).getTime() < 5 * 60000
             const author = members.find((x) => x.id === m.authorId)
-            const mine = m.authorId === me && !m.discord
+            // Message écrit sur Discord par quelqu'un qui a relié son compte : rangé de son côté.
+            const mine = m.authorId === me
             return (
               <div key={m.id} className="msg-wrap">
                 {newDay && <div className="day-sep"><span>{dayLabel(m.createdAt)}</span></div>}
@@ -367,9 +476,14 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
                     ) : m.deletedAt ? (
                       <div className="bubble deleted">Message supprimé</div>
                     ) : (
-                      <div className="bubble">
-                        <p>{renderBody(m.body, members, tasks, openTask)}{m.editedAt && <span className="edited"> (modifié)</span>}</p>
-                      </div>
+                      <>
+                        {(m.body || !m.attachments?.length) && (
+                          <div className="bubble">
+                            <p>{renderBody(m.body, members, tasks, openTask)}{m.editedAt && <span className="edited"> (modifié)</span>}</p>
+                          </div>
+                        )}
+                        {!!m.attachments?.length && <Attachments files={m.attachments} urls={urls} />}
+                      </>
                     )}
                     {!m.deletedAt && <Refs body={m.body} tasks={tasks} members={members} open={openTask} />}
                     {!!m.reactions?.length && (
@@ -400,10 +514,10 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
                             <div className="pop-emojis">
                               {QUICK.map((e) => <button key={e} onClick={() => { close(); toggleReaction(m, e) }} aria-label={`Réagir ${e}`}>{e}</button>)}
                             </div>
-                            {mine && <button className="pop-item" onClick={() => { close(); setEditing({ id: m.id, body: m.body }) }}>Modifier</button>}
+                            {mine && !m.discord && <button className="pop-item" onClick={() => { close(); setEditing({ id: m.id, body: m.body }) }}>Modifier</button>}
                             <button className="pop-item" onClick={() => { close(); void navigator.clipboard?.writeText(m.body).then(() => toast('Texte copié')) }}>Copier le texte</button>
                             <button className="pop-item" onClick={() => { close(); void toTask(m) }}>Créer une tâche</button>
-                            {mine && <button className="pop-item danger" onClick={() => { close(); void remove(m) }}>Supprimer</button>}
+                            {mine && !m.discord && <button className="pop-item danger" onClick={() => { close(); void remove(m) }}>Supprimer</button>}
                           </>
                         )}
                       </Popover>
@@ -419,12 +533,21 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
           <Modal title="Salons" onClose={() => setPickChan(false)}>
             <div className="chan-list">
               {channels.map((c) => (
-                <button key={c.id} className={`chan-row${c.id === channelId ? ' active' : ''}`} aria-current={c.id === channelId} onClick={() => { setChannelId(c.id); setPickChan(false) }}>
-                  <b>#</b>{c.name}
-                </button>
+                <div key={c.id} className="chan-row-wrap">
+                  <button className={`chan-row${c.id === channelId ? ' active' : ''}`} aria-current={c.id === channelId} onClick={() => { setChannelId(c.id); setPickChan(false) }}>
+                    <b>#</b>{c.name}
+                  </button>
+                  {isAdmin && (
+                    <>
+                      <button className="chan-act" aria-label={`Renommer #${c.name}`} onClick={() => { setPickChan(false); setChannelDialog({ mode: 'rename', channel: c }) }}><Icon name="edit" size={18} /></button>
+                      {channels.length > 1 && <button className="chan-act danger" aria-label={`Supprimer #${c.name}`} onClick={() => { setPickChan(false); setChannelDialog({ mode: 'delete', channel: c }) }}><Icon name="trash" size={18} /></button>}
+                    </>
+                  )}
+                </div>
               ))}
             </div>
-            {isAdmin && channel && (
+            <button className="btn soft chan-new" onClick={() => { setPickChan(false); setChannelDialog({ mode: 'new' }) }}><Icon name="plus" size={16} /> Nouveau salon</button>
+            {channel && (isAdmin || discord.guild) && (
               <button className="btn discord chan-discord" onClick={() => { setPickChan(false); setDiscordOpen(true) }}>
                 {linkOf(channel.id) ? `Discord : # ${linkOf(channel.id)!.discordChannelName}` : 'Relier à Discord'}
               </button>
@@ -443,7 +566,20 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
               ))}
             </div>
           )}
+          {files.length > 0 && (
+            <div className="composer-files" aria-label="Pièces jointes">
+              {files.map((f, i) => (
+                <span key={`${f.name}-${i}`} className="composer-file">
+                  {f.type.startsWith('image/') ? <FileThumb file={f} /> : <span className="attach-ext small">{extOf(f.name)}</span>}
+                  <span className="composer-file-name">{f.name}</span>
+                  <button type="button" aria-label={`Retirer ${f.name}`} onClick={() => setFiles((fs) => fs.filter((_, j) => j !== i))}><Icon name="close" size={14} /></button>
+                </span>
+              ))}
+            </div>
+          )}
           <form onSubmit={send}>
+            <input ref={fileRef} type="file" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = '' }} />
+            <button type="button" className="composer-ref" aria-label="Joindre un fichier" title="Joindre un fichier" onClick={() => fileRef.current?.click()}><Icon name="clip" size={18} /></button>
             <button type="button" className="composer-ref" aria-label="Citer une tâche ou une PR" onClick={() => { setText((t) => (t && !t.endsWith(' ') ? `${t} #` : `${t}#`)); inputRef.current?.focus() }}>#</button>
             <label className="sr-only" htmlFor="msg">Message</label>
             <textarea
@@ -453,17 +589,66 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
               value={text}
               onChange={(e) => { setText(e.target.value); setPick(0) }}
               onKeyDown={onKey}
+              onPaste={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); addFiles(e.clipboardData.files) } }}
               placeholder={`Écrire dans #${channel?.name ?? ''}${channel && linkOf(channel.id) ? ' · Discord le voit aussi' : ''}`}
               autoComplete="off"
             />
-            <button className="btn small" aria-label="Envoyer" disabled={!text.trim()}>
+            <button className="btn small" aria-label="Envoyer" disabled={sending || (!text.trim() && !files.length)}>
               <Icon name="send" size={18} />
             </button>
           </form>
         </div>
       </section>
+      {channelDialog?.mode === 'new' && (
+        <PromptDialog title="Nouveau salon" confirm="Créer" onClose={() => setChannelDialog(null)}
+          fields={[{ name: 'name', label: 'Nom du salon', prefix: '#', placeholder: 'design', maxLength: 40, required: true }]}
+          onSubmit={async (v) => {
+            const n = v.name.trim().replace(/^#/, '')
+            if (!n) return 'Donne un nom au salon'
+            try {
+              const c = await backend.createChannel(n)
+              await reload()
+              setChannelId(c.id)
+              setChannelDialog(null)
+              toast(`#${c.name} créé`)
+            } catch (e) { return e instanceof Error ? e.message : 'Création impossible' }
+          }} />
+      )}
+      {channelDialog?.mode === 'rename' && channelDialog.channel && (
+        <PromptDialog title={`Renommer #${channelDialog.channel.name}`} confirm="Enregistrer" onClose={() => setChannelDialog(null)}
+          fields={[{ name: 'name', label: 'Nom du salon', prefix: '#', initial: channelDialog.channel.name, maxLength: 40, required: true }]}
+          onSubmit={async (v) => {
+            const n = v.name.trim().replace(/^#/, '')
+            if (!n) return 'Donne un nom au salon'
+            try {
+              await backend.renameChannel(channelDialog.channel!.id, n)
+              await Promise.all([reload(), reloadDiscord()])
+              setChannelDialog(null)
+              toast(linkOf(channelDialog.channel!.id) ? 'Salon renommé, sur Discord aussi' : 'Salon renommé')
+            } catch (e) { return e instanceof Error ? e.message : 'Renommage impossible' }
+          }} />
+      )}
+      {channelDialog?.mode === 'delete' && channelDialog.channel && (
+        <Modal title={`Supprimer #${channelDialog.channel.name} ?`} onClose={() => setChannelDialog(null)} footer={
+          <>
+            <button className="btn soft" onClick={() => setChannelDialog(null)}>Annuler</button>
+            <button className="btn danger" onClick={() => {
+              const c = channelDialog.channel!
+              setChannelDialog(null)
+              void backend.deleteChannel(c.id).then(async () => {
+                await Promise.all([reload(), reloadDiscord()])
+                if (c.id === channelId) setChannelId(channels.find((x) => x.id !== c.id)?.id ?? '')
+                toast(`#${c.name} mis à la corbeille`, { label: 'Annuler', run: async () => { await backend.restoreItem('channel', c.id); await reload() } })
+              }, (e: Error) => toast(e.message))
+            }}>Supprimer</button>
+          </>
+        }>
+          <p style={{ marginTop: 0 }}>Le salon part à la corbeille avec ses messages. Tu peux le restaurer pendant 30 jours.</p>
+          {linkOf(channelDialog.channel.id) && <p className="muted">Le salon Discord # {linkOf(channelDialog.channel.id)!.discordChannelName} reste en place, il est seulement délié.</p>}
+        </Modal>
+      )}
       {discordOpen && channel && (
-        <DiscordLinkDialog channel={channel} guild={discord.guild} links={discord.links} onClose={() => setDiscordOpen(false)} onChange={reloadDiscord} />
+        <DiscordLinkDialog channel={channel} guild={discord.guild} links={discord.links} account={discord.account ?? null} isAdmin={isAdmin} onClose={() => setDiscordOpen(false)} onChange={reloadDiscord} />
       )}
     </div>
   )

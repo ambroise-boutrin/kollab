@@ -4,7 +4,7 @@ import { createClient, type SupabaseClient, type User as SbUser } from '@supabas
 import type { Backend, RoomEvent, User, Workspace } from './backend'
 import { disablePush } from './push'
 import { CGU_VERSION } from './legal'
-import type { AppNotification, Channel, DiscordChannel, DiscordLink, DocumentItem, Note, Sprint, Invite, ReactionChange, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
+import type { AppNotification, Attachment, Channel, DiscordChannel, DiscordLink, DocumentItem, Note, Sprint, Invite, ReactionChange, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
 import { PRESENCE, legacyPresence } from './types'
 
 interface TaskRow {
@@ -70,6 +70,7 @@ interface MessageRow {
   edited_at?: string | null
   deleted_at?: string | null
   discord_author?: { name: string; avatar?: string | null } | null
+  attachments?: Attachment[] | null
 }
 
 const toTask = (r: TaskRow): Task => ({
@@ -106,6 +107,7 @@ const toMessage = (r: MessageRow): Message => ({
   createdAt: r.created_at,
   editedAt: r.edited_at ?? null,
   deletedAt: r.deleted_at ?? null,
+  attachments: r.deleted_at ? [] : r.attachments ?? [],
 })
 
 function toUser(u: SbUser | null | undefined): User | null {
@@ -435,7 +437,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         sb.from('groups').select('*').eq('id', groupId).single(),
         loadMembers(),
         sb.from('tasks').select('*').eq('group_id', groupId).order('position'),
-        sb.from('channels').select('id, name').eq('group_id', groupId).order('created_at'),
+        sb.from('channels').select('id, name').eq('group_id', groupId).is('deleted_at', null).order('created_at'),
         sb.from('links').select('*').eq('group_id', groupId).order('created_at'),
         sb.from('documents').select('*').eq('group_id', groupId).is('deleted_at', null).order('created_at', { ascending: false }),
         sb.from('sprints').select('*').eq('group_id', groupId).is('deleted_at', null).order('starts_on'),
@@ -743,11 +745,26 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       return messages.map((m) => ({ ...m, reactions: [...(byMsg.get(m.id) ?? new Map()).entries()].map(([emoji, userIds]) => ({ emoji, userIds })) }))
     },
 
-    async sendMessage(channelId, body) {
+    async sendMessage(channelId, body, files = []) {
+      const attachments: Attachment[] = []
+      for (const file of files) {
+        if (file.size > 25 * 1024 * 1024) throw new Error(`${file.name} dépasse 25 Mo`)
+        const safe = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w.-]+/g, '-').slice(-80) || 'fichier'
+        const path = `${groupId}/chat/${crypto.randomUUID()}-${safe}`
+        const mime = file.type || 'application/octet-stream'
+        must(await sb.storage.from('documents').upload(path, file, { contentType: mime }))
+        attachments.push({ path, name: file.name.slice(0, 200), size: file.size, mime })
+      }
       const row = must(
-        await sb.from('messages').insert({ channel_id: channelId, group_id: groupId, body }).select().single(),
+        await sb.from('messages').insert({ channel_id: channelId, group_id: groupId, body, ...(attachments.length ? { attachments } : {}) }).select().single(),
       )
       return toMessage(row as MessageRow)
+    },
+
+    async attachmentUrls(paths) {
+      if (!paths.length) return {}
+      const { data } = await sb.storage.from('documents').createSignedUrls(paths, 3600)
+      return Object.fromEntries((data ?? []).filter((d) => d.signedUrl && d.path).map((d) => [d.path!, d.signedUrl as string]))
     },
 
     chatActions: () => chatReady,
@@ -773,6 +790,22 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     async createChannel(name) {
       const clean = name.trim().toLowerCase().replace(/^#/, '').replace(/\s+/g, '-').slice(0, 40)
       return must(await sb.from('channels').insert({ group_id: groupId, name: clean }).select('id, name').single()) as Channel
+    },
+
+    async renameChannel(id, name) {
+      const clean = name.trim().toLowerCase().replace(/^#/, '').replace(/\s+/g, '-').slice(0, 40)
+      if (!clean) throw new Error('Donne un nom au salon')
+      must(await sb.from('channels').update({ name: clean }).eq('id', id).select('id').single())
+      // Salon relié : le salon Discord prend le même nom.
+      const { data } = await sb.rpc('discord_links', { gid: groupId })
+      if (((data ?? []) as { channel_id: string }[]).some((l) => l.channel_id === id)) await discordCall('rename', { channelId: id }).catch(() => undefined)
+    },
+
+    async deleteChannel(id) {
+      const { data: auth } = await sb.auth.getUser()
+      const { data } = await sb.rpc('discord_links', { gid: groupId })
+      if (((data ?? []) as { channel_id: string }[]).some((l) => l.channel_id === id)) await discordCall('unlink', { channelId: id })
+      must(await sb.from('channels').update({ deleted_at: new Date().toISOString(), deleted_by: auth.user?.id ?? null }).eq('id', id).select('id').single())
     },
 
     async listTrash() {
@@ -945,10 +978,12 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
 
     async discordState() {
       if (!groupId) return { guild: null, links: [] }
-      const [g, l] = await Promise.all([
+      const [g, l, a] = await Promise.all([
         sb.from('group_discord').select('guild_id, guild_name, guild_icon').eq('group_id', groupId).maybeSingle(),
         sb.rpc('discord_links', { gid: groupId }),
+        sb.from('discord_accounts').select('discord_name, discord_avatar').maybeSingle(),
       ])
+      const acc = a.data as { discord_name: string; discord_avatar: string | null } | null
       // Base pas encore à jour : Discord simplement absent.
       if (g.error || l.error) return { guild: null, links: [] }
       const row = g.data as { guild_id: string; guild_name: string; guild_icon: string | null } | null
@@ -957,7 +992,23 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         links: ((l.data ?? []) as { channel_id: string; discord_channel_id: string; discord_channel_name: string }[]).map((r) => ({
           channelId: r.channel_id, discordChannelId: r.discord_channel_id, discordChannelName: r.discord_channel_name,
         })),
+        account: acc ? { name: acc.discord_name, avatar: acc.discord_avatar } : null,
       }
+    },
+
+    async connectDiscordAccount() {
+      const { url } = await discordCall<{ url: string }>('start', { who: 'me' })
+      const { data: auth } = await sb.auth.getUser()
+      const since = Date.now()
+      await oauthWindow(url, async () => {
+        const { data } = await sb.from('discord_accounts').select('linked_at').eq('user_id', auth.user?.id ?? '').maybeSingle()
+        return !!data && new Date(data.linked_at as string).getTime() >= since - 60_000
+      }, 'Discord')
+    },
+
+    async unlinkDiscordAccount() {
+      const { data: auth } = await sb.auth.getUser()
+      must(await sb.from('discord_accounts').delete().eq('user_id', auth.user?.id ?? ''))
     },
 
     async connectDiscord() {

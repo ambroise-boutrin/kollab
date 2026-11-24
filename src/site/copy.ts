@@ -68,9 +68,9 @@ const fr = {
     },
     chat: {
       title: 'Une discussion qui reste liée au travail.',
-      textA: 'Salons, mentions, cartes de PR et commande ',
+      textA: 'Salons, fichiers, mentions, cartes de PR et commande ',
       code: '/tache',
-      textB: '. En direct, et sur Discord si tu veux.',
+      textB: '. En direct, et relié à Discord dans les deux sens.',
       video: 'Démonstration : un message avec une mention, puis une tâche créée avec /tache',
     },
     phone: {
@@ -314,9 +314,9 @@ const en: Copy = {
     },
     chat: {
       title: 'Conversations that stay tied to the work.',
-      textA: 'Channels, mentions, PR cards and the ',
+      textA: 'Channels, files, mentions, PR cards and the ',
       code: '/tache',
-      textB: ' command. Live, and on Discord if you want.',
+      textB: ' command. Live, and linked to Discord both ways.',
       video: 'Demo: a message with a mention, then a task created with /tache',
     },
     phone: {
@@ -541,6 +541,15 @@ export type { Cell }
 
 /** Traductions anglaises de l'historique des versions (src/changelog.json reste en français). */
 export const CHANGELOG_EN: Record<string, { title: string; items: string[] }> = {
+  '0.6.8': {
+    title: 'Channels, files and your Discord account',
+    items: [
+      'Create, rename and delete channels; a deleted channel can be restored from the bin',
+      'Attach files and images in chat: paperclip, drag and drop or paste',
+      'Link your Discord account: your Discord messages show on your side',
+      'Discord channel history comes into Kollab, files included',
+    ],
+  },
   '0.6.2': {
     title: 'Tester feedback',
     items: [
