@@ -4,7 +4,8 @@ import { createClient, type SupabaseClient, type User as SbUser } from '@supabas
 import type { Backend, RoomEvent, User, Workspace } from './backend'
 import { disablePush } from './push'
 import { CGU_VERSION } from './legal'
-import type { AppNotification, Attachment, Channel, DiscordChannel, DiscordLink, DocumentItem, Note, Sprint, Invite, ReactionChange, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
+import { guessNoteKind } from './noteKinds'
+import type { AppNotification, Attachment, Channel, DiscordChannel, DiscordLink, DocumentItem, Note, NoteKind, Sprint, Invite, ReactionChange, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
 import { PRESENCE, legacyPresence } from './types'
 
 interface TaskRow {
@@ -33,9 +34,17 @@ interface NoteRow {
   updated_by: string | null
   created_at: string
   updated_at: string
+  kind?: string
+  pinned?: boolean
 }
-const NOTE_COLS = 'id, title, preview, created_by, updated_by, created_at, updated_at'
-const toNote = (r: NoteRow): Note => ({ id: r.id, title: r.title, preview: r.preview, createdBy: r.created_by, updatedBy: r.updated_by, createdAt: r.created_at, updatedAt: r.updated_at })
+const NOTE_BASE = 'id, title, preview, created_by, updated_by, created_at, updated_at'
+const NOTE_COLS = `${NOTE_BASE}, kind, pinned`
+/** Tant que la migration « type de document » n'est pas passée, on lit sans ces colonnes et on devine le type au titre. */
+let noteMeta = true
+const toNote = (r: NoteRow): Note => ({
+  id: r.id, title: r.title, preview: r.preview, createdBy: r.created_by, updatedBy: r.updated_by, createdAt: r.created_at, updatedAt: r.updated_at,
+  kind: r.kind && r.kind !== 'page' ? (r.kind as NoteKind) : guessNoteKind(r.title), pinned: r.pinned ?? false,
+})
 
 interface SprintRow {
   id: string
@@ -446,7 +455,12 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         sb.from('links').select('*').eq('group_id', groupId).order('created_at'),
         sb.from('documents').select('*').eq('group_id', groupId).is('deleted_at', null).order('created_at', { ascending: false }),
         sb.from('sprints').select('*').eq('group_id', groupId).is('deleted_at', null).order('starts_on'),
-        sb.from('notes').select(NOTE_COLS).eq('group_id', groupId).is('deleted_at', null).order('updated_at', { ascending: false }),
+        (async () => {
+          const q = (cols: string) => sb.from('notes').select(cols).eq('group_id', groupId).is('deleted_at', null).order('updated_at', { ascending: false })
+          const r = await q(NOTE_COLS)
+          noteMeta = !r.error
+          return r.error ? q(NOTE_BASE) : r
+        })(),
       ])
       const g = must(group)
       type MemberRow = {
@@ -481,7 +495,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         links: (must(links) as (LinkItem & { deleted_at?: string | null })[]).filter((l) => !l.deleted_at).map(({ id, title, url }) => ({ id, title, url })),
         documents: documents.error ? [] : (documents.data as DocumentRow[]).map(toDocument),
         sprints: sprints.error ? [] : (sprints.data as SprintRow[]).map(toSprint),
-        notes: notes.error ? [] : (notes.data as NoteRow[]).map(toNote),
+        notes: notes.error ? [] : (notes.data as unknown as NoteRow[]).map(toNote),
       }
     },
 
@@ -901,9 +915,13 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       }
     },
 
-    async createNote(title) {
+    async createNote(title, kind = 'page') {
       const { data: auth } = await sb.auth.getUser()
-      return toNote(must(await sb.from('notes').insert({ group_id: groupId, title: title.trim() || 'Sans titre', created_by: auth.user?.id }).select(NOTE_COLS).single()) as NoteRow)
+      const row = { group_id: groupId, title: title.trim() || 'Sans titre', created_by: auth.user?.id }
+      const made = noteMeta ? await sb.from('notes').insert({ ...row, kind }).select(NOTE_COLS).single() : null
+      if (made && !made.error) return toNote(made.data as unknown as NoteRow)
+      noteMeta = false
+      return { ...toNote(must(await sb.from('notes').insert(row).select(NOTE_BASE).single()) as unknown as NoteRow), kind }
     },
 
     async loadNote(id) {
@@ -916,7 +934,14 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       if (patch.ystate !== undefined) row.ystate = patch.ystate
       if (patch.preview !== undefined) row.preview = patch.preview.slice(0, 2000)
       if (patch.title !== undefined) row.title = patch.title.trim().slice(0, 200) || 'Sans titre'
-      must(await sb.from('notes').update(row).eq('id', id))
+      const meta: Record<string, string | boolean> = {}
+      if (patch.kind !== undefined) meta.kind = patch.kind
+      if (patch.pinned !== undefined) meta.pinned = patch.pinned
+      if (Object.keys(meta).length) {
+        if (!noteMeta) throw new Error('Mise à jour en attente : la base doit être mise à jour pour les types de documents')
+        must(await sb.from('notes').update(meta).eq('id', id))
+      }
+      if (Object.keys(row).length) must(await sb.from('notes').update(row).eq('id', id))
     },
 
     async removeNote(id) {

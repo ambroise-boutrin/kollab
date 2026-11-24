@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.6.12",
+    "date": "2026-11-24",
+    "title": "Des documents qui se voient",
+    "items": [
+      "Chaque document a un type et sa couleur : compte rendu, daily, spec, rétro, cahier des charges",
+      "Nouveau document : choisis un modèle, il s'ouvre déjà rempli (date, présents, sprint, tâches de chacun)",
+      "Épingle les documents importants pour toute l'équipe",
+      "Les cases « À faire » deviennent des tâches du tableau en un clic, et se cochent quand la tâche est finie",
+      "Sommaire à côté du document, barre d'outils avec des mots"
+    ]
+  },
+  {
     "version": "0.6.11",
     "date": "2026-11-24",
     "title": "Fusionner sans quitter Kollab",

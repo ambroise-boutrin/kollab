@@ -283,9 +283,15 @@ export interface DocumentItem {
 }
 
 /** Document texte écrit à plusieurs (contenu chargé à l'ouverture). */
+/** Type d'un document écrit à plusieurs : donne sa couleur et son modèle. */
+export type NoteKind = 'page' | 'cr' | 'daily' | 'spec' | 'retro' | 'cdc' | 'idee'
+
 export interface Note {
   id: string
   title: string
+  kind: NoteKind
+  /** Épinglé pour toute l'équipe. */
+  pinned: boolean
   preview: string
   createdBy: string | null
   updatedBy: string | null
