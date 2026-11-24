@@ -6,6 +6,7 @@ import { setPrState } from './prState'
 import { flushOutbox, markNewTask, pendingList, withOffline } from './offline'
 import { createSupabaseBackend } from './supabaseBackend'
 import type { AppNotification, Message, ReactionChange, Task } from './types'
+import { presenceOf } from './types'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
@@ -355,9 +356,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [workspace],
   )
 
+  // Les personnes en « Invisible » paraissent hors ligne pour les autres.
+  const visibleOnline = useMemo(
+    () => online.filter((id) => id === user?.id || presenceOf(workspace?.members.find((m) => m.id === id)) !== 'invisible'),
+    [online, workspace, user?.id],
+  )
   const value = useMemo<Store>(
-    () => ({ backend, user, ready, loadError, workspace, groups, switchGroup, online, incoming, messageUpdate, reactionChange, reload, saveTask, createTask, deleteTask, memberName, notifications, unread, markAllRead, removeNotification }),
-    [user, ready, loadError, workspace, groups, switchGroup, online, incoming, messageUpdate, reactionChange, reload, saveTask, createTask, deleteTask, memberName, notifications, unread, markAllRead, removeNotification],
+    () => ({ backend, user, ready, loadError, workspace, groups, switchGroup, online: visibleOnline, incoming, messageUpdate, reactionChange, reload, saveTask, createTask, deleteTask, memberName, notifications, unread, markAllRead, removeNotification }),
+    [user, ready, loadError, workspace, groups, switchGroup, visibleOnline, incoming, messageUpdate, reactionChange, reload, saveTask, createTask, deleteTask, memberName, notifications, unread, markAllRead, removeNotification],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

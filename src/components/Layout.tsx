@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { boardProgress } from '../lib/sprints'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { DEMO_SESSION, leaveDemo, useStore } from '../lib/store'
-import { PRESENCE, liveStatus, type Member } from '../lib/types'
+import { PRESENCE, liveStatus, presenceOf, type Member } from '../lib/types'
 import { AppTour } from './AppTour'
 import { Avatar } from './Avatar'
 import { DesktopMenu } from './DesktopMenu'
@@ -20,6 +20,8 @@ import { InviteDialog } from './InviteDialog'
 import { CommandPalette, openSearch } from './CommandPalette'
 import { CallProvider } from '../lib/calls'
 import { CallButtons, CallLayer } from './Call'
+import { PresenceDot, PresenceSheet } from './Presence'
+import { StatusSheet, untilLabel } from './StatusSheet'
 import { ChatBubble, Dock, DockToggle } from './Dock'
 import { OfflineBar } from './OfflineBar'
 
@@ -130,7 +132,7 @@ export function MembersStack() {
         <Avatar member={m} size={30} online={on} />
         <span className="pop-grow">
           <strong>{m.name}</strong>
-          <span className="muted">{liveStatus(m) || (on ? PRESENCE[m.status ?? 'available'].label : 'Hors ligne')}{m.title ? ` · ${m.title}` : ''}</span>
+          <span className="muted">{liveStatus(m) || (on ? PRESENCE[presenceOf(m)].label : 'Hors ligne')}{m.title ? ` · ${m.title}` : ''}</span>
         </span>
         {on && m.id !== me && <CallButtons targets={[m.id]} channelId={null} label={m.name} size="sm" />}
       </div>
@@ -173,7 +175,10 @@ function ProfileMenu({ compact = false }: { compact?: boolean }) {
   const navigate = useNavigate()
   const phone = usePhone()
   const [account, setAccount] = useState(false)
+  const [presenceOpen, setPresenceOpen] = useState(false)
+  const [statusOpen, setStatusOpen] = useState(false)
   const me = workspace?.members.find((m) => m.id === user?.id) ?? workspace?.members[0]
+  const pres = presenceOf(me)
   const go = (close: () => void, to: string) => { close(); navigate(to) }
   return (
     <>
@@ -201,6 +206,14 @@ function ProfileMenu({ compact = false }: { compact?: boolean }) {
               <span className="muted">{user?.email ?? 'Compte de démonstration'}</span>
             </span>
           </div>
+          <button role="menuitem" className="pop-item pres-item" onClick={() => { close(); setPresenceOpen(true) }}>
+            <PresenceDot status={pres} className="pres-ic" />
+            <span className="pop-grow"><b>{PRESENCE[pres].label}</b>{me?.presenceUntil && pres !== 'available' && <span className="muted"> {untilLabel(me.presenceUntil)}</span>}</span>
+            <Icon name="chevron" size={16} />
+          </button>
+          <button role="menuitem" className="pop-item" onClick={() => { close(); setStatusOpen(true) }}>
+            <Icon name="edit" size={18} /> {liveStatus(me) ? <span className="pop-grow">{liveStatus(me)}</span> : 'Message de statut'}
+          </button>
           <hr />
           <button role="menuitem" className="pop-item" onClick={() => { if (phone) { close(); setAccount(true) } else go(close, '/reglages#profil') }}><Icon name="user" size={18} /> Mon profil</button>
           <button role="menuitem" className="pop-item" onClick={() => go(close, '/reglages#comptes')}><Icon name="link" size={18} /> Comptes liés</button>
@@ -215,6 +228,8 @@ function ProfileMenu({ compact = false }: { compact?: boolean }) {
       )}
     </Popover>
     {account && <PhoneAccount onClose={() => setAccount(false)} />}
+    {presenceOpen && me && <PresenceSheet me={me} onClose={() => setPresenceOpen(false)} onMessage={() => setStatusOpen(true)} />}
+    {statusOpen && me && <StatusSheet me={me} onClose={() => setStatusOpen(false)} />}
     </>
   )
 }

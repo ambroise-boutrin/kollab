@@ -5,7 +5,8 @@ import { useToast } from '../components/Toast'
 import { Icon } from '../components/Icon'
 import { useStore } from '../lib/store'
 import { shrinkSquare } from '../lib/image'
-import { PRESENCE, liveStatus, type PresenceStatus, type ProfilePatch } from '../lib/types'
+import { PRESENCE, liveStatus, presenceOf, type ProfilePatch } from '../lib/types'
+import { PRESENCE_ORDER, PresenceDot } from '../components/Presence'
 
 const COLORS = ['#5546E0', '#2F6FD0', '#0F7A63', '#2E7D4F', '#B5462E', '#C2413A', '#9B3FB8', '#14142B']
 
@@ -56,11 +57,11 @@ export function ProfileCard() {
       </div>
 
       <div className="profile-group" role="group" aria-label="Statut">
-        {(Object.keys(PRESENCE) as PresenceStatus[]).map((s) => (
-          <button key={s} className="profile-row" aria-pressed={me.status === s} onClick={() => void save({ status: s })}>
-            <span className="presence" style={{ background: PRESENCE[s].color }} aria-hidden="true" />
+        {PRESENCE_ORDER.map((s) => (
+          <button key={s} className="profile-row" aria-pressed={presenceOf(me) === s} onClick={() => void save({ status: s })}>
+            <PresenceDot status={s} />
             <span className="profile-row-label">{PRESENCE[s].label}</span>
-            {me.status === s && <Icon name="check" size={18} />}
+            {presenceOf(me) === s && <Icon name="check" size={18} />}
           </button>
         ))}
         <button className="profile-row" onClick={() => setStatusOpen(true)}>

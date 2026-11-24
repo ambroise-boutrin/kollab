@@ -6,7 +6,7 @@ import { Modal } from '../components/Modal'
 import { Popover } from '../components/Popover'
 import { useToast } from '../components/Toast'
 import { useStore, useWorkspace } from '../lib/store'
-import { PRESENCE, liveStatus, ROLES, TEAM_TITLES, type EmailInvite, type Member, type Role } from '../lib/types'
+import { PRESENCE, liveStatus, presenceOf, ROLES, TEAM_TITLES, type EmailInvite, type Member, type Role } from '../lib/types'
 
 export const openInvite = () => window.dispatchEvent(new Event('kollab:invite'))
 
@@ -132,8 +132,8 @@ export function Group() {
                   <span className="member-title">{m.title || 'Rôle non défini'}</span>
                 )}
                 <span className="muted">
-                  <span className="member-presence" style={{ ['--p' as string]: on ? PRESENCE[m.status ?? 'available'].color : 'var(--muted)' }}>
-                    {liveStatus(m) || (on ? PRESENCE[m.status ?? 'available'].label : 'Hors ligne')}
+                  <span className="member-presence" style={{ ['--p' as string]: on ? PRESENCE[presenceOf(m)].color : 'var(--muted)' }}>
+                    {liveStatus(m) || (on ? PRESENCE[presenceOf(m)].label : 'Hors ligne')}
                   </span>
                 </span>
               </div>
