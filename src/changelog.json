@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.6.2",
+    "date": "2026-11-24",
+    "title": "Retours des testeurs",
+    "items": [
+      "Échéance sur les tâches, avec un calendrier et les retards en rouge",
+      "Bloc Échéances sur l'accueil : en retard et cette semaine",
+      "Commentaires sur les tâches, avec @mentions",
+      "État de la PR sur les cartes : tests, fusionnée, brouillon",
+      "Mêmes chiffres partout, avec ce qu'ils comptent",
+      "Modèle Projet étudiant : les tâches arrivent dans le sprint 1"
+    ]
+  },
+  {
     "version": "0.6.1",
     "date": "2026-11-24",
     "title": "GitHub relié une bonne fois",

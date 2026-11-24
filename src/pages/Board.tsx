@@ -159,7 +159,7 @@ export function Board() {
         <div className="actions">
           <div className="tabs-seg compact" role="tablist" aria-label="Filtrer">
             <button role="tab" aria-selected={!mine} onClick={() => setMine(false)}>Toutes</button>
-            <button role="tab" aria-selected={mine} onClick={() => setMine(true)}>Mes tâches · {all.filter((t) => t.assigneeIds.includes(me)).length}</button>
+            <button role="tab" aria-selected={mine} onClick={() => setMine(true)}>Mes tâches · {all.filter((t) => t.assigneeIds.includes(me) && t.status !== 'done').length}</button>
           </div>
           <button className="btn" data-tour="new-task" onClick={() => void add('todo')}>Nouvelle tâche</button>
         </div>
