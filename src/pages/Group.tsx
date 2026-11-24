@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ActivityDialog, ActivityList, useActivity } from '../components/ActivityFeed'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
@@ -6,7 +6,7 @@ import { Modal } from '../components/Modal'
 import { Popover } from '../components/Popover'
 import { useToast } from '../components/Toast'
 import { useStore, useWorkspace } from '../lib/store'
-import { PRESENCE, liveStatus, ROLES, TEAM_TITLES, type Member, type Role } from '../lib/types'
+import { PRESENCE, liveStatus, ROLES, TEAM_TITLES, type EmailInvite, type Member, type Role } from '../lib/types'
 
 export const openInvite = () => window.dispatchEvent(new Event('kollab:invite'))
 
@@ -22,6 +22,33 @@ export function Group() {
   const activity = useActivity(8)
   const [history, setHistory] = useState(false)
   const [proposing, setProposing] = useState(false)
+  const [pending, setPending] = useState<EmailInvite[]>([])
+  useEffect(() => {
+    if (!isAdmin) return
+    const load = () => void backend.listEmailInvites().then(setPending).catch(() => setPending([]))
+    load()
+    window.addEventListener('kollab:invites', load)
+    return () => window.removeEventListener('kollab:invites', load)
+  }, [isAdmin, backend, ws.members.length])
+
+  async function cancelInvite(inv: EmailInvite) {
+    try {
+      await backend.cancelEmailInvite(inv.id)
+      setPending((l) => l.filter((x) => x.id !== inv.id))
+      toast(`Invitation de ${inv.email} annulée`)
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Annulation impossible')
+    }
+  }
+
+  async function remind(inv: EmailInvite) {
+    try {
+      const r = await backend.inviteByEmail(inv.email, inv.role)
+      toast(r.emailed ? `Email renvoyé à ${inv.email}` : `${inv.email} a reçu une notification`)
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Relance impossible')
+    }
+  }
 
   async function changeRole(memberId: string, next: Role) {
     try {
@@ -176,6 +203,22 @@ export function Group() {
           </div>
           {me.titleRequest && <button className="btn soft small" style={{ marginTop: 14 }} onClick={() => void propose('')}>Retirer ma proposition</button>}
         </Modal>
+      )}
+
+      {isAdmin && pending.length > 0 && (
+        <section className="card team-pending">
+          <h2>En attente · {pending.length}</h2>
+          <ul>
+            {pending.map((inv) => (
+              <li key={inv.id}>
+                <span className="pending-dot" aria-hidden="true">{inv.email[0]?.toUpperCase()}</span>
+                <span className="pending-who"><b>{inv.email}</b><span className="muted">{ROLES[inv.role].label} · invité {new Date(inv.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span></span>
+                <button className="btn soft small" onClick={() => void remind(inv)}>Relancer</button>
+                <button className="btn soft small" onClick={() => void cancelInvite(inv)}>Annuler</button>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       <section className="card team-history">

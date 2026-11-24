@@ -13,7 +13,7 @@ import {
 } from '@dnd-kit/core'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { AvatarGroup } from '../components/Avatar'
+import { Avatar, AvatarGroup } from '../components/Avatar'
 import { useToast } from '../components/Toast'
 import { activeSprint, boardTasks, daysLeft, shortDate } from '../lib/sprints'
 import { useStore, useWorkspace } from '../lib/store'
@@ -73,9 +73,11 @@ export function Board() {
   const { saveTask, backend, user } = useStore()
   const toast = useToast()
   const [params, setParams] = useSearchParams()
-  const mine = params.get('moi') === '1'
   const me = user?.id ?? 'me'
-  const tasks = mine ? all.filter((t) => t.assigneeIds.includes(me)) : all
+  // Filtre par personne : moi (« Mes tâches ») ou un membre choisi dans la rangée d'avatars.
+  const who = params.get('qui') ?? (params.get('moi') === '1' ? me : null)
+  const mine = who === me
+  const tasks = who ? all.filter((t) => t.assigneeIds.includes(who)) : all
   const openId = params.get('tache')
   const setOpenId = (id: string | null) =>
     setParams((p) => {
@@ -84,13 +86,16 @@ export function Board() {
       else next.delete('tache')
       return next
     }, { replace: true })
-  const setMine = (on: boolean) =>
+  const setWho = (id: string | null) =>
     setParams((p) => {
       const next = new URLSearchParams(p)
-      if (on) next.set('moi', '1')
-      else next.delete('moi')
+      next.delete('moi')
+      if (id) next.set('qui', id)
+      else next.delete('qui')
       return next
     }, { replace: true })
+  const setMine = (on: boolean) => setWho(on ? me : null)
+  const people = ws.members.filter((m) => all.some((t) => t.assigneeIds.includes(m.id)))
   const [dragId, setDragId] = useState<string | null>(null)
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -147,9 +152,18 @@ export function Board() {
         </div>
         <div className="actions">
           <div className="tabs-seg compact" role="tablist" aria-label="Filtrer">
-            <button role="tab" aria-selected={!mine} onClick={() => setMine(false)}>Toutes</button>
+            <button role="tab" aria-selected={!who} onClick={() => setMine(false)}>Toutes</button>
             <button role="tab" aria-selected={mine} onClick={() => setMine(true)}>Mes tâches · {all.filter((t) => t.assigneeIds.includes(me) && t.status !== 'done').length}</button>
           </div>
+          {people.length > 1 && (
+            <div className="board-people" role="group" aria-label="Filtrer par personne">
+              {people.map((m) => (
+                <button key={m.id} aria-pressed={who === m.id} title={`Tâches de ${m.name}`} onClick={() => setWho(who === m.id ? null : m.id)}>
+                  <Avatar member={m} size={30} />
+                </button>
+              ))}
+            </div>
+          )}
           <button className="btn" data-tour="new-task" onClick={() => void add('todo')}>Nouvelle tâche</button>
         </div>
       </div>

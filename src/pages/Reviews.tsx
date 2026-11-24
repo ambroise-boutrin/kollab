@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useGhLinked } from '../lib/useGhLinked'
 import { Link, useSearchParams } from 'react-router-dom'
 import { FileDiff } from '../components/Diff'
@@ -7,7 +7,7 @@ import { Markdown } from '../components/Markdown'
 import { prState } from '../components/PrLink'
 import { useToast } from '../components/Toast'
 import {
-  annotations, checkRuns, ghToken, issueComments, listPulls, postComment, projectRepo, pullFiles, rerunWorkflow, reviewComments,
+  annotations, checkRuns, getPull, ghToken, issueComments, listPulls, postComment, projectRepo, pullFiles, rerunWorkflow, reviewComments,
   summarize, workflowRuns, type CheckRun, type Pull, type Repo,
 } from '../lib/github'
 import { openExternal } from '../lib/links'
@@ -44,8 +44,15 @@ export function Reviews() {
   const [params, setParams] = useSearchParams()
   const [state, setState] = useState<'open' | 'closed'>('open')
   const pulls = useAsync(repo ? () => listPulls(repo, state) : null, [repo?.owner, repo?.repo, state, linked], LIVE)
-  const selected = Number(params.get('pr')) || pulls.data?.[0]?.number || null
-  const pr = pulls.data?.find((p) => p.number === selected) ?? null
+  const wanted = Number(params.get('pr')) || null
+  const selected = wanted || pulls.data?.[0]?.number || null
+  const inList = pulls.data?.find((p) => p.number === selected) ?? null
+  // Lien vers une PR fusionnée ou fermée (depuis une tâche) : on la charge à part, et on montre l'onglet Fermées.
+  const single = useAsync(repo && wanted && pulls.data && !inList ? () => getPull(repo, wanted) : null, [repo?.owner, repo?.repo, wanted, !!pulls.data, !!inList])
+  const pr = inList ?? single.data ?? null
+  useEffect(() => {
+    if (single.data && single.data.state === 'closed' && state === 'open') setState('closed')
+  }, [single.data, state])
 
   async function connect() {
     try {
@@ -103,7 +110,7 @@ export function Reviews() {
             })}
           </ul>
         </aside>
-        {pr ? <PrDetail key={pr.number} repo={repo} pr={pr} onReload={pulls.reload} /> : pulls.loading && !pulls.error ? (
+        {pr ? <PrDetail key={pr.number} repo={repo} pr={pr} onReload={pulls.reload} /> : (pulls.loading || single.loading) && !pulls.error ? (
           <div className="card pr-wait" aria-hidden="true"><i /><i /><i /><i /></div>
         ) : (
           <div className="card reviews-empty">

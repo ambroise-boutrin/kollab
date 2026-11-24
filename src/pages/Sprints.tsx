@@ -20,6 +20,8 @@ export function Sprints() {
   const [params, setParams] = useSearchParams()
   const [creating, setCreating] = useState(false)
   const [closing, setClosing] = useState<Sprint | null>(null)
+  const [editing, setEditing] = useState<Sprint | null>(null)
+  const [report, setReport] = useState<Sprint | null>(null)
   const [fresh, setFresh] = useState<Task | null>(null)
 
   const active = activeSprint(ws)
@@ -84,7 +86,7 @@ export function Sprints() {
       </div>
 
       {active ? (
-        <ActiveSprint sprint={active} canWrite={canWrite} onClose={() => setClosing(active)} onOpen={setOpenId} />
+        <ActiveSprint sprint={active} canWrite={canWrite} onClose={() => setClosing(active)} onEdit={() => setEditing(active)} onOpen={setOpenId} />
       ) : (
         <section className="sprint-hero idle">
           <div>
@@ -145,11 +147,32 @@ export function Sprints() {
                     <span className="muted">{shortDate(s.startsOn)} → {shortDate(s.endsOn)} · {list.length} tâche{list.length > 1 ? 's' : ''} · {sprintPoints(list)} pts</span>
                     {s.goal && <span className="sprint-goal">{s.goal}</span>}
                   </div>
-                  {canWrite && !active && <button className="btn small" onClick={() => void start(s)}>Démarrer</button>}
+                  <div className="sprint-row-actions">
+                    {canWrite && <button className="btn soft small" onClick={() => setEditing(s)}>Modifier</button>}
+                    {canWrite && !active && <button className="btn small" onClick={() => void start(s)}>Démarrer</button>}
+                  </div>
                 </div>
               )
             })}
           </section>
+
+          {done.length > 0 && (
+            <section className="card">
+              <h2>Terminés</h2>
+              {[...done].reverse().map((s) => {
+                const v = velocity.find((x) => x.s.id === s.id)
+                return (
+                  <button key={s.id} className="sprint-row sprint-done-row" onClick={() => setReport(s)}>
+                    <div>
+                      <strong>{s.name}</strong>
+                      <span className="muted">{shortDate(s.startsOn)} → {shortDate(s.endsOn)} · {v?.pts ?? 0} pts livrés</span>
+                    </div>
+                    <span className="mini-more">Bilan</span>
+                  </button>
+                )
+              })}
+            </section>
+          )}
 
           <section className="card">
             <h2>Vélocité</h2>
@@ -162,7 +185,9 @@ export function Sprints() {
         </div>
       </div>
 
-      {creating && <NewSprintDialog count={ws.sprints.length} hasActive={!!active} onClose={() => setCreating(false)} onCreate={(sp) => attempt(() => backend.createSprint(sp), `${sp.name} créé`).then(() => setCreating(false))} />}
+      {creating && <SprintDialog sprints={ws.sprints} hasActive={!!active} onClose={() => setCreating(false)} onSave={(sp) => attempt(() => backend.createSprint(sp), `${sp.name} créé`).then(() => setCreating(false))} />}
+      {editing && <SprintDialog sprint={editing} sprints={ws.sprints} hasActive={!!active} onClose={() => setEditing(null)} onSave={(sp) => attempt(() => backend.updateSprint(editing.id, { name: sp.name, goal: sp.goal, startsOn: sp.startsOn, endsOn: sp.endsOn }), `${sp.name} modifié`).then(() => setEditing(null))} />}
+      {report && <SprintReport sprint={report} onClose={() => setReport(null)} onOpen={setOpenId} />}
       {closing && (
         <CloseSprintDialog
           sprint={closing}
@@ -183,7 +208,7 @@ export function Sprints() {
   )
 }
 
-function ActiveSprint({ sprint, canWrite, onClose, onOpen }: { sprint: Sprint; canWrite: boolean; onClose: () => void; onOpen: (id: string) => void }) {
+function ActiveSprint({ sprint, canWrite, onClose, onEdit, onOpen }: { sprint: Sprint; canWrite: boolean; onClose: () => void; onEdit: () => void; onOpen: (id: string) => void }) {
   const ws = useWorkspace()
   const tasks = ws.tasks.filter((t) => t.sprintId === sprint.id)
   const { total, len, actual } = burndown(sprint, tasks)
@@ -194,7 +219,7 @@ function ActiveSprint({ sprint, canWrite, onClose, onOpen }: { sprint: Sprint; c
   // Météo : en avance, dans les temps ou en retard par rapport à la ligne idéale.
   const ideal = total * (1 - elapsed)
   const remaining = actual.at(-1) ?? total
-  const mood = !total ? null : remaining <= ideal ? { label: 'Dans les temps', cls: 'ok' } : remaining - ideal <= total * 0.15 ? { label: 'Un peu juste', cls: 'warn' } : { label: 'En retard', cls: 'late' }
+  const mood = !total ? null : remaining <= ideal ? { label: 'Dans les temps', cls: 'ok' } : remaining - ideal <= total * 0.15 ? { label: 'Un peu juste', cls: 'warn' } : { label: 'Derrière le rythme', cls: 'late' }
   const people = ws.members.filter((m) => tasks.some((t) => t.assigneeIds.includes(m.id)))
 
   return (
@@ -202,7 +227,8 @@ function ActiveSprint({ sprint, canWrite, onClose, onOpen }: { sprint: Sprint; c
       <div className="sprint-hero-main">
         <div className="sprint-hero-top">
           <span className="sprint-badge">En cours</span>
-          {mood && <span className={`sprint-mood ${mood.cls}`}>{mood.label}</span>}
+          {mood && <span className={`sprint-mood ${mood.cls}`} title="Comparé à la ligne idéale du burndown">{mood.label}</span>}
+          {mood && <span className="sprint-mood-why">{Math.round(remaining)} pts restants, {Math.round(ideal)} attendus à ce jour</span>}
         </div>
         <h2>{sprint.name}</h2>
         {sprint.goal && <p className="sprint-goal-big">{sprint.goal}</p>}
@@ -215,6 +241,7 @@ function ActiveSprint({ sprint, canWrite, onClose, onOpen }: { sprint: Sprint; c
         <div className="sprint-hero-foot">
           <span>{shortDate(sprint.startsOn)} → {shortDate(sprint.endsOn)}</span>
           <AvatarGroup members={people} size={26} />
+          {canWrite && <button className="btn light small" onClick={onEdit}>Modifier</button>}
           {canWrite && <button className="btn light small" onClick={onClose}>Terminer le sprint</button>}
         </div>
       </div>
@@ -277,39 +304,68 @@ function Velocity({ data, avg }: { data: { label: string; pts: number }[]; avg: 
   )
 }
 
-function NewSprintDialog({ count, hasActive, onClose, onCreate }: { count: number; hasActive: boolean; onClose: () => void; onCreate: (s: Omit<Sprint, 'id' | 'closedAt'>) => Promise<void> }) {
+/** Créer ou modifier un sprint : nom unique, date de début au choix, durée. */
+function SprintDialog({ sprint, sprints, hasActive, onClose, onSave }: {
+  sprint?: Sprint
+  sprints: Sprint[]
+  hasActive: boolean
+  onClose: () => void
+  onSave: (s: Omit<Sprint, 'id' | 'closedAt'>) => Promise<void>
+}) {
   const today = isoDay(new Date())
-  const [name, setName] = useState(`Sprint ${count + 1}`)
-  const [goal, setGoal] = useState('')
-  const [weeks, setWeeks] = useState(2)
-  const [startNow, setStartNow] = useState(!hasActive)
+  const others = sprints.filter((x) => x.id !== sprint?.id)
+  const nextNumber = Math.max(0, ...sprints.map((x) => Number(/(\d+)\s*$/.exec(x.name)?.[1] ?? 0))) + 1
+  const last = others.filter((x) => x.status !== 'done').sort((a, b) => a.endsOn.localeCompare(b.endsOn)).at(-1)
+  const after = last && last.endsOn >= today ? addDays(last.endsOn, 1) : null
+  const [name, setName] = useState(sprint?.name ?? `Sprint ${nextNumber}`)
+  const [goal, setGoal] = useState(sprint?.goal ?? '')
+  const [startsOn, setStartsOn] = useState(sprint?.startsOn ?? after ?? today)
+  const [weeks, setWeeks] = useState(() => (sprint ? Math.max(1, Math.round(sprintLength(sprint) / 7)) : 2))
+  const [startNow, setStartNow] = useState(!sprint && !hasActive && !after)
   const [busy, setBusy] = useState(false)
-  const startsOn = today
   const endsOn = addDays(startsOn, weeks * 7 - 1)
-  async function create() {
-    if (!name.trim()) return
+  const taken = others.some((x) => x.name.trim().toLowerCase() === name.trim().toLowerCase())
+  const editingActive = sprint?.status === 'active'
+  async function save() {
+    if (!name.trim() || taken) return
     setBusy(true)
     try {
-      await onCreate({ name: name.trim(), goal: goal.trim(), startsOn, endsOn, status: startNow && !hasActive ? 'active' : 'planned' })
+      await onSave({ name: name.trim(), goal: goal.trim(), startsOn, endsOn, status: sprint?.status ?? (startNow && !hasActive ? 'active' : 'planned') })
     } finally {
       setBusy(false)
     }
   }
+  const starts: [string, string][] = [["Aujourd'hui", today]]
+  if (after && last) starts.push([`Après ${last.name} (${shortDate(after)})`, after])
   return (
     <Modal
-      title="Nouveau sprint"
+      title={sprint ? `Modifier ${sprint.name}` : 'Nouveau sprint'}
       onClose={onClose}
-      footer={<><button className="btn soft" onClick={onClose}>Annuler</button><button className="btn" disabled={busy || !name.trim()} onClick={() => void create()}>{startNow && !hasActive ? 'Créer et démarrer' : 'Créer'}</button></>}
+      footer={<><button className="btn soft" onClick={onClose}>Annuler</button><button className="btn" disabled={busy || !name.trim() || taken} onClick={() => void save()}>{sprint ? 'Enregistrer' : startNow && !hasActive ? 'Créer et démarrer' : 'Créer'}</button></>}
     >
       <div className="sprint-form">
         <label className="task-field">
           <span className="task-label">Nom</span>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} aria-invalid={taken} />
+          {taken && <span className="field-error">Un sprint porte déjà ce nom.</span>}
         </label>
         <label className="task-field">
           <span className="task-label">Objectif</span>
           <input className="input" value={goal} onChange={(e) => setGoal(e.target.value)} maxLength={300} placeholder="Ce que l'équipe veut avoir livré à la fin" />
         </label>
+        {!editingActive && (
+          <div className="task-field">
+            <span className="task-label">Début</span>
+            <div className="chips" role="radiogroup" aria-label="Début">
+              {starts.map(([l, d]) => (
+                <button key={d} type="button" role="radio" aria-checked={startsOn === d} className="chip" onClick={() => { setStartsOn(d); if (d !== today) setStartNow(false) }}>{l}</button>
+              ))}
+              <label className={`chip chip-date${starts.some(([, d]) => d === startsOn) ? '' : ' on'}`}>
+                <input type="date" value={startsOn} min={sprint ? undefined : today} onChange={(e) => { if (e.target.value) { setStartsOn(e.target.value); if (e.target.value !== today) setStartNow(false) } }} aria-label="Autre date de début" />
+              </label>
+            </div>
+          </div>
+        )}
         <div className="task-field">
           <span className="task-label">Durée</span>
           <div className="chips" role="radiogroup" aria-label="Durée">
@@ -319,11 +375,45 @@ function NewSprintDialog({ count, hasActive, onClose, onCreate }: { count: numbe
           </div>
           <span className="muted" style={{ fontSize: 13 }}>{shortDate(startsOn)} → {shortDate(endsOn)}</span>
         </div>
-        {!hasActive && (
+        {!sprint && !hasActive && startsOn === today && (
           <label className="switch-row">
             <input type="checkbox" checked={startNow} onChange={(e) => setStartNow(e.target.checked)} />
             <span>Le démarrer tout de suite</span>
           </label>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
+/** Bilan d'un sprint terminé : objectif, points, tâches livrées. */
+function SprintReport({ sprint, onClose, onOpen }: { sprint: Sprint; onClose: () => void; onOpen: (id: string) => void }) {
+  const ws = useWorkspace()
+  const doneTasks = ws.tasks.filter((t) => t.sprintId === sprint.id && t.status === 'done')
+  const pts = sprintPoints(doneTasks)
+  const people = ws.members.filter((m) => doneTasks.some((t) => t.assigneeIds.includes(m.id)))
+  return (
+    <Modal title={`Bilan de ${sprint.name}`} onClose={onClose}>
+      <div className="sprint-report">
+        <p className="muted" style={{ margin: 0 }}>{shortDate(sprint.startsOn)} → {shortDate(sprint.endsOn)}{sprint.closedAt ? ` · clôturé le ${shortDate(sprint.closedAt.slice(0, 10))}` : ''}</p>
+        {sprint.goal && <p className="sprint-goal-big" style={{ margin: 0 }}>{sprint.goal}</p>}
+        <div className="report-tiles">
+          <div><b>{pts}</b><span>points livrés</span></div>
+          <div><b>{doneTasks.length}</b><span>tâche{doneTasks.length > 1 ? 's' : ''} terminée{doneTasks.length > 1 ? 's' : ''}</span></div>
+          <div><b>{people.length}</b><span>personne{people.length > 1 ? 's' : ''}</span></div>
+        </div>
+        {doneTasks.length === 0 ? <p className="hint">Aucune tâche terminée dans ce sprint.</p> : (
+          <ul className="report-list">
+            {doneTasks.map((t) => (
+              <li key={t.id}>
+                <button onClick={() => { onClose(); onOpen(t.id) }}>
+                  <span>{t.title}</span>
+                  <span className="muted">{t.points != null ? `${t.points} pts` : ''}</span>
+                  <AvatarGroup members={ws.members.filter((m) => t.assigneeIds.includes(m.id))} size={22} />
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </Modal>

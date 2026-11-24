@@ -1097,6 +1097,7 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; justif
 .sprint-hero-top { display: flex; gap: 8px; flex-wrap: wrap; }
 .sprint-badge, .sprint-mood { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.18); }
 .sprint-mood.ok { background: #3FA36B; } .sprint-mood.warn { background: #D9822B; } .sprint-mood.late { background: #C9483A; }
+.sprint-mood-why { font-size: 12px; font-weight: 600; opacity: .8; }
 .sprint-hero h2 { font-family: var(--display); font-size: 34px; line-height: 1.05; margin: 0; color: #fff; }
 .sprint-goal-big { margin: 0; font-size: 16px; opacity: .9; }
 .sprint-facts { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -2314,6 +2315,39 @@ button.member-title.propose em { font-style: normal; color: #B06E0F; }
 .day-flow-chips b:last-child { background: var(--ok); color: #fff; }
 .day-flow-chips i { font-style: normal; opacity: .6; }
 
+/* Tableau : filtre par personne */
+.board-people { display: flex; align-items: center; }
+.board-people button { border: 0; padding: 2px; margin-left: -6px; border-radius: 50%; background: var(--bg); cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; }
+.board-people button:first-child { margin-left: 0; }
+.board-people button:hover { transform: translateY(-2px); z-index: 1; }
+.board-people button[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--accent); z-index: 2; }
+.board-people:has(button[aria-pressed="true"]) button[aria-pressed="false"] { opacity: .45; }
+
+/* Équipe : invitations en attente */
+.team-pending ul { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.team-pending li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: var(--subtle); }
+.pending-dot { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; color: var(--muted); border: 2px dashed var(--line); background: var(--surface); flex: none; }
+.pending-who { flex: 1; display: grid; min-width: 0; font-size: 14px; }
+.pending-who b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pending-who .muted { font-size: 12px; }
+
+/* Sprints : modifier, date de début, bilan */
+.field-error { font-size: 13px; font-weight: 600; color: var(--danger); }
+.chip-date { padding: 4px 10px; display: inline-flex; align-items: center; }
+.chip-date input { border: 0; background: none; font: inherit; font-size: 14px; font-weight: 600; color: inherit; cursor: pointer; }
+.chip-date.on { background: var(--accent); color: #fff; }
+.chip-date.on input::-webkit-calendar-picker-indicator { filter: invert(1); }
+.sprint-row > .sprint-row-actions { flex: none; flex-direction: row; gap: 6px; }
+.sprint-row + .sprint-row { margin-top: 8px; }
+button.sprint-done-row { width: 100%; border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; transition: background .15s ease; }
+button.sprint-done-row:hover { background: var(--line); }
+.sprint-report { display: grid; gap: 14px; }
+.report-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.report-tiles div { display: grid; padding: 12px; border-radius: 14px; background: color-mix(in srgb, var(--ok) 12%, var(--surface)); color: color-mix(in srgb, var(--ok) 70%, var(--text)); }
+.report-tiles b { font-size: 24px; } .report-tiles span { font-size: 13px; font-weight: 600; }
+.report-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.report-list button { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 10px 12px; border: 0; border-radius: 12px; background: var(--subtle); font: inherit; font-size: 14px; color: var(--text); text-align: left; cursor: pointer; }
+.report-list button:hover { background: var(--line); }
 /* Discord ------------------------------------------------------------- */
 :root { --discord: #5865F2; --discord-soft: color-mix(in srgb, #5865F2 13%, var(--surface)); --discord-ink: #3F48B8; }
 .btn.discord { background: var(--discord); }
