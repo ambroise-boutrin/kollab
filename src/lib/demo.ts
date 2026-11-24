@@ -1,4 +1,5 @@
 import { newId, type Backend, type RoomEvent, type TrashItem, type GroupSetup, type LiveHandlers, type User, type Workspace } from './backend'
+import { guessNoteKind } from './noteKinds'
 import type { ActivityItem, DiscordAccount, Attachment, Channel, DiscordChannel, DiscordGuild, DiscordLink, AppNotification, EmailInvite, DocumentItem, Note, Sprint, Invite, ReactionChange, LinkItem, Member, Message, Provider, Task, TaskComment } from './types'
 
 /**
@@ -83,7 +84,11 @@ function seed(user: User): Workspace {
   return {
     sprints,
     notes: [
-      { id: newId(), title: 'Compte rendu du daily', preview: 'Daily du matin\nLéa : tableau kanban terminé, passe aux invitations.\nSami : table des groupes, finie ce soir.\nMoi : relecture de la visionneuse PDF.\nBlocage : aucun.', createdBy: 'lm', updatedBy: 'sk', createdAt: new Date(Date.now() - 5 * 3600e3).toISOString(), updatedAt: new Date(Date.now() - 40 * 60e3).toISOString() },
+      { id: newId(), title: 'Daily du matin', kind: 'daily', pinned: true, preview: 'Daily du matin\nLéa : tableau kanban terminé, passe aux invitations.\nSami : table des groupes, finie ce soir.\nMoi : relecture de la visionneuse PDF.\nBlocage : aucun.', createdBy: 'lm', updatedBy: 'sk', createdAt: new Date(Date.now() - 5 * 3600e3).toISOString(), updatedAt: new Date(Date.now() - 40 * 60e3).toISOString() },
+      { id: newId(), title: 'Kollab v1', kind: 'cdc', pinned: true, preview: 'Contexte\nUne équipe de 4 qui code et suit ses tâches.\nObjectifs\nTâches liées aux PR, sprints, chat.', createdBy: 'sk', updatedBy: 'lm', createdAt: new Date(Date.now() - 6 * 86400e3).toISOString(), updatedAt: new Date(Date.now() - 26 * 3600e3).toISOString() },
+      { id: newId(), title: 'Démo client du 21 nov.', kind: 'cr', pinned: false, preview: 'Démo client\nPrésents : Moi, Sami, Léa\nLe client veut exporter le sprint en PDF.', createdBy: 'me', updatedBy: 'me', createdAt: new Date(Date.now() - 3 * 86400e3).toISOString(), updatedAt: new Date(Date.now() - 3 * 86400e3).toISOString() },
+      { id: newId(), title: 'Spec : invitations par email', kind: 'spec', pinned: false, preview: 'Problème\nLes invités ne voient pas le lien.\nSolution proposée\nUn email avec Rejoindre / Refuser.', createdBy: 'sk', updatedBy: 'sk', createdAt: new Date(Date.now() - 2 * 86400e3).toISOString(), updatedAt: new Date(Date.now() - 2 * 3600e3).toISOString() },
+      { id: newId(), title: 'Rétro du sprint 2', kind: 'retro', pinned: false, preview: 'Ce qui a bien marché\nLe poker planning.\nÀ changer\nDes tâches trop grosses.', createdBy: 'lm', updatedBy: 'lm', createdAt: new Date(Date.now() - 6 * 86400e3).toISOString(), updatedAt: new Date(Date.now() - 6 * 86400e3).toISOString() },
     ],
     group: { id: 'demo', name: 'Mon équipe', inviteCode: 'KOLLAB-DEMO', discordWebhookSet: false },
     members: [{ ...ME, name: user.name }, ...TEAM],
@@ -150,6 +155,10 @@ function read(): DemoState {
         if (w && !w.documents) w.documents = []
         if (w && !w.sprints) w.sprints = []
         if (w && !w.notes) w.notes = []
+        for (const n of w?.notes ?? []) {
+          if (!n.kind) n.kind = guessNoteKind(n.title)
+          if (n.pinned === undefined) n.pinned = false
+        }
       }
       return s
     }
@@ -814,9 +823,9 @@ export const demoBackend: Backend = {
     }
   },
 
-  async createNote(title) {
+  async createNote(title, kind = 'page') {
     const now = new Date().toISOString()
-    const note: Note = { id: newId(), title: title.trim() || 'Sans titre', preview: '', createdBy: 'me', updatedBy: 'me', createdAt: now, updatedAt: now }
+    const note: Note = { id: newId(), title: title.trim() || 'Sans titre', kind, pinned: false, preview: '', createdBy: 'me', updatedBy: 'me', createdAt: now, updatedAt: now }
     update((s) => {
       s.workspace?.notes.unshift(note)
     })
@@ -835,6 +844,8 @@ export const demoBackend: Backend = {
       if (patch.ystate !== undefined) s.noteStates = { ...(s.noteStates ?? {}), [id]: patch.ystate }
       if (patch.preview !== undefined) n.preview = patch.preview.slice(0, 2000)
       if (patch.title !== undefined) n.title = patch.title.trim() || 'Sans titre'
+      if (patch.kind !== undefined) n.kind = patch.kind
+      if (patch.pinned !== undefined) { n.pinned = patch.pinned; return }
       n.updatedAt = new Date().toISOString()
       n.updatedBy = 'me'
     })

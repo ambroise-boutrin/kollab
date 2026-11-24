@@ -7,7 +7,9 @@ import { Modal } from '../components/Modal'
 import { PdfView } from '../components/PdfView'
 import { useToast } from '../components/Toast'
 import { useStore, useWorkspace } from '../lib/store'
-import type { DocumentItem, Note } from '../lib/types'
+import type { DocumentItem, Note, NoteKind } from '../lib/types'
+import { NOTE_KINDS, NOTE_KIND_ORDER } from '../lib/noteKinds'
+import { templateTitle } from '../lib/noteTemplates'
 
 // L'éditeur (TipTap + Yjs) n'est chargé qu'à l'ouverture d'un document.
 const NoteEditor = lazy(() => import('./NoteEditor'))
@@ -77,6 +79,8 @@ export function Documents() {
   const me = ws.members.find((m) => m.id === user?.id) ?? (backend.mode === 'demo' ? ws.members[0] : undefined)
   const canWrite = me?.role !== 'guest'
   const [filter, setFilter] = useState<'all' | Kind>('all')
+  const [type, setType] = useState<'all' | 'files' | NoteKind>('all')
+  const [creating, setCreating] = useState(false)
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<DocumentItem | null>(null)
@@ -96,7 +100,12 @@ export function Documents() {
       else next.delete('note')
       return next
     }, { replace: true })
-  const notes = ws.notes.filter((n) => !q || n.title.toLowerCase().includes(q) || n.preview.toLowerCase().includes(q))
+  const notes = ws.notes.filter((n) => (type === 'all' || type === n.kind) && (!q || n.title.toLowerCase().includes(q) || n.preview.toLowerCase().includes(q)))
+  const pinned = notes.filter((n) => n.pinned)
+  const rest = notes.filter((n) => !n.pinned)
+  const kindCounts = NOTE_KIND_ORDER.map((k) => ({ k, n: ws.notes.filter((x) => x.kind === k).length })).filter((x) => x.n > 0)
+  const showNotes = type !== 'files'
+  const showFiles = type === 'all' || type === 'files'
 
   // Ouverture depuis la recherche : ?fichier=… ou ?nouveau=1.
   const wantFile = params.get('fichier')
@@ -110,14 +119,20 @@ export function Documents() {
       return next
     }, { replace: true })
     if (wantFile) setOpen(wantFile)
-    if (wantNew && canWrite) void newNote()
+    if (wantNew && canWrite) setCreating(true)
   }, [wantFile, wantNew]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function newNote() {
+  async function newNote(kind: NoteKind = 'page') {
     try {
-      const n = await backend.createNote('Sans titre')
+      const n = await backend.createNote(templateTitle(kind), kind)
       await reload()
-      setNote(n.id)
+      setCreating(false)
+      setParams((p) => {
+        const next = new URLSearchParams(p)
+        next.set('note', n.id)
+        if (kind !== 'page') next.set('modele', kind)
+        return next
+      }, { replace: true })
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Création impossible')
     }
@@ -147,6 +162,16 @@ export function Documents() {
     }
     await reload()
     if (list.length) toast(list.length > 1 ? `${list.length} fichiers ajoutés` : 'Fichier ajouté')
+  }
+
+  async function togglePin(n: Note) {
+    try {
+      await backend.saveNote(n.id, { pinned: !n.pinned })
+      await reload()
+      toast(n.pinned ? 'Retiré des épinglés' : 'Épinglé pour toute l\'équipe')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Action impossible')
+    }
   }
 
   async function remove(d: DocumentItem) {
@@ -191,9 +216,9 @@ export function Documents() {
         {canWrite && (
           <div className="actions">
             <button className="btn soft" onClick={() => input.current?.click()}>
-              <Icon name="upload" size={18} /> Fichier
+              <Icon name="upload" size={18} /> Ajouter un fichier
             </button>
-            <button className="btn" onClick={() => void newNote()}>
+            <button className="btn" onClick={() => setCreating(true)}>
               <Icon name="plus" size={18} /> Nouveau document
             </button>
           </div>
@@ -201,35 +226,60 @@ export function Documents() {
         <input ref={input} type="file" multiple hidden onChange={(e) => { if (e.target.files) void upload(e.target.files); e.target.value = '' }} />
       </div>
 
-      <section className="notes-section">
-        <h2>Écrits ensemble</h2>
-        <div className="notes-grid">
-          {canWrite && (
-            <button className="note-card note-new" onClick={() => void newNote()}>
-              <span className="invite-plus"><Icon name="plus" size={24} /></span>
-              <strong>Nouveau document</strong>
-              <span>Compte rendu, spec, idées… à plusieurs en direct</span>
-            </button>
-          )}
-          {notes.map((n) => <NoteCard key={n.id} note={n} onOpen={() => setNote(n.id)} />)}
-          {!canWrite && notes.length === 0 && <p className="hint">Aucun document pour le moment.</p>}
-        </div>
-      </section>
-
-      <h2 className="files-title">Fichiers</h2>
       <div className="docs-tools">
-        <div className="chips" role="radiogroup" aria-label="Type de fichier">
+        <div className="chips" role="radiogroup" aria-label="Type">
+          <button type="button" role="radio" aria-checked={type === 'all'} className="chip" onClick={() => setType('all')}>Tout <span className="chip-n">{ws.notes.length + ws.documents.length}</span></button>
+          {kindCounts.map(({ k, n }) => (
+            <button key={k} type="button" role="radio" aria-checked={type === k} className="chip nk-chip" style={{ ['--nk' as string]: NOTE_KINDS[k].color }} onClick={() => setType(type === k ? 'all' : k)}>
+              <i aria-hidden="true" />{NOTE_KINDS[k].plural} <span className="chip-n">{n}</span>
+            </button>
+          ))}
+          {ws.documents.length > 0 && (
+            <button type="button" role="radio" aria-checked={type === 'files'} className="chip" onClick={() => setType(type === 'files' ? 'all' : 'files')}>Fichiers <span className="chip-n">{ws.documents.length}</span></button>
+          )}
+        </div>
+        <label className="search">
+          <span className="sr-only">Rechercher dans les documents et fichiers</span>
+          <input type="search" placeholder="Rechercher" value={query} onChange={(e) => setQuery(e.target.value)} />
+        </label>
+      </div>
+
+      {showNotes && pinned.length > 0 && (
+        <section className="notes-section">
+          <h2 className="docs-sec">Épinglés</h2>
+          <div className="nk-grid">
+            {pinned.map((n) => <NoteCard key={n.id} note={n} canWrite={canWrite} onOpen={() => setNote(n.id)} onPin={() => void togglePin(n)} />)}
+          </div>
+        </section>
+      )}
+
+      {showNotes && (
+        <section className="notes-section">
+          <h2 className="docs-sec">{pinned.length ? 'Les autres' : 'Écrits ensemble'}</h2>
+          {rest.length === 0 && !canWrite && <p className="hint">{q || type !== 'all' ? 'Aucun document ne correspond.' : 'Aucun document pour le moment.'}</p>}
+          <div className="nk-list">
+            {rest.map((n) => <NoteRow key={n.id} note={n} canWrite={canWrite} onOpen={() => setNote(n.id)} onPin={() => void togglePin(n)} />)}
+            {canWrite && (
+              <button className="nk-row nk-add" onClick={() => setCreating(true)}>
+                <span className="invite-plus"><Icon name="plus" size={18} /></span>
+                <b>Nouveau document</b>
+                <span className="muted">Compte rendu, daily, spec, rétro…</span>
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+
+      {showFiles && <h2 className="docs-sec files-title">Fichiers</h2>}
+      {showFiles && ws.documents.length > 1 && (
+        <div className="chips docs-file-chips" role="radiogroup" aria-label="Type de fichier">
           {FILTERS.filter((f) => f.id === 'all' || counts[f.id]).map((f) => (
-            <button key={f.id} type="button" role="radio" aria-checked={filter === f.id} className="chip" onClick={() => setFilter(f.id)}>
+            <button key={f.id} type="button" role="radio" aria-checked={filter === f.id} className="chip small" onClick={() => setFilter(f.id)}>
               {f.label} <span className="chip-n">{counts[f.id]}</span>
             </button>
           ))}
         </div>
-        <label className="search">
-          <span className="sr-only">Rechercher un document</span>
-          <input type="search" placeholder="Rechercher" value={query} onChange={(e) => setQuery(e.target.value)} />
-        </label>
-      </div>
+      )}
 
       {uploading.length > 0 && (
         <div className="docs-uploading" role="status">
@@ -237,7 +287,7 @@ export function Documents() {
         </div>
       )}
 
-      {ws.documents.length === 0 ? (
+      {!showFiles ? null : ws.documents.length === 0 ? (
         <button className="docs-empty" onClick={() => canWrite && input.current?.click()} disabled={!canWrite}>
           <span className="docs-empty-stack" aria-hidden="true">
             <span className="kind-pdf">PDF</span>
@@ -284,9 +334,16 @@ export function Documents() {
 
       {openNote && (
         <Suspense fallback={null}>
-          <NoteEditor key={openNote.id} note={openNote} onClose={() => setNote(null)} />
+          <NoteEditor key={openNote.id} note={openNote} template={(params.get('modele') as NoteKind | null) ?? undefined} onClose={() => setParams((p) => {
+            const next = new URLSearchParams(p)
+            next.delete('note')
+            next.delete('modele')
+            return next
+          }, { replace: true })} />
         </Suspense>
       )}
+
+      {creating && <NewNoteDialog onPick={(k) => void newNote(k)} onClose={() => setCreating(false)} />}
 
       {renaming && (
         <RenameDialog
@@ -304,23 +361,91 @@ export function Documents() {
   )
 }
 
-function NoteCard({ note, onOpen }: { note: Note; onOpen: () => void }) {
+function NoteMeta({ note }: { note: Note }) {
   const ws = useWorkspace()
   const who = ws.members.find((m) => m.id === (note.updatedBy ?? note.createdBy))
-  const lines = note.preview.split('\n').filter(Boolean).slice(0, 4)
   return (
-    <button className="note-card appear" onClick={onOpen}>
-      <span className="note-paper">
-        {lines.length ? lines.map((l, i) => <span key={i}>{l}</span>) : <span className="muted">Vide pour l'instant</span>}
+    <span className="doc-meta">
+      {who && <Avatar member={who} size={18} />}
+      <span className="muted">{who ? `${who.name.split(' ')[0]} · ` : ''}{ago(note.updatedAt)}</span>
+    </span>
+  )
+}
+
+function PinButton({ note, onPin }: { note: Note; onPin: () => void }) {
+  return (
+    <span role="button" tabIndex={0} className={`nk-pin${note.pinned ? ' on' : ''}`} title={note.pinned ? 'Retirer des épinglés' : 'Épingler pour l\'équipe'} aria-label={note.pinned ? 'Retirer des épinglés' : 'Épingler'}
+      onClick={(e) => { e.stopPropagation(); onPin() }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onPin() } }}>
+      <Icon name="pin" size={16} />
+    </span>
+  )
+}
+
+/** Document épinglé : grande carte avec un bandeau de la couleur de son type. */
+function NoteCard({ note, canWrite, onOpen, onPin }: { note: Note; canWrite: boolean; onOpen: () => void; onPin: () => void }) {
+  const k = NOTE_KINDS[note.kind]
+  const lines = note.preview.split('\n').filter(Boolean).slice(0, 3)
+  return (
+    <button className="nk-card appear" style={{ ['--nk' as string]: k.color }} onClick={onOpen}>
+      <span className="nk-band">
+        <small>{k.label}</small>
+        <b title={note.title}>{note.title}</b>
+        {canWrite && <PinButton note={note} onPin={onPin} />}
       </span>
-      <span className="doc-info">
-        <strong title={note.title}>{note.title}</strong>
-        <span className="doc-meta">
-          {who && <Avatar member={who} size={18} />}
-          <span className="muted">Modifié {ago(note.updatedAt)}</span>
-        </span>
+      <span className="nk-body">
+        <span className="nk-lines">{lines.length ? lines.map((l, i) => <span key={i}>{l}</span>) : <span className="muted">Vide pour l'instant</span>}</span>
+        <NoteMeta note={note} />
       </span>
     </button>
+  )
+}
+
+/** Document dans la liste : trait de couleur, titre, type, dernière modification. */
+function NoteRow({ note, canWrite, onOpen, onPin }: { note: Note; canWrite: boolean; onOpen: () => void; onPin: () => void }) {
+  const k = NOTE_KINDS[note.kind]
+  return (
+    <button className="nk-row appear" style={{ ['--nk' as string]: k.color }} onClick={onOpen}>
+      <i className="nk-bar" aria-hidden="true" />
+      <span className="nk-row-main">
+        <b>{note.title}</b>
+        <span className="nk-row-sub">{note.preview.split('\n').find((l) => l.trim() && l.trim() !== note.title) ?? ''}</span>
+      </span>
+      <span className="nk-kind">{k.label}</span>
+      <NoteMeta note={note} />
+      {canWrite && <PinButton note={note} onPin={onPin} />}
+    </button>
+  )
+}
+
+const CREATE_LABEL: Record<NoteKind, string> = {
+  cr: 'Créer le compte rendu', daily: 'Créer le daily', spec: 'Créer la spec', retro: 'Créer la rétro', cdc: 'Créer le cahier des charges', idee: 'Créer la page d\'idées', page: 'Créer la page',
+}
+
+/** Fenêtre au centre : choisir le type, le document s'ouvre déjà rempli. */
+function NewNoteDialog({ onPick, onClose }: { onPick: (k: NoteKind) => void; onClose: () => void }) {
+  const [kind, setKind] = useState<NoteKind>('cr')
+  const [busy, setBusy] = useState(false)
+  return (
+    <Modal title="Nouveau document" onClose={onClose} wide>
+      <div className="nk-new">
+        <div className="nk-tpls" role="radiogroup" aria-label="Modèle">
+          {NOTE_KIND_ORDER.map((id) => (
+            <button key={id} type="button" role="radio" aria-checked={kind === id} className={`nk-tpl${kind === id ? ' on' : ''}`} style={{ ['--nk' as string]: NOTE_KINDS[id].color }} onClick={() => setKind(id)} onDoubleClick={() => onPick(id)}>
+              <span className="nk-mini" aria-hidden="true"><i /><i /><i /><i /></span>
+              <b>{NOTE_KINDS[id].label}</b>
+              <span>{NOTE_KINDS[id].hint}</span>
+            </button>
+          ))}
+        </div>
+        {kind !== 'page' && kind !== 'idee' && (
+          <p className="nk-prefill"><b>Déjà rempli pour toi</b>{kind === 'daily' ? 'Ce que chacun a fini et a en cours dans le sprint.' : kind === 'cr' ? 'Date du jour, membres en ligne comme présents, sprint en cours.' : kind === 'retro' ? 'Le sprint, et les actions deviennent des tâches.' : 'Les rubriques à remplir.'}</p>
+        )}
+        <div className="prompt-foot">
+          <button type="button" className="btn soft" onClick={onClose}>Annuler</button>
+          <button type="button" className="btn" disabled={busy} onClick={() => { setBusy(true); onPick(kind) }}>{CREATE_LABEL[kind]}</button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 
