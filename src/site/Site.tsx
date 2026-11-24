@@ -18,6 +18,7 @@ const DEMO_URL = '/app/?demo=1'
  */
 const DESKTOP_READY = true
 const RELEASES_URL = 'https://github.com/ambroise-boutrin/kollab/releases/latest'
+const RELEASES_API = 'https://api.github.com/repos/ambroise-boutrin/kollab/releases?per_page=10'
 const YEAR = new Date().getFullYear()
 
 /**
@@ -556,47 +557,147 @@ function IntegrationsSection() {
   )
 }
 
+type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> }
+type HelpKey = 'ios' | 'safari' | 'android' | 'chrome' | 'other'
+
+/** Quelle aide afficher quand le navigateur ne propose pas d'installation directe. */
+function helpKey(): HelpKey {
+  const ua = navigator.userAgent
+  const ios = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1)
+  if (ios) return 'ios'
+  if (/Android/i.test(ua)) return /Firefox/i.test(ua) ? 'other' : 'android'
+  if (/Firefox/i.test(ua)) return 'other'
+  if (/Safari/i.test(ua) && !/Chrome|Chromium|Edg/i.test(ua)) return 'safari'
+  if (/Chrome|Chromium|Edg/i.test(ua)) return 'chrome'
+  return 'other'
+}
+
+const ASSET_MATCH: Record<string, RegExp> = { windows: /x64-setup\.exe$/i, mac: /\.dmg$/i, linux: /\.AppImage$/i }
+
+/** Liens directs vers les fichiers de la dernière version : le clic télécharge, sans page GitHub. */
+function useDirectLinks() {
+  const [links, setLinks] = useState<Record<string, string>>({})
+  useEffect(() => {
+    if (!DESKTOP_READY) return
+    let gone = false
+    fetch(RELEASES_API)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((rels: { draft?: boolean; prerelease?: boolean; assets?: { name: string; browser_download_url: string }[] }[] | null) => {
+        if (gone || !Array.isArray(rels)) return
+        // Pour chaque système, la version la plus récente qui a déjà son fichier (une version peut être en cours de construction).
+        const out: Record<string, string> = {}
+        for (const [os, re] of Object.entries(ASSET_MATCH)) {
+          for (const rel of rels) {
+            if (rel.draft || rel.prerelease) continue
+            const hit = rel.assets?.find((x) => re.test(x.name))
+            if (hit) { out[os] = hit.browser_download_url; break }
+          }
+        }
+        setLinks(out)
+      })
+      .catch(() => {})
+    return () => { gone = true }
+  }, [])
+  return links
+}
+
+function InstallHelp({ which, onClose }: { which: HelpKey; onClose: () => void }) {
+  const h = t.download.help
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  return (
+    <div className="k-modal" role="dialog" aria-modal="true" aria-labelledby="k-install-title" onClick={onClose}>
+      <div className="k-modal-card" onClick={(e) => e.stopPropagation()}>
+        <h3 id="k-install-title">{h.title}</h3>
+        <ol className="k-install-steps">
+          {h[which].map((x, n) => (
+            <li key={x}><span>{n + 1}</span>{x}</li>
+          ))}
+        </ol>
+        <button type="button" className="k-btn k-btn-ink k-btn-lg" onClick={onClose} autoFocus>{h.close}</button>
+      </div>
+    </div>
+  )
+}
+
 function DownloadSection() {
   const [os] = useState(detectOs)
+  const links = useDirectLinks()
+  const [help, setHelp] = useState<HelpKey | null>(null)
+  const [installed, setInstalled] = useState(false)
   const d = t.download
+
+  async function install() {
+    const w = window as Window & { kInstall?: InstallEvent }
+    const ev = w.kInstall
+    if (!ev) return setHelp(helpKey())
+    w.kInstall = undefined
+    await ev.prompt()
+    const { outcome } = await ev.userChoice
+    if (outcome === 'accepted') setInstalled(true)
+  }
+
   return (
     <>
-      {/* Téléchargement. */}
+      {/* Installer : le navigateur d'abord, l'app de bureau en second. */}
       <section id="telecharger" className="k-section">
         <div className="k-wrap">
-          <div className="k-download k-bg-lilac reveal">
+          <div className="k-download k-download-web k-bg-lilac reveal">
             <div>
               <p className="k-kicker">{d.kicker}</p>
               <h2 className="k-h2">{d.title}</h2>
-              <p className="k-download-note">{DESKTOP_READY ? d.ready : d.notReady}</p>
+              <p className="k-download-note">{d.lead}</p>
+              <div className="k-install">
+                <a className="k-btn k-btn-ink k-btn-lg" href={APP_URL}>{d.open}</a>
+                {installed ? (
+                  <span className="k-installed">{d.installed}</span>
+                ) : (
+                  <button type="button" className="k-btn k-btn-indigo k-btn-lg" onClick={() => void install()}>{d.install}</button>
+                )}
+              </div>
             </div>
-            <ul className="k-os">
-              {DOWNLOADS.map((x) => {
-                const mine = x.os === os
-                const inner = (
-                  <>
-                    <span className="k-os-name">
-                      {x.name}
-                      {mine && <span className="k-mine">{d.mine}</span>}
-                    </span>
-                    <span className="k-os-detail">{d.os[x.os]}</span>
-                    <span className="k-os-go">{DESKTOP_READY ? d.go : t.soon}</span>
-                  </>
-                )
-                return (
-                  <li key={x.os} className={mine ? 'mine' : undefined}>
-                    {DESKTOP_READY ? (
-                      <a href={RELEASES_URL} target="_blank" rel="noreferrer">{inner}</a>
-                    ) : (
-                      <div aria-disabled="true">{inner}</div>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
+            <div className="k-desk">
+              <p className="k-desk-title">{d.desktop}</p>
+              <ul className="k-os">
+                {DOWNLOADS.map((x) => {
+                  const mine = x.os === os
+                  const inner = (
+                    <>
+                      <span className="k-os-name">
+                        {x.name}
+                        {mine && <span className="k-mine">{d.mine}</span>}
+                      </span>
+                      <span className="k-os-detail">{d.os[x.os]}</span>
+                      <span className="k-os-go">{DESKTOP_READY ? d.go : t.soon}</span>
+                    </>
+                  )
+                  const direct = links[x.os]
+                  return (
+                    <li key={x.os} className={mine ? 'mine' : undefined}>
+                      {DESKTOP_READY ? (
+                        direct ? <a href={direct} download>{inner}</a> : <a href={RELEASES_URL} target="_blank" rel="noreferrer">{inner}</a>
+                      ) : (
+                        <div aria-disabled="true">{inner}</div>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+              {DESKTOP_READY && (
+                <ul className="k-alerts">
+                  {d.alerts.map((a) => (
+                    <li key={a.os}><b>{a.os}</b> {a.t}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         </div>
       </section>
+      {help && <InstallHelp which={help} onClose={() => setHelp(null)} />}
     </>
   )
 }

@@ -28,6 +28,12 @@ if (!IS_TAURI && !inApp && (installed || invited)) {
 }
 const showApp = IS_TAURI || inApp || installed || invited
 
+// Le site propose « Installer l'app » : on garde l'invitation du navigateur, qui arrive parfois avant le site.
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault()
+  ;(window as Window & { kInstall?: Event }).kInstall = e
+})
+
 const AppRoot = lazy(() => import('./AppRoot'))
 const Site = lazy(() => import('./site/Site'))
 const GitHubDone = lazy(() => import('./GitHubDone'))
