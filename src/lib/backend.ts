@@ -1,4 +1,4 @@
-import type { AppNotification, EmailInvite, Channel, DocumentItem, Note, Sprint, ReactionChange, ActivityItem, Group, Invite, LinkItem, Member, Message, ProfilePatch, Provider, Role, Task } from './types'
+import type { AppNotification, EmailInvite, Channel, DocumentItem, Note, Sprint, ReactionChange, ActivityItem, Group, Invite, LinkItem, Member, Message, ProfilePatch, Provider, Role, Task, TaskComment } from './types'
 
 export interface User {
   id: string
@@ -156,6 +156,9 @@ export interface Backend {
 
   saveTask(task: Task): Promise<Task>
   deleteTask(id: string): Promise<void>
+  /** Fil de commentaires d'une tâche, du plus ancien au plus récent. */
+  listComments(taskId: string): Promise<TaskComment[]>
+  addComment(taskId: string, body: string): Promise<TaskComment>
 
   listMessages(channelId: string): Promise<Message[]>
   sendMessage(channelId: string, body: string): Promise<Message>

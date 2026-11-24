@@ -21,6 +21,7 @@ interface TaskRow {
   created_at: string
   sprint_id?: string | null
   done_at?: string | null
+  due_on?: string | null
 }
 
 interface NoteRow {
@@ -82,6 +83,7 @@ const toTask = (r: TaskRow): Task => ({
   createdAt: r.created_at,
   sprintId: r.sprint_id ?? null,
   doneAt: r.done_at ?? null,
+  dueOn: r.due_on ?? null,
 })
 
 interface NotificationRow {
@@ -567,6 +569,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         pr_url: task.prUrl,
         position: task.position,
         ...(task.sprintId !== undefined ? { sprint_id: task.sprintId } : {}),
+        ...(task.dueOn !== undefined ? { due_on: task.dueOn } : {}),
       }
       return toTask(must(await sb.from('tasks').upsert(row).select().single()) as TaskRow)
     },
@@ -575,6 +578,16 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       const { data: auth } = await sb.auth.getUser()
       must(await sb.from('tasks').update({ deleted_at: new Date().toISOString(), deleted_by: auth.user?.id ?? null }).eq('id', id))
       liveChannel?.send({ type: 'broadcast', event: 'task-deleted', payload: { id } })
+    },
+
+    async listComments(taskId) {
+      const rows = must(await sb.from('task_comments').select('id, task_id, author_id, body, created_at').eq('task_id', taskId).is('deleted_at', null).order('created_at')) as { id: string; task_id: string; author_id: string; body: string; created_at: string }[]
+      return rows.map((r) => ({ id: r.id, taskId: r.task_id, authorId: r.author_id, body: r.body, createdAt: r.created_at }))
+    },
+
+    async addComment(taskId, body) {
+      const r = must(await sb.from('task_comments').insert({ task_id: taskId, group_id: groupId, body }).select('id, task_id, author_id, body, created_at').single()) as { id: string; task_id: string; author_id: string; body: string; created_at: string }
+      return { id: r.id, taskId: r.task_id, authorId: r.author_id, body: r.body, createdAt: r.created_at }
     },
 
     async listMessages(channelId) {
