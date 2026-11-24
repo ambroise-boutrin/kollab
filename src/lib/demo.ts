@@ -564,7 +564,7 @@ export const demoBackend: Backend = {
       const m = s.workspace?.members.find((x) => x.id === memberId)
       if (!m) return
       const admins = s.workspace!.members.filter((x) => x.role === 'admin' && x.id !== memberId)
-      if (role !== 'admin' && admins.length === 0) throw new Error('Le groupe doit garder au moins un admin')
+      if (role !== 'admin' && admins.length === 0) throw new Error('Le projet doit garder au moins un admin')
       m.role = role
     })
   },

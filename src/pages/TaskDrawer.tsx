@@ -104,9 +104,9 @@ export function TaskDrawer({ task, onClose, isNew = false }: { task: Task; onClo
     <div className="modal-back task-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal task-modal" role="dialog" aria-modal="true" aria-label={isNew ? 'Nouvelle tâche' : `Tâche : ${draft.title}`}>
         <div className="task-modal-top">
-          <span className="muted" style={{ fontSize: 13, fontWeight: 600 }}>{isNew ? 'Nouvelle tâche' : STATUSES.find((s) => s.id === draft.status)?.label}</span>
+          <span className="muted" style={{ fontSize: 13, fontWeight: 600 }}>{isNew ? 'Nouvelle tâche' : 'Tâche'}</span>
           {!isNew && (
-            <button className="icon-btn" style={{ marginLeft: 'auto' }} aria-label="Supprimer la tâche" title="Supprimer" onClick={() => void remove()}>
+            <button className="icon-btn" style={{ marginLeft: 'auto' }} aria-label="Mettre à la corbeille" title="Mettre à la corbeille" onClick={() => void remove()}>
               <Icon name="trash" size={18} />
             </button>
           )}
@@ -162,7 +162,7 @@ export function TaskDrawer({ task, onClose, isNew = false }: { task: Task; onClo
             </div>
 
             <div className="task-field">
-              <span className="task-label">Points{draft.points != null ? <b className="pts-now"> · {draft.points}</b> : null}</span>
+              <span className="task-label">Estimation{draft.points != null ? <b className="pts-now"> · {draft.points} point{draft.points > 1 ? 's' : ''}</b> : null}</span>
               <div className="points-scale" role="radiogroup" aria-label="Estimation en points">
                 {POINTS.map((p, i) => (
                   <button key={p} type="button" role="radio" aria-checked={draft.points === p} className={`pt${draft.points != null && p <= draft.points ? ' on' : ''}`} style={{ ['--h' as string]: `${12 + i * 7}px`, ['--c' as string]: i < 3 ? 'var(--ok)' : i < 5 ? '#D98A1C' : 'var(--danger)' }} onClick={() => commit({ ...draft, points: draft.points === p ? null : p })}>
@@ -172,6 +172,8 @@ export function TaskDrawer({ task, onClose, isNew = false }: { task: Task; onClo
                 ))}
               </div>
             </div>
+
+            <DueField value={draft.dueOn} sprintEnd={sprints.find((sp) => sp.id === draft.sprintId)?.endsOn} onChange={(d) => commit({ ...draft, dueOn: d })} />
 
             {openSprints.length > 0 && (
               <div className="task-field">
@@ -187,7 +189,10 @@ export function TaskDrawer({ task, onClose, isNew = false }: { task: Task; onClo
               </div>
             )}
 
-            <DueField value={draft.dueOn} sprintEnd={sprints.find((sp) => sp.id === draft.sprintId)?.endsOn} onChange={(d) => commit({ ...draft, dueOn: d })} />
+            <div className="task-field">
+              <span className="task-label">Branche et PR</span>
+              <PrPicker task={draft} value={draft.prUrl} onChange={(url) => linkPr(url ?? '')} onMerged={() => draft.status !== 'done' && commit({ ...draft, status: 'done' })} />
+            </div>
 
             <label className="task-field">
               <span className="task-label">Description</span>
@@ -198,11 +203,6 @@ export function TaskDrawer({ task, onClose, isNew = false }: { task: Task; onClo
                 onChange={(e) => setDraft({ ...draft, description: e.target.value })}
               />
             </label>
-
-            <div className="task-field">
-              <span className="task-label">Branche et PR</span>
-              <PrPicker task={draft} value={draft.prUrl} onChange={(url) => linkPr(url ?? '')} onMerged={() => draft.status !== 'done' && commit({ ...draft, status: 'done' })} />
-            </div>
 
             {!isNew && <TaskComments task={draft} />}
           </div>
@@ -311,7 +311,7 @@ function PhoneTask({ draft, setDraft, commit, isNew, onClose, onCreate, onRemove
 
         <div className="pt-group">
           <span className="pt-label">Estimation{draft.points != null ? <> · <b>{draft.points} point{draft.points > 1 ? 's' : ''}</b></> : null}</span>
-          <div className="pt-points" role="radiogroup" aria-label="Points">
+          <div className="pt-points" role="radiogroup" aria-label="Estimation en points">
             {POINTS.map((p, i) => {
               const on = draft.points != null && p <= draft.points
               return (

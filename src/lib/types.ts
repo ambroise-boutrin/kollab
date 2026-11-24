@@ -190,7 +190,7 @@ export interface LinkItem {
 export type Provider = 'github' | 'google' | 'discord' | 'email'
 
 export const ROLES: Record<Role, { label: string; help: string }> = {
-  admin: { label: 'Admin', help: 'Gère le groupe, les invitations, les droits et Discord.' },
+  admin: { label: 'Admin', help: 'Gère le projet, les invitations, les droits et Discord.' },
   member: { label: 'Membre', help: 'Crée et modifie les tâches, écrit dans le chat.' },
   guest: { label: 'Invité', help: 'Voit tout, mais ne peut rien modifier ni écrire.' },
 }

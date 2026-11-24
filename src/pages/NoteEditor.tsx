@@ -10,6 +10,7 @@ import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate, removeAwareness
 import * as Y from 'yjs'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
+import { Modal } from '../components/Modal'
 import { PromptDialog } from '../components/PromptDialog'
 import { useToast } from '../components/Toast'
 import type { Room, RoomEvent } from '../lib/backend'
@@ -36,6 +37,7 @@ export default function NoteEditor({ note, onClose }: { note: Note; onClose: () 
   const me: Member | undefined = ws.members.find((m) => m.id === user?.id) ?? (backend.mode === 'demo' ? ws.members[0] : undefined)
   const canWrite = me?.role !== 'guest'
   const [title, setTitle] = useState(note.title)
+  const [exporting, setExporting] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [saved, setSaved] = useState<'ok' | 'pending' | 'error'>('ok')
   const [peers, setPeers] = useState<Peer[]>([])
@@ -227,9 +229,26 @@ export default function NoteEditor({ note, onClose }: { note: Note; onClose: () 
           })}
         </div>
         <span className={`note-saved ${saved}`}>{saved === 'ok' ? 'Enregistré' : saved === 'pending' ? 'Enregistrement…' : 'Hors ligne, réessai…'}</span>
-        {editor && <button className="icon-btn" aria-label="Télécharger en Markdown" title="Télécharger (.md)" onClick={() => download(title, editor)}><Icon name="download" size={18} /></button>}
+        {editor && <button className="icon-btn" aria-label="Exporter" title="Exporter en PDF ou Markdown" onClick={() => setExporting(true)}><Icon name="download" size={18} /></button>}
         {canWrite && <button className="icon-btn" aria-label="Mettre à la corbeille" title="Mettre à la corbeille" onClick={() => void remove()}><Icon name="trash" size={18} /></button>}
       </header>
+
+      {exporting && editor && (
+        <Modal title="Exporter le document" onClose={() => setExporting(false)}>
+          <div className="export-choices">
+            <button type="button" className="export-choice pdf" onClick={() => { printPdf(title, editor, ws.group.name); setExporting(false) }}>
+              <span className="export-ext">PDF</span>
+              <strong>Pour partager ou imprimer</strong>
+              <span>Mise en page propre, prête à envoyer.</span>
+            </button>
+            <button type="button" className="export-choice md" onClick={() => { download(title, editor); setExporting(false) }}>
+              <span className="export-ext">MD</span>
+              <strong>Markdown</strong>
+              <span>Pour un dépôt GitHub ou un wiki.</span>
+            </button>
+          </div>
+        </Modal>
+      )}
 
       {editor && canWrite && <Toolbar editor={editor} />}
 
@@ -366,6 +385,52 @@ function toMarkdown(node: { type?: string; text?: string; attrs?: Record<string,
     case 'hardBreak': return '\n'
     default: return kids()
   }
+}
+
+const escapeHtml = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
+
+/** PDF : on imprime le document dans un cadre caché, le système propose « Enregistrer en PDF ». */
+function printPdf(title: string, editor: Ed, project: string) {
+  const name = title.trim() || 'Document'
+  const date = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  const body = editor.getHTML()
+  const frame = document.createElement('iframe')
+  frame.setAttribute('aria-hidden', 'true')
+  frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0'
+  document.body.appendChild(frame)
+  const doc = frame.contentDocument!
+  doc.open()
+  doc.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${escapeHtml(name)}</title><style>
+    @page { margin: 18mm 16mm; }
+    body { font: 11.5pt/1.6 'Inter Variable', system-ui, sans-serif; color: #14142B; }
+    .doc-head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 3px solid #5546E0; padding-bottom: 6px; margin-bottom: 18px; font-size: 9.5pt; color: #5D6275; }
+    .doc-head b { color: #5546E0; letter-spacing: .02em; }
+    h1 { font-size: 22pt; margin: 0 0 10px; line-height: 1.2; }
+    h2 { font-size: 14pt; margin: 18px 0 6px; color: #5546E0; }
+    h3 { font-size: 12pt; margin: 14px 0 4px; }
+    p { margin: 0 0 8px; }
+    ul, ol { margin: 0 0 8px; padding-left: 22px; }
+    ul[data-type="taskList"] { list-style: none; padding-left: 4px; }
+    ul[data-type="taskList"] li { display: flex; gap: 8px; }
+    ul[data-type="taskList"] li > label input { accent-color: #5546E0; }
+    ul[data-type="taskList"] li[data-checked="true"] > div { text-decoration: line-through; color: #5D6275; }
+    blockquote { margin: 0 0 8px; padding: 2px 12px; border-left: 3px solid #E3E7F0; color: #5D6275; }
+    pre { background: #F5F6FA; padding: 10px 12px; border-radius: 8px; white-space: pre-wrap; font-size: 10pt; }
+    code { font-family: ui-monospace, Menlo, monospace; }
+    a { color: #5546E0; }
+    hr { border: 0; border-top: 1px solid #E3E7F0; margin: 14px 0; }
+  </style></head><body><div class="doc-head"><b>KOLLAB · ${escapeHtml(project)}</b><span>${date}</span></div>${body.startsWith('<h1') ? '' : `<h1>${escapeHtml(name)}</h1>`}${body}</body></html>`)
+  doc.close()
+  let done = false
+  const go = () => {
+    if (done) return
+    done = true
+    frame.contentWindow?.focus()
+    frame.contentWindow?.print()
+    setTimeout(() => frame.remove(), 60_000)
+  }
+  frame.onload = go
+  setTimeout(go, 300)
 }
 
 function download(title: string, editor: Ed) {

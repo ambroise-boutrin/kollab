@@ -6,9 +6,11 @@ import { Icon } from '../components/Icon'
 import { Markdown } from '../components/Markdown'
 import { prState } from '../components/PrLink'
 import { useToast } from '../components/Toast'
+import { Modal } from '../components/Modal'
+import { PromptDialog } from '../components/PromptDialog'
 import {
-  annotations, checkRuns, getPull, ghToken, issueComments, listPulls, postComment, projectRepo, pullFiles, rerunWorkflow, reviewComments,
-  summarize, workflowRuns, type CheckRun, type Pull, type Repo,
+  annotations, checkRuns, deleteBranch, getPull, ghToken, issueComments, listPulls, listReviews, mergePull, postComment, projectRepo, pullFiles,
+  pullMergeable, rerunWorkflow, reviewComments, submitReview, summarize, workflowRuns, type CheckRun, type Pull, type Repo, type Review,
 } from '../lib/github'
 import { openExternal } from '../lib/links'
 import { useStore, useWorkspace } from '../lib/store'
@@ -65,7 +67,7 @@ export function Reviews() {
   if (!repo) {
     return (
       <div className="page settings">
-        <h1>Revues de code</h1>
+        <h1>Revues</h1>
         <div className="card"><p className="hint">Aucun dépôt relié. <Link to="/projet#github">Relier un dépôt GitHub</Link></p></div>
       </div>
     )
@@ -75,7 +77,7 @@ export function Reviews() {
     <div className="page reviews">
       <header className="row-between">
         <div>
-          <h1>Revues de code</h1>
+          <h1>Revues</h1>
           <p className="muted" style={{ margin: '2px 0 0', fontSize: 14 }}>{repo.owner}/{repo.repo}</p>
         </div>
         {!linked && <button className="btn dark small" onClick={() => void connect()}>Connecter GitHub</button>}
@@ -124,6 +126,92 @@ export function Reviews() {
   )
 }
 
+function reviewError(e: unknown) {
+  const m = e instanceof Error ? e.message : ''
+  if (/own pull request/i.test(m)) return 'Tu ne peux pas relire ta propre PR. Un autre membre doit le faire.'
+  return m || 'Action impossible'
+}
+
+/** Dernier avis de chaque relecteur (approuvée, changements demandés). */
+function lastVerdicts(list: Review[]) {
+  const by = new Map<string, Review>()
+  for (const r of list) if (r.user && (r.state === 'APPROVED' || r.state === 'CHANGES_REQUESTED' || r.state === 'DISMISSED')) by.set(r.user.login, r)
+  return [...by.values()].filter((r) => r.state !== 'DISMISSED').map((r) => ({
+    login: r.user!.login,
+    avatar: r.user!.avatar_url,
+    label: r.state === 'APPROVED' ? 'Approuvée' : 'Changements demandés',
+    cls: r.state === 'APPROVED' ? 'good' : 'bad',
+  }))
+}
+
+type Method = 'squash' | 'merge' | 'rebase'
+const METHODS: { id: Method; label: string; hint: string }[] = [
+  { id: 'squash', label: 'Un seul commit', hint: 'Recommandé : historique propre' },
+  { id: 'merge', label: 'Commit de fusion', hint: 'Garde tous les commits' },
+  { id: 'rebase', label: 'Rebase', hint: 'Commits rejoués à la suite' },
+]
+
+/** Fenêtre de fusion : méthode, branche à supprimer, avertissements tests et conflits. */
+function MergeDialog({ repo, pr, failed, running, onClose, onMerged }: { repo: Repo; pr: Pull; failed: number; running: number; onClose: () => void; onMerged: () => void }) {
+  const toast = useToast()
+  const { workspace, saveTask } = useStore()
+  const [method, setMethod] = useState<Method>('squash')
+  const [drop, setDrop] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const state = useAsync(() => pullMergeable(repo, pr.number), [pr.number])
+  const conflict = state.data?.mergeable === false || state.data?.state === 'dirty'
+  const blocked = state.data?.state === 'blocked'
+  const task = workspace?.tasks.find((t) => t.prUrl === pr.url)
+
+  async function merge() {
+    setBusy(true)
+    setError(null)
+    try {
+      const r = await mergePull(repo, pr.number, method, method === 'merge' ? undefined : `${pr.title} (#${pr.number})`)
+      if (!r.merged) throw new Error(r.message || 'Fusion refusée')
+      if (drop) await deleteBranch(repo, pr.branch).catch(() => undefined)
+      if (task && task.status !== 'done') await saveTask({ ...task, status: 'done' })
+      toast(task ? `PR fusionnée, « ${task.title} » passe en Terminé` : 'PR fusionnée')
+      onMerged()
+      onClose()
+    } catch (e) {
+      const m = e instanceof Error ? e.message : ''
+      setError(/not mergeable|conflict/i.test(m) ? 'Conflits avec la branche principale : règle-les sur GitHub.' : /protected|review/i.test(m) ? 'La branche est protégée : il manque une approbation ou des tests.' : m || 'Fusion impossible')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal title={`Fusionner #${pr.number}`} onClose={onClose}>
+      <div className="merge-dlg">
+        <p className="merge-branch"><code>{pr.branch}</code> → branche principale</p>
+        {conflict && <p className="merge-warn bad">Conflits à régler avant de fusionner.</p>}
+        {!conflict && blocked && <p className="merge-warn bad">Bloquée par les règles du dépôt (approbation ou tests requis).</p>}
+        {failed > 0 && <p className="merge-warn bad">{failed} test{failed > 1 ? 's' : ''} en échec.</p>}
+        {!failed && running > 0 && <p className="merge-warn wait">Des tests tournent encore.</p>}
+        <div className="merge-methods" role="radiogroup">
+          {METHODS.map((m) => (
+            <button key={m.id} type="button" role="radio" aria-checked={method === m.id} className={method === m.id ? 'on' : ''} onClick={() => setMethod(m.id)}>
+              <b>{m.label}</b><span>{m.hint}</span>
+            </button>
+          ))}
+        </div>
+        <label className="merge-check"><input type="checkbox" checked={drop} onChange={(e) => setDrop(e.target.checked)} /> Supprimer la branche ensuite</label>
+        {task && <p className="hint">La tâche « {task.title} » passera en Terminé.</p>}
+        {error && <p className="prompt-error" role="alert">{error}</p>}
+        <div className="prompt-foot">
+          <button type="button" className="btn soft" onClick={onClose}>Annuler</button>
+          <button className={`btn${failed || conflict ? ' danger' : ''}`} disabled={busy || conflict} onClick={() => void merge()}>
+            {busy ? 'Fusion…' : failed ? 'Fusionner quand même' : 'Fusionner'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 function PrDetail({ repo, pr, onReload }: { repo: Repo; pr: Pull; onReload: () => void }) {
   const toast = useToast()
   const [tab, setTab] = useState<Tab>('fichiers')
@@ -136,6 +224,25 @@ function PrDetail({ repo, pr, onReload }: { repo: Repo; pr: Pull; onReload: () =
   const st = prState(pr)
   const adds = files.data?.reduce((n, f) => n + f.additions, 0) ?? 0
   const dels = files.data?.reduce((n, f) => n + f.deletions, 0) ?? 0
+  const linked = useGhLinked()
+  const reviews = useAsync(() => listReviews(repo, pr.number), [pr.number], LIVE)
+  const [ask, setAsk] = useState<'changes' | 'merge' | null>(null)
+  const [busy, setBusy] = useState(false)
+  const canAct = linked && pr.state === 'open' && !pr.merged
+  const verdict = lastVerdicts(reviews.data ?? [])
+
+  async function approve() {
+    setBusy(true)
+    try {
+      await submitReview(repo, pr.number, 'APPROVE')
+      toast('PR approuvée')
+      reviews.reload()
+    } catch (e) {
+      toast(reviewError(e))
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function rerun(failedOnly: boolean) {
     try {
@@ -160,8 +267,36 @@ function PrDetail({ repo, pr, onReload }: { repo: Repo; pr: Pull; onReload: () =
             {files.data && <> · <span className="add-n">+{adds}</span> <span className="del-n">−{dels}</span></>}
           </p>
         </div>
-        <button className="btn soft small" onClick={() => void openExternal(pr.url)}>Ouvrir sur GitHub</button>
+        <div className="pr-actions">
+          {canAct && <button className="btn small good" disabled={busy} onClick={() => void approve()}>Approuver</button>}
+          {canAct && <button className="btn soft small" disabled={busy} onClick={() => setAsk('changes')}>Demander des changements</button>}
+          {canAct && <button className="btn small" disabled={busy} onClick={() => setAsk('merge')}>Fusionner</button>}
+          <button className="btn soft small" onClick={() => void openExternal(pr.url)}>Ouvrir sur GitHub</button>
+        </div>
       </div>
+      {verdict.length > 0 && (
+        <div className="pr-verdicts">
+          {verdict.map((v) => (
+            <span key={v.login} className={`pr-verdict ${v.cls}`}>
+              {v.avatar && <img src={v.avatar} alt="" />}{v.login} · {v.label}
+            </span>
+          ))}
+        </div>
+      )}
+      {ask === 'changes' && (
+        <PromptDialog
+          title="Demander des changements"
+          confirm="Envoyer"
+          fields={[{ name: 'body', label: 'Ce qu\'il faut changer', placeholder: 'Ex. renommer la fonction, ajouter un test', required: true, maxLength: 2000 }]}
+          onSubmit={async ({ body }) => {
+            if (!body.trim()) return 'Écris ce qu\'il faut changer'
+            try { await submitReview(repo, pr.number, 'REQUEST_CHANGES', body.trim()) } catch (e) { return reviewError(e) }
+            toast('Changements demandés'); reviews.reload(); onReload()
+          }}
+          onClose={() => setAsk(null)}
+        />
+      )}
+      {ask === 'merge' && <MergeDialog repo={repo} pr={pr} failed={sum?.failed ?? 0} running={sum?.running ?? 0} onClose={() => setAsk(null)} onMerged={onReload} />}
 
       <div className="tabs-seg" role="tablist">
         <button role="tab" aria-selected={tab === 'fichiers'} onClick={() => setTab('fichiers')}>Fichiers {files.data ? files.data.length : ''}</button>
