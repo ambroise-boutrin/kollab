@@ -11,7 +11,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type TouchEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { AvatarGroup } from '../components/Avatar'
 import { useToast } from '../components/Toast'
@@ -49,15 +49,23 @@ function TaskCard({ task, onOpen, overlay = false }: { task: Task; onOpen?: () =
 }
 
 /** PR liée : numéro, et son état quand on le connaît (fusionnée, tests). */
-function Column({ status, label, tasks, onOpen, onAdd }: { status: TaskStatus; label: string; tasks: Task[]; onOpen: (t: Task) => void; onAdd: () => void }) {
+const NEXT: Record<TaskStatus, TaskStatus | null> = { todo: 'doing', doing: 'review', review: 'done', done: null }
+const NEXT_LABEL: Record<TaskStatus, string> = { todo: 'Commencer', doing: 'Envoyer en revue', review: 'Terminer', done: '' }
+
+function Column({ status, label, tasks, onOpen, onAdd, onNext, current }: { status: TaskStatus; label: string; tasks: Task[]; onOpen: (t: Task) => void; onAdd: () => void; onNext: (t: Task) => void; current: boolean }) {
   const { setNodeRef, isOver } = useDroppable({ id: status })
+  const next = NEXT[status]
   return (
-    <section ref={setNodeRef} className={`column${isOver ? ' over' : ''}`} aria-label={label} data-tour="column">
+    <section ref={setNodeRef} className={`column${isOver ? ' over' : ''}${current ? ' current' : ''}`} aria-label={label} data-tour="column">
       <div className="column-head">
         {label} <span className="count">{tasks.length}</span>
       </div>
       {tasks.map((t) => (
-        <TaskCard key={t.id} task={t} onOpen={() => onOpen(t)} />
+        <div key={t.id} className="task-wrap">
+          <TaskCard task={t} onOpen={() => onOpen(t)} />
+          {/* Sur téléphone : l'étape suivante en un geste, sans glisser la carte. */}
+          {next && <button className={`task-next next-${next}`} onClick={() => onNext(t)}>{NEXT_LABEL[status]}</button>}
+        </div>
       ))}
       {status !== 'done' && (
         <button className="add-task" onClick={onAdd}>+ Ajouter une tâche</button>
@@ -103,6 +111,34 @@ export function Board() {
   const dragged = tasks.find((t) => t.id === dragId)
   const open = ws.tasks.find((t) => t.id === openId)
   const [fresh, setFresh] = useState<Task | null>(null)
+  // Téléphone : une colonne à la fois, choisie par les onglets ou d'un glissement de doigt.
+  const [col, setCol] = useState<TaskStatus>('doing')
+  const swipe = useRef<{ x: number; y: number } | null>(null)
+  function onTouchStart(e: TouchEvent) {
+    const t = e.touches[0]
+    swipe.current = { x: t.clientX, y: t.clientY }
+  }
+  function onTouchEnd(e: TouchEvent) {
+    const s = swipe.current
+    swipe.current = null
+    if (!s || dragId) return
+    const t = e.changedTouches[0]
+    const dx = t.clientX - s.x
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(t.clientY - s.y) * 1.5) return
+    const i = STATUSES.findIndex((x) => x.id === col)
+    const j = Math.min(STATUSES.length - 1, Math.max(0, i + (dx < 0 ? 1 : -1)))
+    setCol(STATUSES[j].id)
+  }
+  function moveOn(task: Task) {
+    const status = NEXT[task.status]
+    if (!status) return
+    const last = byStatus(status).at(-1)
+    void saveTask({ ...task, status, position: last ? last.position + 1 : 0 })
+    if (status === 'done') {
+      void backend.notifyDiscord({ type: 'task_done', taskTitle: task.title })
+      toast(`« ${task.title} » est terminée`)
+    } else toast(`« ${task.title} » passe en ${STATUSES.find((x) => x.id === status)?.label.toLowerCase()}`)
+  }
 
   function onDragStart(e: DragStartEvent) {
     setDragId(String(e.active.id))
@@ -154,10 +190,19 @@ export function Board() {
         </div>
       </div>
 
+      <div className="board-tabs" role="tablist" aria-label="Colonnes">
+        {STATUSES.map((s) => (
+          <button key={s.id} role="tab" aria-selected={col === s.id} className={`board-tab st-${s.id}`} onClick={() => setCol(s.id)}>
+            <b>{byStatus(s.id).length}</b>
+            {s.label}
+          </button>
+        ))}
+      </div>
+
       <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragId(null)}>
-        <div className="board">
+        <div className="board" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
           {STATUSES.map((s) => (
-            <Column key={s.id} status={s.id} label={s.label} tasks={byStatus(s.id)} onOpen={(t) => setOpenId(t.id)} onAdd={() => void add(s.id)} />
+            <Column key={s.id} status={s.id} label={s.label} tasks={byStatus(s.id)} onOpen={(t) => setOpenId(t.id)} onAdd={() => void add(s.id)} onNext={moveOn} current={col === s.id} />
           ))}
         </div>
         <DragOverlay dropAnimation={{ duration: 180, easing: 'ease' }}>{dragged && <TaskCard task={dragged} overlay />}</DragOverlay>

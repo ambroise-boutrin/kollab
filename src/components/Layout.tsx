@@ -28,11 +28,14 @@ const NAV: { to: string; label: string; icon: IconName; more?: boolean }[] = [
   { to: '/tableau', label: 'Tableau', icon: 'board' },
   { to: '/sprints', label: 'Sprints', icon: 'sprint', more: true },
   { to: '/feuille-de-route', label: 'Feuille de route', icon: 'route', more: true },
-  { to: '/revues', label: 'Revues', icon: 'pr', more: true },
+  { to: '/revues', label: 'Revues', icon: 'pr' },
   { to: '/chat', label: 'Chat', icon: 'chat' },
   { to: '/documents', label: 'Documents', icon: 'doc', more: true },
-  { to: '/equipe', label: 'Équipe', icon: 'group' },
+  { to: '/equipe', label: 'Équipe', icon: 'group', more: true },
 ]
+
+/** Barre du bas sur téléphone, dans l'ordre de la maquette. */
+const TABS = ['/', '/tableau', '/chat', '/revues'].map((to) => NAV.find((n) => n.to === to)!)
 
 const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)
 
@@ -58,7 +61,7 @@ function ProjectSwitcher({ onNew, compact = false }: { onNew: (mode: 'create' | 
         <ProjectMark id={g.id} logoUrl={g.logoUrl} color={g.color} size={compact ? 32 : 34} radius={compact ? 9 : undefined} />
         <span className="switcher-text">
           <strong>{g.name}</strong>
-          {!compact && <span>{count} membre{count > 1 ? 's' : ''}{role ? ` · ${ROLE_LABEL[role]}` : ''}</span>}
+          <span>{count} membre{count > 1 ? 's' : ''}{role ? ` · ${ROLE_LABEL[role]}` : ''}</span>
         </span>
         <Icon name="chevron" size={16} />
       </button>
@@ -219,6 +222,7 @@ export function Layout() {
   usePushOpen()
   const [creating, setCreating] = useState<null | 'create' | 'join'>(() => (hasWizardDraft() ? 'create' : null))
   const [inviting, setInviting] = useState(false)
+  const [account, setAccount] = useState(false)
   useEffect(() => {
     const on = () => setInviting(true)
     window.addEventListener('kollab:invite', on)
@@ -257,6 +261,7 @@ export function Layout() {
       <main className="main">
         <header className={onHome ? 'topbar on-home' : 'topbar'}>
           <div className="topbar-mobile">
+            <span className="topbar-logo" aria-hidden="true"><LogoMark size={28} /></span>
             <ProjectSwitcher onNew={setCreating} compact />
           </div>
           <MembersStack />
@@ -286,7 +291,7 @@ export function Layout() {
       <VoiceBar />
 
       <nav className="tabbar" aria-label="Navigation" data-tour="nav">
-        {NAV.filter((n) => !n.more).map((n) => (
+        {TABS.map((n) => (
           <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => (isActive ? 'active' : '')}>
             <Icon name={n.icon} size={22} />
             {n.label}
@@ -310,6 +315,10 @@ export function Layout() {
                   {n.label}
                 </NavLink>
               ))}
+              <button className="tab-more-item" onClick={() => { close(); setAccount(true) }}>
+                <span><Icon name="user" size={22} /></span>
+                Mon compte
+              </button>
             </div>
           )}
         </Popover>
@@ -317,6 +326,7 @@ export function Layout() {
 
       {creating && <NewProjectDialog mode={creating} onClose={() => setCreating(null)} />}
       {inviting && workspace && <InviteDialog onClose={() => setInviting(false)} />}
+      {account && <PhoneAccount onClose={() => setAccount(false)} />}
       {!DEMO_SESSION && <AppTour />}
       <DesktopMenu onNewProject={openNew} />
     </div>

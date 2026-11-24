@@ -4,6 +4,8 @@ import { Avatar, AvatarGroup } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { VoiceJoin } from '../components/VoiceBar'
 import { Popover } from '../components/Popover'
+import { Modal } from '../components/Modal'
+import { LogoMark } from '../components/Logo'
 import { PrStatus } from '../components/PrLink'
 import { useToast } from '../components/Toast'
 import { ghToken, listPulls, projectRepo } from '../lib/github'
@@ -115,6 +117,7 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
   const [editing, setEditing] = useState<{ id: string; body: string } | null>(null)
   /** Sur écran tactile : message touché, dont on montre les actions. */
   const [touched, setTouched] = useState<string | null>(null)
+  const [pickChan, setPickChan] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const repo = projectRepo(ws)
@@ -286,7 +289,14 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
 
       <section className="card thread" aria-label={`Salon ${channel?.name ?? ''}`}>
         <header className="thread-head">
-          <h2># {channel?.name}</h2>
+          <h2 className="hide-phone"># {channel?.name}</h2>
+          {!docked && <span className="chan-logo show-phone-flex" aria-hidden="true"><LogoMark size={28} /></span>}
+          {!docked && (
+            <button className="chan-pick show-phone-flex" aria-haspopup="dialog" onClick={() => setPickChan(true)}>
+              <strong># {channel?.name} <Icon name="chevron" size={14} /></strong>
+              <span>{channels.length} salon{channels.length > 1 ? 's' : ''} · {members.filter((m) => online.includes(m.id)).length} en ligne</span>
+            </button>
+          )}
           <div className="thread-tools">
             <VoiceJoin />
             <AvatarGroup members={members.filter((m) => online.includes(m.id))} size={26} max={5} online={online} />
@@ -377,6 +387,18 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
             )
           })}
         </div>
+
+        {pickChan && (
+          <Modal title="Salons" onClose={() => setPickChan(false)}>
+            <div className="chan-list">
+              {channels.map((c) => (
+                <button key={c.id} className={`chan-row${c.id === channelId ? ' active' : ''}`} aria-current={c.id === channelId} onClick={() => { setChannelId(c.id); setPickChan(false) }}>
+                  <b>#</b>{c.name}
+                </button>
+              ))}
+            </div>
+          </Modal>
+        )}
 
         <div className="composer" data-tour="composer">
           {suggestions.length > 0 && (
