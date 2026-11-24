@@ -233,6 +233,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
 
   const autoPrBusy = useRef(new Set<string>())
+
+  // PR fusionnée sur GitHub : la tâche passe « Terminé » toute seule, sans qu'on ait à l'ouvrir.
+  useEffect(() => {
+    if (!groupId || backend.mode === 'demo') return
+    let alive = true
+    async function sweep() {
+      const ws = workspaceRef.current
+      if (!ws || document.visibilityState !== 'visible' || !navigator.onLine) return
+      const gh = await import('./github')
+      const open = ws.tasks.filter((t) => t.prUrl && t.status !== 'done').slice(0, gh.ghToken() ? 30 : 8)
+      for (const t of open) {
+        const ref = gh.parsePrUrl(t.prUrl)
+        if (!ref || !alive) continue
+        try {
+          const pr = await gh.getPull(ref, ref.number)
+          const latest = workspaceRef.current?.tasks.find((x) => x.id === t.id)
+          if (pr.merged && latest && latest.status !== 'done') await saveTaskRef.current({ ...latest, status: 'done' })
+        } catch {
+          /* GitHub indisponible : on réessaiera */
+        }
+      }
+    }
+    const first = setTimeout(() => void sweep(), 4000)
+    const every = setInterval(() => void sweep(), 5 * 60e3)
+    const onShow = () => document.visibilityState === 'visible' && void sweep()
+    document.addEventListener('visibilitychange', onShow)
+    return () => { alive = false; clearTimeout(first); clearInterval(every); document.removeEventListener('visibilitychange', onShow) }
+  }, [groupId]) // eslint-disable-line react-hooks/exhaustive-deps
   const saveTask = useCallback(async (task: Task) => {
     const before = workspaceRef.current?.tasks.find((t) => t.id === task.id)
     // Date de fin tenue à jour tout de suite (la base fait de même).
@@ -260,6 +288,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       autoPrBusy.current.delete(task.id)
     }
   }, [])
+
+  const saveTaskRef = useRef(saveTask)
+  saveTaskRef.current = saveTask
 
   const createTask = useCallback(
     async (partial: Pick<Task, 'title' | 'status'> & Partial<Task>) => {

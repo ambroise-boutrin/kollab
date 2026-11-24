@@ -5,6 +5,8 @@ import {
   type Theme, type ThemeChoice,
 } from '../lib/themes'
 
+const ACCENTS = ['#5546E0', '#2F6FD0', '#0F7A63', '#D9822B', '#C2413A', '#9B3FB8', '#D6457A', '#2E7D4F', '#14142B']
+
 type Draft = { id: string | null; name: string; bg: string; surface: string; text: string; accent: string }
 const BLANK: Draft = { id: null, name: '', bg: '#F5F6FA', surface: '#FFFFFF', text: '#14142B', accent: '#5546E0' }
 const FIELDS: [keyof Omit<Draft, 'id' | 'name'>, string][] = [['bg', 'Fond'], ['surface', 'Cartes'], ['text', 'Texte'], ['accent', 'Accent']]
@@ -28,6 +30,7 @@ export function AppearanceCard() {
 
   const pick = (id: string) => setChoice({ ...choice, id, accent: null, followSystem: false })
 
+
   function save() {
     if (!draft) return
     const id = draft.id ?? `perso-${Date.now().toString(36)}`
@@ -46,9 +49,41 @@ export function AppearanceCard() {
   const edit = (t: Theme) => setDraft({ id: t.id, name: t.name, bg: t.bg, surface: t.surface, text: t.text, accent: t.accent })
   const isCustom = (t: Theme) => !THEMES.some((x) => x.id === t.id)
 
+  const accentNow = choice.accent ?? themes.find((t) => t.id === choice.id)?.accent ?? '#5546E0'
+  const dark = themes.find((t) => t.id === choice.id)?.dark
+  const bgMode = choice.followSystem ? 'auto' : dark ? 'sombre' : 'clair'
+  const custom = !ACCENTS.includes(accentNow.toUpperCase())
+
   return (
     <section className="card">
-      <h2>Thème</h2>
+      <div className="ap-preview" style={{ ['--a' as string]: accentNow }}>
+        <span className="muted">Aperçu</span>
+        <div><b className="ap-btn">Créer la tâche</b><b className="ap-btn soft">Annuler</b></div>
+        <div className="ap-bar"><i /><i /></div>
+      </div>
+      <div className="ap-group">
+        <b>Couleur principale</b>
+        <div className="ap-colors" role="radiogroup" aria-label="Couleur principale">
+          {ACCENTS.map((c) => (
+            <button key={c} role="radio" aria-checked={accentNow.toUpperCase() === c} aria-label={c} style={{ ['--c' as string]: c }} onClick={() => !draft && setChoice({ ...choice, accent: c })} />
+          ))}
+          <label className={`ap-custom${custom ? ' on' : ''}`} style={custom ? { ['--c' as string]: accentNow } : undefined} aria-label="Autre couleur">
+            <input type="color" value={accentNow} onChange={(e) => setChoice({ ...choice, accent: e.target.value.toUpperCase() })} />
+            {!custom && '+'}
+          </label>
+        </div>
+      </div>
+      <div className="ap-group">
+        <b>Fond</b>
+        <div className="ap-modes" role="radiogroup" aria-label="Fond">
+          <button role="radio" aria-checked={bgMode === 'clair'} onClick={() => setChoice({ ...choice, id: dark ? 'indigo' : choice.id, followSystem: false })}>Clair</button>
+          <button role="radio" aria-checked={bgMode === 'sombre'} className="dark" onClick={() => setChoice({ ...choice, id: 'nuit', followSystem: false })}>Sombre</button>
+          <button role="radio" aria-checked={bgMode === 'auto'} onClick={() => setChoice({ ...choice, id: dark ? 'indigo' : choice.id, followSystem: true })}>Auto</button>
+        </div>
+      </div>
+      <p className="hint" style={{ margin: 0 }}>Ta couleur ne change que chez toi.</p>
+
+      <h2 style={{ marginTop: 8 }}>Plus de thèmes</h2>
       <div className="themes">
         {themes.map((t) => (
           <div key={t.id} className="theme-wrap">
@@ -102,12 +137,6 @@ export function AppearanceCard() {
         </div>
       )}
 
-      {!draft && (
-        <label className="check-row">
-          <input type="checkbox" checked={choice.followSystem} onChange={(e) => setChoice({ ...choice, followSystem: e.target.checked })} />
-          Thème Nuit quand l'appareil est en mode sombre
-        </label>
-      )}
     </section>
   )
 }

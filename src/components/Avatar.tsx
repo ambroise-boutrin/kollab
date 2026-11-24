@@ -1,4 +1,4 @@
-import { PRESENCE, type Member } from '../lib/types'
+import { PRESENCE, liveStatus, type Member } from '../lib/types'
 
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/)
@@ -13,7 +13,7 @@ export function Avatar({ member, size = 32, online = false }: { member: Member |
     <span
       className="avatar"
       style={{ width: size, height: size, background: member.color, fontSize: Math.round(size * 0.4) }}
-      title={`${member.name}${online ? ` · ${PRESENCE[member.status ?? 'available'].label}` : ''}`}
+      title={`${member.name}${liveStatus(member) ? ` · ${liveStatus(member)}` : online ? ` · ${PRESENCE[member.status ?? 'available'].label}` : ''}`}
     >
       {member.avatarUrl ? <img src={member.avatarUrl} alt="" width={size} height={size} /> : initials(member.name)}
       {dot && <i className="dot" style={{ background: dot }} />}

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { boardTasks } from '../lib/sprints'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { DEMO_SESSION, leaveDemo, useStore } from '../lib/store'
-import { PRESENCE, type Member } from '../lib/types'
+import { PRESENCE, liveStatus, type Member } from '../lib/types'
 import { AppTour } from './AppTour'
 import { Avatar } from './Avatar'
 import { DesktopMenu } from './DesktopMenu'
@@ -124,7 +124,7 @@ export function MembersStack() {
         <Avatar member={m} size={30} online={on} />
         <span className="pop-grow">
           <strong>{m.name}</strong>
-          <span className="muted">{on ? PRESENCE[m.status ?? 'available'].label : 'Hors ligne'}{m.title ? ` · ${m.title}` : ''}</span>
+          <span className="muted">{liveStatus(m) || (on ? PRESENCE[m.status ?? 'available'].label : 'Hors ligne')}{m.title ? ` · ${m.title}` : ''}</span>
         </span>
       </div>
     )

@@ -1,10 +1,11 @@
 import { useRef, useState, type ChangeEvent } from 'react'
+import { StatusSheet, untilLabel } from '../components/StatusSheet'
 import { Avatar } from '../components/Avatar'
 import { useToast } from '../components/Toast'
 import { Icon } from '../components/Icon'
 import { useStore } from '../lib/store'
 import { shrinkSquare } from '../lib/image'
-import { PRESENCE, type PresenceStatus, type ProfilePatch } from '../lib/types'
+import { PRESENCE, liveStatus, type PresenceStatus, type ProfilePatch } from '../lib/types'
 
 const COLORS = ['#5546E0', '#2F6FD0', '#0F7A63', '#2E7D4F', '#B5462E', '#C2413A', '#9B3FB8', '#14142B']
 
@@ -15,6 +16,7 @@ export function ProfileCard() {
   const [name, setName] = useState(me?.name ?? '')
   const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
+  const [statusOpen, setStatusOpen] = useState(false)
   if (!me) return null
 
   async function save(patch: ProfilePatch, msg?: string) {
@@ -61,7 +63,13 @@ export function ProfileCard() {
             {me.status === s && <Icon name="check" size={18} />}
           </button>
         ))}
+        <button className="profile-row" onClick={() => setStatusOpen(true)}>
+          {liveStatus(me) ? (
+            <><span className="presence" style={{ background: me.statusColor ?? 'var(--accent)' }} aria-hidden="true" /><span className="profile-row-label"><b>{liveStatus(me)}</b></span><span className="muted" style={{ fontSize: 13 }}>{untilLabel(me.statusUntil)}</span></>
+          ) : <span className="profile-row-label muted">Ajouter un message de statut…</span>}
+        </button>
       </div>
+      {statusOpen && <StatusSheet me={me} onClose={() => setStatusOpen(false)} />}
 
       <div className="profile-group">
         <label className="profile-row">
