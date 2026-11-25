@@ -1,6 +1,7 @@
 // Supprime le compte de l'utilisateur connecté, comme le prévoient les CGU.
 // Ses groupes ne restent jamais sans admin : un autre membre est promu, et un groupe vide est supprimé.
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4'
+import { sendEmail } from '../_shared/email.ts'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -40,5 +41,10 @@ Deno.serve(async (req) => {
 
   const { error } = await admin.auth.admin.deleteUser(uid)
   if (error) return new Response(error.message, { status: 500, headers: cors })
+  // Confirmation par email, après coup : le compte n'existe plus, l'email part quand même.
+  if (auth.user?.email) {
+    const meta = auth.user.user_metadata ?? {}
+    await sendEmail({ to: auth.user.email, template: 'account_deleted', data: { name: meta.full_name ?? meta.name ?? '', email: auth.user.email, at: new Date().toISOString() } })
+  }
   return new Response('deleted', { status: 200, headers: cors })
 })

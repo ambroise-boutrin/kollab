@@ -298,7 +298,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     async updateProfile(patch) {
       const { data } = await sb.auth.getUser()
       if (!data.user) return
-      const { statusText, statusColor, statusUntil, weeklyEmail, status, presenceUntil, ...rest } = patch
+      const { statusText, statusColor, statusUntil, weeklyEmail, missedEmail, status, presenceUntil, ...rest } = patch
       const row: Record<string, unknown> = { ...rest }
       if (status !== undefined) {
         row.status = legacyPresence(status)
@@ -310,6 +310,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       if (statusColor !== undefined) row.status_color = statusColor
       if (statusUntil !== undefined) row.status_until = statusUntil
       if (weeklyEmail !== undefined) row.weekly_email = weeklyEmail
+      if (missedEmail !== undefined) row.missed_email = missedEmail
       must(await sb.from('profiles').update(row).eq('id', data.user.id))
     },
 
@@ -443,8 +444,9 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       groupId = (memberships.find((m) => m.group_id === wanted) ?? memberships[0]).group_id
 
       const MEMBER_COLS = 'name, color, title, status, avatar_url, status_text, status_color, status_until, weekly_email'
+      // Colonnes ajoutées plus tard (présence, missed_email) : on retombe sans elles si la migration manque.
       const loadMembers = async () => {
-        const r = await sb.from('group_members').select(`*, profiles(${MEMBER_COLS}, presence, presence_until)`).eq('group_id', groupId)
+        const r = await sb.from('group_members').select(`*, profiles(${MEMBER_COLS}, missed_email, presence, presence_until)`).eq('group_id', groupId)
         return r.error ? sb.from('group_members').select(`*, profiles(${MEMBER_COLS})`).eq('group_id', groupId) : r
       }
       const [group, members, tasks, channels, links, documents, sprints, notes] = await Promise.all([
@@ -468,7 +470,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
         role: Role
         title?: string | null
         title_request?: string | null
-        profiles: { name: string; color: string; title: string; status: PresenceStatus; avatar_url: string | null; status_text?: string | null; status_color?: string | null; status_until?: string | null; weekly_email?: boolean | null; presence?: string | null; presence_until?: string | null } | null
+        profiles: { name: string; color: string; title: string; status: PresenceStatus; avatar_url: string | null; status_text?: string | null; status_color?: string | null; status_until?: string | null; weekly_email?: boolean | null; missed_email?: boolean | null; presence?: string | null; presence_until?: string | null } | null
       }
       return {
         group: { id: g.id, name: g.name, inviteCode: g.invite_code, discordWebhookSet: g.discord_webhook_set, logoUrl: g.logo_url ?? null, color: g.color ?? null, sprintDays: g.sprint_days ?? null, dailyTime: g.daily_time ?? null },
@@ -488,6 +490,7 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
             statusColor: m.profiles?.status_color ?? null,
             statusUntil: m.profiles?.status_until ?? null,
             weeklyEmail: m.profiles?.weekly_email ?? true,
+            missedEmail: m.profiles?.missed_email ?? true,
           }),
         ),
         tasks: (must(tasks) as TaskRow[]).filter((r) => !r.deleted_at).map(toTask),

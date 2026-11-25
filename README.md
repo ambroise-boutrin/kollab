@@ -48,6 +48,14 @@ Pour voir la fenêtre de mise à jour sans publier : ouvre l'app avec `?apercu-m
 
 ## Emails
 
-- **Activation, mot de passe oublié, lien magique** : modèles dans `supabase/templates/`. À coller dans Supabase › Authentication › Emails › Templates (sujets : « Active ton compte Kollab », « Nouveau mot de passe Kollab », « Ton lien de connexion Kollab »).
-- **Bienvenue** : fonction `welcome-email`, envoyée une fois après l'activation, via Resend. Secrets de fonction : `RESEND_API_KEY`, `MAIL_FROM` et `APP_URL`.
-- Pour la production, configure aussi le SMTP de Resend dans Supabase › Authentication › SMTP : l'envoi par défaut de Supabase est limité à quelques emails par heure.
+Tous les emails ont le même design (bandeau de couleur, encadré d'infos, un bouton) et partent par Resend.
+
+- **Modèles** : `supabase/functions/_shared/email-templates.ts` (21 emails). Aperçus : `node scripts/emails.mjs` puis ouvre `emails-apercu/index.html`.
+- **Envoi** : `sendEmail({ to, template, data, groupId, key })` dans `supabase/functions/_shared/email.ts`. Chaque envoi est noté dans la table `email_log` (`key` évite les doublons, ex. id d'événement Stripe).
+- **Emails de compte** (activation, mot de passe, lien magique, changement d'email, code, alertes de sécurité) : fonction `send-email-hook`, branchée dans Supabase › Authentication › Hooks › Send Email. Elle remplace le SMTP et les modèles de Supabase.
+- **Autres** : `welcome-email` (bienvenue), `invite-email` (invitations), `weekly-summary` (lundi), `notify-email` (« Pendant ton absence », toutes les 30 min), `delete-account` (confirmation), et le webhook Stripe (abonnements).
+
+Réglages à faire une fois :
+1. Resend › Domains : ajouter le domaine d'envoi et copier les enregistrements DNS (SPF, DKIM, DMARC).
+2. Secrets des fonctions : `RESEND_API_KEY`, `MAIL_FROM` (« Kollab <bonjour@ton-domaine> »), `APP_URL`, `SEND_EMAIL_HOOK_SECRET`.
+3. Supabase › Authentication › Hooks › Send Email : HTTPS, adresse de `send-email-hook`, et activer les notifications de sécurité (Authentication › Emails).

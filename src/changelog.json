@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.6.17",
+    "date": "2026-11-25",
+    "title": "Des emails qui arrivent",
+    "items": [
+      "Tous les emails refaits au même design : activation, mot de passe, invitations, sécurité, abonnement",
+      "Alerte par email quand ton mot de passe, ton adresse ou un compte relié change",
+      "« Pendant ton absence » : un email si une mention ou une tâche reste non lue, à couper dans Réglages"
+    ]
+  },
+  {
     "version": "0.6.16",
     "date": "2026-11-25",
     "title": "Un accueil qui se range",

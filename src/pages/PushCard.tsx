@@ -9,6 +9,7 @@ export function PushCard() {
   const { backend, workspace, user, reload } = useStore()
   const me = workspace?.members.find((m) => m.id === user?.id)
   const weekly = me?.weeklyEmail !== false
+  const missed = me?.missedEmail !== false
   const toast = useToast()
   const support = pushSupport()
   const [on, setOn] = useState(false)
@@ -85,6 +86,29 @@ export function PushCard() {
                 await backend.updateProfile({ weeklyEmail: !weekly })
                 await reload()
                 toast(weekly ? 'Résumé du lundi coupé' : 'Résumé du lundi activé')
+              } catch (e) {
+                toast(e instanceof Error ? e.message : 'Enregistrement impossible')
+              }
+            }}
+          >
+            <span />
+          </button>
+        </div>
+      )}
+      {me && (
+        <div className="setting-row">
+          <span className="push-ico"><Icon name="bell" size={22} /></span>
+          <div className="pop-grow">
+            <strong>Pendant ton absence</strong>
+            <span className="muted">Un email si une mention ou une tâche reste non lue plus d’une heure.</span>
+          </div>
+          <button
+            type="button" role="switch" aria-checked={missed} aria-label="Emails pendant ton absence" className="switch"
+            onClick={async () => {
+              try {
+                await backend.updateProfile({ missedEmail: !missed })
+                await reload()
+                toast(missed ? 'Emails d’absence coupés' : 'Emails d’absence activés')
               } catch (e) {
                 toast(e instanceof Error ? e.message : 'Enregistrement impossible')
               }

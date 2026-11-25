@@ -2,8 +2,9 @@
 // Appelée chaque lundi par pg_cron (clé x-weekly-key) ; ?dry=1 renvoie le HTML d'un projet sans rien envoyer.
 // Envoi par Resend : secrets RESEND_API_KEY, MAIL_FROM et APP_URL, comme welcome-email.
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4'
+import { sendEmail } from '../_shared/email.ts'
+import { esc, render, type Email } from '../_shared/email-templates.ts'
 
-const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 const DAY = 86_400_000
 const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.']
 const short = (d: Date) => `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`
@@ -21,7 +22,7 @@ type Summary = {
   sprint: { name: string; pct: number; daysLeft: number } | null
 }
 
-function html(s: Summary, firstName: string, appUrl: string) {
+function weeklyEmail(s: Summary, firstName: string, appUrl: string): Email {
   const tile = (n: number, label: string, color: string) => `<td valign="top" style="width:33%;background:#FFFFFF;border:1px solid #E7E9F0;border-radius:16px;padding:14px">
 <div style="font:800 28px 'Plus Jakarta Sans',Arial,sans-serif;color:${color}">${n}</div><div style="font-size:12px;color:#6B7287">${label}</div></td>`
   const sprint = s.sprint
@@ -42,26 +43,26 @@ ${s.watch.map((w) => `<div style="font-size:14px;padding:12px 14px;border-radius
     ? `<tr><td style="padding:12px 0 0"><div style="font-weight:700;font-size:15px;margin-bottom:8px">Fusionnées</div>
 ${s.merged.map((m) => `<div style="font-size:14px;color:#6B7287;margin-bottom:6px">${m.num ? `<b style="color:#9B3FB8">#${esc(m.num)}</b> ` : ''}${esc(m.title)}${m.who ? ` · ${esc(m.who)}` : ''}</div>`).join('')}</td></tr>`
     : ''
-  return `<!doctype html>
-<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ta semaine sur ${esc(s.group)}</title></head>
-<body style="margin:0;padding:0;background:#F5F6FA;font-family:Inter,'Segoe UI',Arial,sans-serif;color:#14142B">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0">${s.done} tâche${s.done > 1 ? 's' : ''} finie${s.done > 1 ? 's' : ''}, ${s.merged.length} PR fusionnée${s.merged.length > 1 ? 's' : ''}, ${s.watch.length} à surveiller.</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F5F6FA"><tr><td align="center" style="padding:28px 16px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px">
-<tr><td><table role="presentation" cellpadding="0" cellspacing="0"><tr>
-<td style="width:44px"><div style="width:44px;height:44px;border-radius:13px;background:${esc(s.color)}"></div></td>
-<td style="padding-left:12px"><div style="font:800 22px 'Plus Jakarta Sans',Arial,sans-serif">Ta semaine${firstName ? `, ${esc(firstName)}` : ''}</div>
-<div style="font-size:13px;color:#6B7287">${short(s.from)} – ${short(s.to)} · ${esc(s.group)}</div></td>
-</tr></table></td></tr>
-<tr><td style="padding:18px 0 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+  const body = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 4px">
+<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
 ${tile(s.done, s.done > 1 ? 'tâches finies' : 'tâche finie', '#2E7D4F')}<td style="width:8px"></td>${tile(s.merged.length, s.merged.length > 1 ? 'PR fusionnées' : 'PR fusionnée', '#9B3FB8')}<td style="width:8px"></td>${tile(s.watch.length, 'en retard', '#C2413A')}
 </tr></table></td></tr>
 ${sprint}${watch}${merged}
-<tr><td style="padding:22px 0 0"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
-<td style="border-radius:14px;background:#5546E0"><a href="${appUrl}" style="display:inline-block;padding:14px 18px;font:700 15px Inter,Arial,sans-serif;color:#FFFFFF;text-decoration:none;border-radius:14px">Ouvrir Kollab</a></td>
-</tr></table></td></tr>
-<tr><td style="padding:22px 0 0;font-size:12px;line-height:1.6;color:#8A90A2">Tu reçois ce résumé chaque lundi. Pour l’arrêter : Réglages, Notifications, dans Kollab.</td></tr>
-</table></td></tr></table></body></html>`
+</table>`
+  const email: Email = {
+    subject: `Ta semaine sur ${s.group}`,
+    preheader: `${s.done} tâche${s.done > 1 ? 's' : ''} finie${s.done > 1 ? 's' : ''}, ${s.merged.length} PR fusionnée${s.merged.length > 1 ? 's' : ''}, ${s.watch.length} à surveiller.`,
+    tone: 'compte',
+    kicker: `${s.group} · ${short(s.from)} – ${short(s.to)}`,
+    title: `Ta semaine${firstName ? `, ${firstName}` : ''}`,
+    lines: [],
+    extraHtml: body,
+    extraText: [`${s.done} tâche(s) finie(s), ${s.merged.length} PR fusionnée(s), ${s.watch.length} en retard.`, ...s.watch.map((w) => `À surveiller : ${w.title} (${w.why})`)].join('\n'),
+    cta: { label: 'Ouvrir Kollab', url: appUrl },
+    reason: 'Tu reçois ce résumé chaque lundi à 8 h.',
+    unsubscribe: `${appUrl.replace(/\/$/, '')}/reglages`,
+  }
+  return email
 }
 
 Deno.serve(async (req) => {
@@ -74,7 +75,6 @@ Deno.serve(async (req) => {
   const key = Deno.env.get('RESEND_API_KEY')
   if (!key && !dry) return new Response('no mail key', { status: 204 })
   const appUrl = Deno.env.get('APP_URL') ?? 'https://kollab-tan-nu.vercel.app/app'
-  const from = Deno.env.get('MAIL_FROM') ?? 'Kollab <onboarding@resend.dev>'
 
   const now = Date.now()
   const weekAgo = new Date(now - 7 * DAY)
@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
 
     const summary: Summary = { group: g.name, color: g.color ?? '#5546E0', from: weekAgo, to: new Date(now - DAY), done: finished.length, merged, watch: watch.slice(0, 5), sprint }
 
-    if (dry) return new Response(html(summary, '', appUrl), { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+    if (dry) return new Response(render(weeklyEmail(summary, '', appUrl), Deno.env.get('EMAIL_ASSETS_URL') ?? 'https://raw.githubusercontent.com/ambroise-boutrin/kollab/main/public/email').html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
 
     for (const m of (members ?? []) as { user_id: string; profiles: { name: string; weekly_email: boolean | null } | null }[]) {
       if (m.profiles?.weekly_email === false) continue
@@ -140,11 +140,7 @@ Deno.serve(async (req) => {
       const to = emails.get(m.user_id)
       if (!to) continue
       const first = (m.profiles?.name ?? '').trim().split(/\s+/)[0] ?? ''
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from, to: [to], subject: `Ta semaine sur ${g.name}`, html: html(summary, first, appUrl) }),
-      })
+      const res = await sendEmail({ to, template: 'weekly_summary', email: weeklyEmail(summary, first, appUrl), groupId: g.id, userId: m.user_id, key: `weekly:${g.id}:${m.user_id}:${short(new Date(now))}` })
       if (res.ok) sent++
       // Resend limite à quelques envois par seconde.
       await new Promise((r) => setTimeout(r, 600))
