@@ -301,35 +301,6 @@ function Marquee() {
   )
 }
 
-/** Faux diff pour la revue de PR. */
-function DiffMock() {
-  const p = t.product.pr
-  return (
-    <div className="k-diff" aria-hidden="true">
-      <div className="k-flow">
-        {p.flow.map((f, n) => [n > 0 && <i key={`a${n}`}>→</i>, <span key={f} className={`k-flow-${n}`}>{f}</span>])}
-      </div>
-      <div className="k-diff-head">
-        <span className="k-diff-pr">#42</span> {p.prTitle}
-        <span className="k-diff-ok">{p.approved}</span>
-      </div>
-      <div className="k-diff-file">src/pages/Board.tsx</div>
-      <pre>
-        <span className="del">-  const [cols] = useState(DEFAULT)</span>
-        {'\n'}
-        <span className="add">+  const cols = useColumns(sprint)</span>
-        {'\n'}
-        <span className="add">+  const sensors = useSensors(pointer)</span>
-        {'\n'}
-        {'   return <Board cols={cols} />'}
-      </pre>
-      <div className="k-diff-comment">
-        <b>Léa</b> {p.comment}
-      </div>
-    </div>
-  )
-}
-
 /**
  * Le produit en onglets. La page reste blanche ; la couleur vit dans le visuel et change avec l'onglet.
  * Les onglets avancent seuls tant que la section est visible, sauf si on clique ou si l'animation est réduite.
@@ -338,9 +309,11 @@ function ProductTabs() {
   const p = t.product
   // Le lien tâche ↔ branche ↔ PR d'abord : c'est ce qui distingue Kollab.
   const tabs = [
-    { bg: 'k-bg-ink', title: p.pr.title, text: <>{p.pr.text}</>, media: <DiffMock /> },
+    { bg: 'k-bg-ink', title: p.pr.title, text: <>{p.pr.text}</>, media: <Demo name="revues" label={p.pr.video} /> },
     { bg: 'k-bg-yellow', title: p.board.title, text: <>{p.board.text}</>, media: <Demo name="attribution" label={p.board.alt} /> },
     { bg: 'k-bg-coral', title: p.chat.title, text: <>{p.chat.textA}<code>{p.chat.code}</code>{p.chat.textB}</>, media: <Demo name="chat" label={p.chat.video} /> },
+    { bg: 'k-bg-lilac', title: p.docs.title, text: <>{p.docs.text}</>, media: <Demo name="documents" label={p.docs.video} /> },
+    { bg: 'k-bg-indigo', title: p.calls.title, text: <>{p.calls.text}</>, media: <Demo name="appel" label={p.calls.video} /> },
     { bg: 'k-bg-mint', title: p.phone.title, text: <>{p.phone.text}</>, media: <PhoneDemo /> },
   ]
   const [i, setI] = useState(0)
@@ -378,7 +351,7 @@ function ProductTabs() {
           ))}
         </div>
         <div className="k-tabpanel" id="tab-panel" role="tabpanel" aria-labelledby={`tab-${i}`}>
-          <div className={`k-tabmedia ${tab.bg}${i === 3 ? ' k-tabmedia-phone' : ''}`} key={i}>{tab.media}</div>
+          <div className={`k-tabmedia ${tab.bg}${i === tabs.length - 1 ? ' k-tabmedia-phone' : ''}`} key={i}>{tab.media}</div>
           <div className="k-tabtext" key={`t${i}`}>
             <h3>{tab.title}</h3>
             <p>{tab.text}</p>
@@ -466,45 +439,24 @@ function ProductSection() {
         </div>
 
         <div className="k-wrap k-blocks">
-          <article className="k-block k-bg-yellow reveal">
-            <div className="k-block-text">
-              <span className="k-num">01</span>
-              <h3>{p.board.title}</h3>
-              <p>{p.board.text}</p>
-            </div>
-            <Demo className="k-shot-tilt" name="attribution" label={p.board.alt} />
-          </article>
-
-          <article className="k-block k-bg-coral reveal">
-            <div className="k-block-text">
-              <span className="k-num">02</span>
-              <h3>{p.chat.title}</h3>
-              <p>
-                {p.chat.textA}<code>{p.chat.code}</code>{p.chat.textB}
-              </p>
-            </div>
-            <Demo name="chat" label={p.chat.video} />
-          </article>
-
-          <article className="k-block k-block-phone k-bg-mint reveal">
-            <div className="k-block-text">
-              <span className="k-num">03</span>
-              <h3>{p.phone.title}</h3>
-              <p>{p.phone.text}</p>
-            </div>
-            <PhoneDemo />
-          </article>
-
-          <article className="k-block k-bg-ink reveal">
-            <div className="k-block-text">
-              <span className="k-num">04</span>
-              <h3>
-                {p.pr.title}
-              </h3>
-              <p>{p.pr.text}</p>
-            </div>
-            <DiffMock />
-          </article>
+          {[
+            { bg: 'k-bg-ink', title: p.pr.title, text: <>{p.pr.text}</>, media: <Demo name="revues" label={p.pr.video} /> },
+            { bg: 'k-bg-yellow', title: p.board.title, text: <>{p.board.text}</>, media: <Demo className="k-shot-tilt" name="attribution" label={p.board.alt} /> },
+            { bg: 'k-bg-coral', title: p.chat.title, text: <>{p.chat.textA}<code>{p.chat.code}</code>{p.chat.textB}</>, media: <Demo name="chat" label={p.chat.video} /> },
+            { bg: 'k-bg-lilac', title: p.docs.title, text: <>{p.docs.text}</>, media: <Demo name="documents" label={p.docs.video} /> },
+            { bg: 'k-bg-indigo', title: p.calls.title, text: <>{p.calls.text}</>, media: <Demo name="appel" label={p.calls.video} /> },
+            { bg: 'k-bg-yellow', title: p.home.title, text: <>{p.home.text}</>, media: <Demo name="accueil" label={p.home.video} /> },
+            { bg: 'k-bg-mint', title: p.phone.title, text: <>{p.phone.text}</>, media: <PhoneDemo />, phone: true },
+          ].map((b, n) => (
+            <article key={b.title} className={`k-block${b.phone ? ' k-block-phone' : ''} ${b.bg} reveal`}>
+              <div className="k-block-text">
+                <span className="k-num">{String(n + 1).padStart(2, '0')}</span>
+                <h3>{b.title}</h3>
+                <p>{b.text}</p>
+              </div>
+              {b.media}
+            </article>
+          ))}
         </div>
       </section>
     </>

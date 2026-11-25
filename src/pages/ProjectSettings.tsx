@@ -76,10 +76,22 @@ function RepoPicker({ onPick, onClose }: { onPick: (url: string) => void; onClos
               {r.private && <span className="mini-tag">Privé</span>}
             </button>
           ))}
+          {backend.chooseGitHubRepos && appReady() && (
+            <button className="btn soft small" onClick={() => void backend.chooseGitHubRepos?.().catch((e: Error) => toast(e.message))}>Un dépôt manque ? Choisir les dépôts</button>
+          )}
         </div>
       )}
     </Modal>
   )
+}
+
+/** Appli GitHub Kollab prête : l'accès se choisit dépôt par dépôt. */
+const appReady = () => {
+  try {
+    return localStorage.getItem('kollab-gh-app') === '1'
+  } catch {
+    return false
+  }
 }
 
 export function ProjectSettings() {
