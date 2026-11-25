@@ -1,26 +1,39 @@
 import type { Workspace } from './backend'
 
 /**
- * Accès à l'API GitHub depuis le navigateur. Le jeton vient de la connexion GitHub
- * (Supabase le donne une fois, au retour de GitHub) ; sans jeton, seuls les dépôts publics répondent.
+ * Accès à l'API GitHub. Le jeton ne vit jamais dans le navigateur : il est chiffré côté serveur
+ * et les appels passent par la fonction « github » de Supabase (voir setGhProxy).
+ * Sans connexion, seuls les dépôts publics répondent (appel direct, sans jeton).
  */
-const TOKEN_KEY = 'kollab-gh-token'
+const LINKED_KEY = 'kollab-gh-linked'
+/** Ancienne clé : le jeton en clair, gardé par les versions d'avant. On le range sur le compte puis on l'efface. */
+export const LEGACY_TOKEN_KEY = 'kollab-gh-token'
 const API = 'https://api.github.com'
 
-export function ghToken(): string | null {
+/** Vrai quand GitHub est relié au compte (le jeton reste sur le serveur). */
+export function ghLinked(): boolean {
   try {
-    return localStorage.getItem(TOKEN_KEY)
+    return localStorage.getItem(LINKED_KEY) === '1'
   } catch {
-    return null
+    return false
   }
 }
-export function setGhToken(token: string | null) {
+export function setGhLinked(on: boolean) {
   try {
-    if (token) localStorage.setItem(TOKEN_KEY, token)
-    else localStorage.removeItem(TOKEN_KEY)
+    if (on) localStorage.setItem(LINKED_KEY, '1')
+    else localStorage.removeItem(LINKED_KEY)
   } catch {
     /* ignoré */
   }
+}
+/** @deprecated garder pour le code existant : vaut « relié », jamais un vrai jeton. */
+export const ghToken = (): string | null => (ghLinked() ? 'linked' : null)
+
+export type GhProxy = (req: { method: string; path: string; body?: unknown; accept: string }) => Promise<{ status: number; body: string; remaining: string | null }>
+let proxy: GhProxy | null = null
+/** Branche les appels GitHub sur le serveur (mode Supabase). */
+export function setGhProxy(p: GhProxy | null) {
+  proxy = p
 }
 
 export interface Repo { owner: string; repo: string }
@@ -58,26 +71,38 @@ export class GitHubError extends Error {
   }
 }
 
-async function gh<T>(path: string, init: RequestInit = {}, accept = 'application/vnd.github+json'): Promise<T> {
-  const token = ghToken()
+type Answer = { status: number; ok: boolean; text: () => Promise<string>; remaining: string | null }
+
+async function call(path: string, init: RequestInit, accept: string): Promise<Answer> {
+  if (proxy && ghLinked()) {
+    const r = await proxy({ method: init.method ?? 'GET', path, body: init.body ? JSON.parse(init.body as string) : undefined, accept })
+    return { status: r.status, ok: r.status >= 200 && r.status < 300, text: async () => r.body, remaining: r.remaining }
+  }
   const res = await fetch(`${API}${path}`, {
     ...init,
-    headers: { Accept: accept, 'X-GitHub-Api-Version': '2022-11-28', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(init.body ? { 'Content-Type': 'application/json' } : {}) },
+    headers: { Accept: accept, 'X-GitHub-Api-Version': '2022-11-28', ...(init.body ? { 'Content-Type': 'application/json' } : {}) },
   })
+  return { status: res.status, ok: res.ok, text: () => res.text(), remaining: res.headers.get('x-ratelimit-remaining') }
+}
+
+async function gh<T>(path: string, init: RequestInit = {}, accept = 'application/vnd.github+json'): Promise<T> {
+  const linked = ghLinked()
+  const res = await call(path, init, accept)
   if (res.status === 401) {
-    setGhToken(null)
+    setGhLinked(false)
     window.dispatchEvent(new Event('kollab:gh-expired'))
     throw new GitHubError('Connexion GitHub expirée : reconnecte GitHub', 401)
   }
-  if (res.status === 403 && res.headers.get('x-ratelimit-remaining') === '0') throw new GitHubError('Limite GitHub atteinte : connecte GitHub pour continuer', 403)
-  if (res.status === 404) throw new GitHubError(token ? 'Introuvable sur GitHub' : 'Dépôt privé ou introuvable : connecte GitHub', 404)
+  if (res.status === 403 && res.remaining === '0') throw new GitHubError('Limite GitHub atteinte : connecte GitHub pour continuer', 403)
+  if (res.status === 404) throw new GitHubError(linked ? 'Introuvable sur GitHub : vérifie que Kollab a accès à ce dépôt' : 'Dépôt privé ou introuvable : connecte GitHub', 404)
+  const text = await res.text()
   if (!res.ok) {
-    const j = (await res.json().catch(() => ({}))) as { message?: string; errors?: { message?: string }[] }
+    const j = (() => { try { return JSON.parse(text) } catch { return {} } })() as { message?: string; errors?: { message?: string }[] }
     const detail = (j.errors ?? []).map((e) => e.message).filter(Boolean).join(' ')
     throw new GitHubError([j.message ?? `Erreur GitHub ${res.status}`, detail].filter(Boolean).join(' : '), res.status)
   }
-  if (res.status === 204 || res.headers.get('content-length') === '0') return undefined as T
-  return (await res.json()) as T
+  if (res.status === 204 || !text) return undefined as T
+  return (accept.includes('json') ? JSON.parse(text) : text) as T
 }
 
 const base = (r: Repo) => `/repos/${r.owner}/${r.repo}`
@@ -219,7 +244,7 @@ async function openPr(r: Repo, branch: string, main: string, task: TaskInfo): Pr
 
 /** Ouvre une PR depuis une branche existante (ou renvoie celle déjà ouverte). */
 export async function prFromBranch(r: Repo, branch: string, task: TaskInfo): Promise<string> {
-  if (!ghToken()) throw new GitHubError('Connecte GitHub pour créer la PR', 401)
+  if (!ghLinked()) throw new GitHubError('Connecte GitHub pour créer la PR', 401)
   const existing = await gh<RawPull[]>(`${base(r)}/pulls?state=open&head=${encodeURIComponent(`${r.owner}:${branch}`)}`)
   if (existing[0]) return existing[0].html_url
   return openPr(r, branch, await defaultBranch(r), task)
@@ -230,7 +255,7 @@ export async function prFromBranch(r: Repo, branch: string, task: TaskInfo): Pro
  * (GitHub refuse une PR sans différence), puis ouvre la PR en brouillon. Renvoie l'adresse de la PR.
  */
 export async function createTaskPr(r: Repo, task: TaskInfo, wanted?: string): Promise<string> {
-  if (!ghToken()) throw new GitHubError('Connecte GitHub pour créer la PR', 401)
+  if (!ghLinked()) throw new GitHubError('Connecte GitHub pour créer la PR', 401)
   const main = await defaultBranch(r)
   const taken = new Set((await listBranches(r)).map((b) => b.name))
   const first = wanted || branchName(task.kind, task.title)

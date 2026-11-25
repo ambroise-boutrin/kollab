@@ -10,6 +10,16 @@
     ]
   },
   {
+    "version": "0.6.17",
+    "date": "2026-11-25",
+    "title": "GitHub plus sûr",
+    "items": [
+      "Ton jeton GitHub est chiffré sur le serveur et ne reste plus dans l'appareil",
+      "Nouvelle connexion GitHub : tu choisis les dépôts auxquels Kollab a accès",
+      "Rien à refaire : la connexion actuelle continue de marcher"
+    ]
+  },
+  {
     "version": "0.6.16",
     "date": "2026-11-25",
     "title": "Un accueil qui se range",

@@ -7,7 +7,7 @@
     },
     "/fonctionnalites": {
       "title": "Fonctionnalités · Kollab",
-      "description": "Kanban, attribution des tâches, chat avec mentions, intégrations GitHub, Discord et Google, et la feuille de route de Kollab."
+      "description": "Kanban et sprints, revues de PR GitHub, chat relié à Discord, documents, appels et visio, export PDF : tout Kollab, et sa feuille de route."
     },
     "/pour-qui": {
       "title": "Pour qui · Kollab",
@@ -59,7 +59,7 @@
     },
     "/en/features": {
       "title": "Features · Kollab",
-      "description": "Kanban, task assignment, chat with mentions, GitHub, Discord and Google integrations, and the roadmap."
+      "description": "Kanban and sprints, GitHub PR reviews, chat linked to Discord, documents, calls and video, PDF export: all of Kollab, and its roadmap."
     },
     "/en/who-its-for": {
       "title": "Who it's for · Kollab",
