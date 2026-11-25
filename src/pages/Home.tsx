@@ -241,14 +241,14 @@ export function Home() {
 
       {editing && (
         <div className="he-banner hide-phone" role="status">
-          <span><b>Mode édition.</b> Glisse les blocs pour les déplacer, change leur taille avec le coin, masque ce que tu ne veux pas.</span>
+          <span><b>Mode édition.</b> Glisse les blocs pour les déplacer, tire le coin pour changer leur taille (hauteur, large ou étroit), masque ce que tu ne veux pas.</span>
           <button className="he-reset" onClick={() => setLayout(DEFAULT)}>Réinitialiser</button>
           <button className="he-done" onClick={() => setEditing(false)}>Terminé</button>
         </div>
       )}
       {editing ? <HomeEditGrid layout={layout} onChange={setLayout} widgets={widgets} /> : (
-        <div className="home-grid">
-          {(['main', 'side'] as const).map((col) => (
+        <div className={`home-grid${layout.main.every((id) => layout.hidden.includes(id)) || layout.side.every((id) => layout.hidden.includes(id)) ? ' one-col' : ''}`}>
+          {(['main', 'side'] as const).filter((col) => layout[col].some((id) => !layout.hidden.includes(id))).map((col) => (
             <div key={col} className={col === 'main' ? 'home-main' : 'home-side'}>
               {layout[col].filter((id) => !layout.hidden.includes(id)).map((id) => {
                 const h = layout.heights?.[id]

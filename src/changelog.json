@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.6.16",
+    "date": "2026-11-25",
+    "title": "Un accueil qui se range",
+    "items": [
+      "Organiser l'accueil : on attrape un bloc et on le pose où on veut, aussi dans l'appli bureau",
+      "Tire le coin d'un bloc pour changer sa hauteur, ou le passer en large ou étroit",
+      "Une colonne vide laisse toute la place à l'autre"
+    ]
+  },
+  {
     "version": "0.6.15",
     "date": "2026-11-25",
     "title": "Des documents qui font pro",
