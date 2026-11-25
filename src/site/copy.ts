@@ -557,6 +557,14 @@ export type { Cell }
 
 /** Traductions anglaises de l'historique des versions (src/changelog.json reste en français). */
 export const CHANGELOG_EN: Record<string, { title: string; items: string[] }> = {
+  '0.6.19': {
+    title: 'Emails that arrive',
+    items: [
+      'Every email redesigned in one style: activation, password, invitations, security, billing',
+      'An email alert when your password, address or a linked account changes',
+      '“While you were away”: one email when a mention or task stays unread, can be turned off in Settings',
+    ],
+  },
   '0.6.18': {
     title: 'Plans are here',
     items: [

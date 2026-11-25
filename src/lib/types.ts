@@ -38,6 +38,7 @@ export interface Member {
   statusUntil?: string | null
   /** Reçoit le résumé du lundi par email (oui par défaut). */
   weeklyEmail?: boolean
+  missedEmail?: boolean
 }
 
 /** Statut perso encore valable. */
@@ -69,7 +70,7 @@ export function legacyPresence(s: PresenceStatus): 'available' | 'busy' | 'away'
   return s === 'dnd' ? 'busy' : s === 'invisible' ? 'away' : s
 }
 
-export type ProfilePatch = Partial<Pick<Member, 'name' | 'color' | 'status' | 'presenceUntil' | 'statusText' | 'statusColor' | 'statusUntil' | 'weeklyEmail'>>
+export type ProfilePatch = Partial<Pick<Member, 'name' | 'color' | 'status' | 'presenceUntil' | 'statusText' | 'statusColor' | 'statusUntil' | 'weeklyEmail' | 'missedEmail'>>
 
 export interface Task {
   id: string
