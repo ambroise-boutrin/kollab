@@ -227,6 +227,39 @@ export interface Group {
   dailyTime?: string | null
 }
 
+/** Offres d'abonnement d'un projet. */
+export type Plan = 'free' | 'team' | 'founder'
+/** Ce qu'on achète dans Stripe. */
+export type Offer = 'team_month' | 'team_year' | 'founder'
+
+/** Offre du projet ouvert, telle que la base l'applique. */
+export interface Billing {
+  /** Offre en vigueur (payante seulement si payée ou dans les 7 jours de grâce). */
+  plan: Plan
+  status: 'active' | 'past_due' | 'canceled'
+  period: 'month' | 'year' | null
+  periodEnd: string | null
+  graceUntil: string | null
+  /** Fin de l'essai gratuit en cours. */
+  trialEnd?: string | null
+  /** Le groupe a déjà eu un abonnement : plus d'essai. */
+  trialUsed?: boolean
+  /** Un client Stripe existe : factures et carte disponibles. */
+  hasCustomer: boolean
+  members: number
+  memberLimit: number
+  /** Plus de membres que l'offre n'en permet : lecture seule. */
+  locked: boolean
+  founderLeft: number
+}
+
+/** Limites par offre (doivent suivre plan_member_limit en base). */
+export const PLAN_LIMITS: Record<Plan, { members: number; storageGb: number; discord: boolean; groupCalls: boolean }> = {
+  free: { members: 5, storageGb: 1, discord: false, groupCalls: false },
+  team: { members: 25, storageGb: 20, discord: true, groupCalls: true },
+  founder: { members: 25, storageGb: 20, discord: true, groupCalls: true },
+}
+
 /** Rôles dans l'équipe proposés aux admins (liste fixe). */
 export const TEAM_TITLES = [
   'Chef de projet',

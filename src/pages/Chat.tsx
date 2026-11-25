@@ -4,6 +4,7 @@ import { Avatar, AvatarGroup } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { CallButtons } from '../components/Call'
 import { DiscordLinkDialog, DiscordMark } from '../components/DiscordLinkDialog'
+import { openPlans, usePlanAllows } from '../components/Plans'
 import { initials } from '../components/Avatar'
 import { Popover } from '../components/Popover'
 import { PromptDialog } from '../components/PromptDialog'
@@ -195,6 +196,7 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
   const isAdmin = (members.find((m) => m.id === user?.id) ?? (backend.mode === 'demo' ? members[0] : undefined))?.role === 'admin'
   const [discord, setDiscord] = useState<{ guild: DiscordGuild | null; links: DiscordLink[]; account?: DiscordAccount | null }>({ guild: null, links: [] })
   const [discordOpen, setDiscordOpen] = useState(false)
+  const discordOk = usePlanAllows('discord')
   const reloadDiscord = async () => setDiscord(await backend.discordState().catch(() => ({ guild: null, links: [] })))
   useEffect(() => {
     let alive = true
@@ -438,7 +440,7 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
                 <DiscordMark size={18} /> # {linkOf(channel.id)!.discordChannelName}
               </button>
             ) : isAdmin && (
-              <button className="btn discord small" onClick={() => setDiscordOpen(true)}>Relier à Discord</button>
+              <button className="btn discord small" onClick={() => (discordOk ? setDiscordOpen(true) : openPlans())}>Relier à Discord</button>
             ))}
             {channel && <CallButtons targets={null} channelId={channel.id} label={`# ${channel.name}`} />}
             <AvatarGroup members={members.filter((m) => online.includes(m.id))} size={26} max={5} online={online} />
@@ -560,7 +562,7 @@ export function Chat({ docked = false }: { docked?: boolean } = {}) {
             </div>
             <button className="btn soft chan-new" onClick={() => { setPickChan(false); setChannelDialog({ mode: 'new' }) }}><Icon name="plus" size={16} /> Nouveau salon</button>
             {channel && (isAdmin || discord.guild) && (
-              <button className="btn discord chan-discord" onClick={() => { setPickChan(false); setDiscordOpen(true) }}>
+              <button className="btn discord chan-discord" onClick={() => { setPickChan(false); if (discordOk) setDiscordOpen(true); else openPlans() }}>
                 {linkOf(channel.id) ? `Discord : # ${linkOf(channel.id)!.discordChannelName}` : 'Relier à Discord'}
               </button>
             )}

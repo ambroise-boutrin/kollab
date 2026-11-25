@@ -24,6 +24,7 @@ import { PresenceDot, PresenceFlyout } from './Presence'
 import { StatusSheet, untilLabel } from './StatusSheet'
 import { ChatBubble, Dock, DockToggle } from './Dock'
 import { OfflineBar } from './OfflineBar'
+import { BillingProvider } from './Plans'
 
 const NAV: { to: string; label: string; icon: IconName; more?: boolean }[] = [
   { to: '/', label: 'Accueil', icon: 'home' },
@@ -254,6 +255,7 @@ export function Layout() {
 
   return (
     <CallProvider>
+    <BillingProvider>
     <div className="shell">
       <nav className="sidebar" aria-label="Navigation principale">
         <div className="brand"><LogoMark size={24} /> Kollab</div>
@@ -349,6 +351,7 @@ export function Layout() {
       {!DEMO_SESSION && <AppTour />}
       <DesktopMenu onNewProject={openNew} />
     </div>
+    </BillingProvider>
     </CallProvider>
   )
 }

@@ -1,4 +1,4 @@
-import type { AppNotification, DiscordChannel, DiscordGuild, DiscordLink, DiscordAccount, EmailInvite, Channel, DocumentItem, Note, NoteKind, Sprint, ReactionChange, ActivityItem, Group, Invite, LinkItem, Member, Message, ProfilePatch, Provider, Role, Task, TaskComment } from './types'
+import type { Billing, Offer, AppNotification, DiscordChannel, DiscordGuild, DiscordLink, DiscordAccount, EmailInvite, Channel, DocumentItem, Note, NoteKind, Sprint, ReactionChange, ActivityItem, Group, Invite, LinkItem, Member, Message, ProfilePatch, Provider, Role, Task, TaskComment } from './types'
 
 export interface User {
   id: string
@@ -190,6 +190,13 @@ export interface Backend {
   renameChannel(id: string, name: string): Promise<void>
   /** Met un salon à la corbeille : ses messages restent, il se restaure 30 jours. Le salon Discord est seulement délié. */
   deleteChannel(id: string): Promise<void>
+
+  /** Offre du projet ouvert (null si la base ne connaît pas encore les abonnements). */
+  billingInfo(): Promise<Billing | null>
+  /** Adresse Stripe pour payer une offre (admin). */
+  checkoutUrl(offer: Offer): Promise<string>
+  /** Adresse du portail Stripe : carte, factures, résiliation (admin). */
+  billingPortalUrl(): Promise<string>
 
   /** Corbeille du projet ouvert (null si la base ne la connaît pas encore). */
   listTrash(): Promise<TrashItem[] | null>
