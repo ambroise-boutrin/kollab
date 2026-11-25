@@ -583,3 +583,22 @@
 .k-flow span { padding: 5px 10px; border-radius: 8px; color: #14142B; }
 .k-flow i { font-style: normal; color: rgba(255, 255, 255, .5); }
 .k-flow-0 { background: #C9C2FF; } .k-flow-1 { background: #FFE07A; font-family: ui-monospace, Menlo, monospace; } .k-flow-2 { background: #9BE3BF; } .k-flow-3 { background: #2E7D4F; color: #fff !important; }
+
+/* Tarifs : trois offres, aplats francs. */
+.k-plans { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 32px; }
+.k-plan { border-radius: 28px; padding: clamp(24px, 3vw, 40px); display: flex; flex-direction: column; gap: 18px; border: 1.5px solid var(--ink); }
+.k-plan-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.k-plan-top h3 { margin: 0; font-family: var(--display); font-size: 26px; font-weight: 800; }
+.k-plan-top span { font-size: 13px; font-weight: 700; border-radius: 8px; padding: 4px 10px; background: rgba(15, 15, 20, .08); }
+.k-plan .k-price-tag { flex-direction: column; align-items: flex-start; gap: 4px; margin: 0; }
+.k-plan .k-price-tag b { font-size: clamp(52px, 6vw, 80px); }
+.k-plan-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; flex: 1; }
+.k-plan-list li { padding: 12px 0; border-top: 1.5px solid currentColor; font-weight: 600; font-size: 16px; display: flex; gap: 10px; }
+.k-plan-list li::before { content: '✓'; font-weight: 800; }
+.k-plan-team { background: var(--indigo); border-color: var(--indigo); color: #fff; }
+.k-plan-team .k-price-tag span { color: rgba(255, 255, 255, .85); }
+.k-plan-team .k-plan-top span { background: rgba(255, 255, 255, .2); }
+.k-plan-founder { background: var(--yellow); }
+.k-plan-founder .k-price-tag span { color: var(--ink); }
+.k-plans-foot { margin: 18px 0 0; color: var(--mute); font-size: 14px; }
+@media (max-width: 900px) { .k-plans { grid-template-columns: minmax(0, 1fr); } }

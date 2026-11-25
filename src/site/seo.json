@@ -3,7 +3,7 @@
   "pages": {
     "/": {
       "title": "Kollab : gestion de projet et revues de code pour équipes de dev",
-      "description": "Tableau Scrum, chat d'équipe et relecture des PR GitHub au même endroit. Gratuit, sur web, téléphone et ordinateur."
+      "description": "Tableau Scrum, chat d'équipe et relecture des PR GitHub au même endroit. Gratuit jusqu'à 5 membres, sur web, téléphone et ordinateur."
     },
     "/fonctionnalites": {
       "title": "Fonctionnalités · Kollab",
@@ -19,7 +19,7 @@
     },
     "/tarifs": {
       "title": "Tarifs · Kollab",
-      "description": "Kollab est gratuit pendant la bêta, pour toute l'équipe et toutes les fonctions."
+      "description": "Gratuit jusqu'à 5 membres. Offre Équipe à 10 € par mois pour tout le groupe, 30 jours d'essai."
     },
     "/telecharger": {
       "title": "Télécharger · Kollab",
@@ -55,7 +55,7 @@
     },
     "/en": {
       "title": "Kollab: project management and code reviews for dev teams",
-      "description": "Scrum board, team chat and GitHub PR reviews in one place. Free, on web, phone and desktop."
+      "description": "Scrum board, team chat and GitHub PR reviews in one place. Free up to 5 members, on web, phone and desktop."
     },
     "/en/features": {
       "title": "Features · Kollab",
@@ -71,7 +71,7 @@
     },
     "/en/pricing": {
       "title": "Pricing · Kollab",
-      "description": "Kollab is free during the beta, for the whole team and every feature."
+      "description": "Free up to 5 members. Team plan at €10 a month for the whole team, 30-day trial."
     },
     "/en/download": {
       "title": "Download · Kollab",

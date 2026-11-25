@@ -5,6 +5,7 @@ import type { Member } from '../lib/types'
 import { useCall, type CallPeer } from '../lib/calls'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
+import { openPlans, usePlanAllows } from './Plans'
 
 const canShare = () => typeof navigator !== 'undefined' && 'getDisplayMedia' in (navigator.mediaDevices ?? {})
 
@@ -33,6 +34,7 @@ function useTimer(from: number | null) {
 /** Icônes appel et vidéo (en-tête du chat, fiche d'un membre). */
 export function CallButtons({ targets, channelId, label, size = 'md' }: { targets: string[] | null; channelId: string | null; label: string; size?: 'sm' | 'md' }) {
   const c = useCall()
+  const groupCalls = usePlanAllows('groupCalls')
   if (!c) return null
   const live = channelId && !targets ? c.live[channelId] : undefined
   const busy = !!c.call
@@ -42,7 +44,9 @@ export function CallButtons({ targets, channelId, label, size = 'md' }: { target
         <Icon name="phone" size={16} /> Rejoindre · {live.people.length}
       </button>
     )
-  const go = (video: boolean) => void c.start({ targets, channelId, label, video })
+  // Appel de groupe (un salon, ou plusieurs personnes) : réservé aux offres payantes.
+  const group = targets === null || targets.length > 1
+  const go = (video: boolean) => (group && !groupCalls ? openPlans() : void c.start({ targets, channelId, label, video }))
   return (
     <span className={`call-icons ${size}`}>
       <button className="call-ic" aria-label={`Appeler ${label}`} title="Appel" disabled={busy} onClick={() => go(false)}><Icon name="phone" size={size === 'sm' ? 16 : 19} /></button>
