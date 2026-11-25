@@ -1,12 +1,22 @@
 [
   {
-    "version": "0.6.16",
+    "version": "0.6.17",
     "date": "2026-11-25",
     "title": "GitHub plus sûr",
     "items": [
       "Ton jeton GitHub est chiffré sur le serveur et ne reste plus dans l'appareil",
       "Nouvelle connexion GitHub : tu choisis les dépôts auxquels Kollab a accès",
       "Rien à refaire : la connexion actuelle continue de marcher"
+    ]
+  },
+  {
+    "version": "0.6.16",
+    "date": "2026-11-25",
+    "title": "Un accueil qui se range",
+    "items": [
+      "Organiser l'accueil : on attrape un bloc et on le pose où on veut, aussi dans l'appli bureau",
+      "Tire le coin d'un bloc pour changer sa hauteur, ou le passer en large ou étroit",
+      "Une colonne vide laisse toute la place à l'autre"
     ]
   },
   {
