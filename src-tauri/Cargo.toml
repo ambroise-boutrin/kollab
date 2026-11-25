@@ -1,6 +1,6 @@
 [package]
 name = "kollab"
-version = "0.6.12"
+version = "0.6.15"
 description = "Kollab, l'espace de travail des équipes de dev"
 edition = "2021"
 

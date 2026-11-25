@@ -91,7 +91,7 @@ const fr = {
     kicker: 'Et aussi',
     items: [
       { title: 'Poker planning', text: 'Tout le monde vote, les cartes se retournent ensemble.' },
-      { title: 'Documents à plusieurs', text: 'Specs, notes, PDF et images, écrits ensemble.' },
+      { title: 'Documents à plusieurs', text: 'Comptes rendus, specs et dailies prêts à remplir, avec tableaux et images.' },
       { title: 'Appels et visio', text: "Ça sonne, on décroche. Caméra, partage d'écran et Ne pas déranger." },
       { title: 'Feuille de route', text: 'Sprints et grosses tâches sur une frise.' },
       { title: 'Échéances', text: 'Retards en rouge, commentaires avec @mentions.' },
@@ -337,7 +337,7 @@ const en: Copy = {
     kicker: 'And also',
     items: [
       { title: 'Planning poker', text: 'Everyone votes, the cards flip together.' },
-      { title: 'Shared documents', text: 'Specs, notes, PDFs and images, written together.' },
+      { title: 'Shared documents', text: 'Meeting notes, specs and dailies ready to fill, with tables and images.' },
       { title: 'Calls and video', text: 'It rings, you pick up. Camera, screen sharing and Do not disturb.' },
       { title: 'Roadmap', text: 'Sprints and big tasks on a timeline.' },
       { title: 'Due dates', text: 'Late tasks in red, comments with @mentions.' },
@@ -541,6 +541,16 @@ export type { Cell }
 
 /** Traductions anglaises de l'historique des versions (src/changelog.json reste en français). */
 export const CHANGELOG_EN: Record<string, { title: string; items: string[] }> = {
+  '0.6.15': {
+    title: 'Documents that look professional',
+    items: [
+      'New layout: large title, summary up top, numbered sections in the margin',
+      'Redesigned templates, with a grey hint in each empty section',
+      'Tables, images (paste or drop), highlighting and text colors',
+      'Type / to insert a table, a checklist, an image…',
+      'The PDF uses the same layout',
+    ],
+  },
   '0.6.8': {
     title: 'Channels, files and your Discord account',
     items: [
