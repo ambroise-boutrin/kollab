@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.6.18",
+    "date": "2026-11-25",
+    "title": "Les offres arrivent",
+    "items": [
+      "Trois offres par groupe : Gratuit jusqu'à 5 membres, Équipe à 10 € par mois avec 30 jours d'essai, Fondateur à 49 € par an",
+      "Paiement par Stripe dans une petite fenêtre, renouvellement automatique, résiliation en un clic",
+      "Un groupe qui dépasse son offre passe en lecture seule : rien n'est supprimé, tout revient au paiement"
+    ]
+  },
+  {
     "version": "0.6.17",
     "date": "2026-11-25",
     "title": "GitHub plus sûr",

@@ -5,7 +5,7 @@ import type { Backend, RoomEvent, User, Workspace } from './backend'
 import { disablePush } from './push'
 import { CGU_VERSION } from './legal'
 import { guessNoteKind } from './noteKinds'
-import type { AppNotification, Attachment, Channel, DiscordChannel, DiscordLink, DocumentItem, Note, NoteKind, Sprint, Invite, ReactionChange, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
+import type { AppNotification, Attachment, Billing, Channel, DiscordChannel, DiscordLink, DocumentItem, Note, NoteKind, Sprint, Invite, ReactionChange, LinkItem, Member, Message, PresenceStatus, Provider, Role, Task } from './types'
 import { PRESENCE, legacyPresence } from './types'
 
 interface TaskRow {
@@ -131,8 +131,15 @@ function toUser(u: SbUser | null | undefined): User | null {
   }
 }
 
+const BILLING_ERRORS: Record<string, string> = {
+  paiement_non_configure: "Le paiement n'est pas encore ouvert.",
+  admin_seulement: 'Seul un admin du projet peut changer l’offre.',
+  fondateur_complet: "L'offre Fondateur est complète.",
+  pas_de_client: 'Aucun paiement pour ce projet.',
+}
+
 function must<R extends { data: unknown; error: { message: string } | null }>(res: R): NonNullable<R['data']> {
-  if (res.error) throw new Error(res.error.message)
+  if (res.error) throw new Error(res.error.message === 'limite_membres' ? 'Ce projet est plein pour son offre. Un admin peut passer à l’offre Équipe.' : res.error.message)
   return res.data as NonNullable<R['data']>
 }
 
@@ -869,6 +876,20 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
       must(await sb.from('channels').update({ deleted_at: new Date().toISOString(), deleted_by: auth.user?.id ?? null }).eq('id', id).select('id').single())
     },
 
+    async billingInfo() {
+      const { data, error } = await sb.rpc('group_billing_info', { gid: groupId })
+      if (error || !data) return null
+      return data as Billing
+    },
+
+    async checkoutUrl(offer) {
+      return billingCall({ action: 'checkout', groupId, offer })
+    },
+
+    async billingPortalUrl() {
+      return billingCall({ action: 'portal', groupId })
+    },
+
     async listTrash() {
       const { data, error } = await sb.rpc('list_trash', { gid: groupId })
       if (error) return null
@@ -1111,6 +1132,17 @@ export function createSupabaseBackend(url: string, anonKey: string): Backend {
     async importDiscordChannels() {
       return discordCall<{ merged: number; created: number; failed: number }>('import')
     },
+  }
+
+  /** Appel à la fonction serveur des abonnements ; renvoie l'adresse Stripe à ouvrir. */
+  async function billingCall(body: Record<string, unknown>): Promise<string> {
+    const { data, error } = await sb.functions.invoke('billing', { body })
+    if (error) {
+      const ctx = (error as { context?: Response }).context
+      const code = ctx ? ((await ctx.json().catch(() => null)) as { error?: string } | null)?.error : null
+      throw new Error(BILLING_ERRORS[code ?? ''] ?? 'Le paiement ne répond pas, réessaie dans un instant.')
+    }
+    return (data as { url: string }).url
   }
 
   /** Appel à la fonction serveur Discord ; son message d'erreur est montré tel quel. */

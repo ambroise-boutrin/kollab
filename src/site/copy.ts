@@ -52,7 +52,7 @@ const fr = {
     titleA: 'De la tâche ',
     titleHl: 'à la PR fusionnée.',
     titleB: ' Sans rien recopier.',
-    lead: 'Chaque tâche a sa branche et sa PR. Kollab suit les tests et la passe en Terminé à la fusion. Le sprint et le chat sont autour. Gratuit, sur web, téléphone et ordinateur.',
+    lead: 'Chaque tâche a sa branche et sa PR. Kollab suit les tests et la passe en Terminé à la fusion. Le sprint et le chat sont autour. Gratuit jusqu’à 5 membres, sur web, téléphone et ordinateur.',
     signup: 'Créer mon compte',
     demo: "Essayer sans s'inscrire",
     video: 'Démonstration : une tâche glissée de colonne en colonne, puis attribuée à Léa',
@@ -163,17 +163,13 @@ const fr = {
   },
   pricing: {
     kicker: 'Tarifs',
-    title: 'Gratuit pendant la bêta.',
-    sub: 'Toutes les fonctions, sans carte bancaire.',
-    price: '0 €',
-    per: 'par personne, par mois',
-    cta: 'Créer mon groupe',
-    list: [
-      'Groupes et membres sans limite fixe',
-      'Tableau, sprints, chat, appels et documents',
-      'Web, téléphone et ordinateur',
-      'Les nouvelles fonctions dès leur sortie',
-      "Données hébergées dans l'Union européenne",
+    title: 'Un prix par équipe, pas par personne.',
+    sub: 'Un seul outil au lieu de cinq.',
+    foot: 'Prix TTC, TVA non applicable. Renouvellement automatique, résiliable en un clic.',
+    plans: [
+      { name: 'Gratuit', price: '0 €', per: '', tag: '', cta: 'Créer mon groupe', tone: 'free', list: ['Jusqu’à 5 membres', '1 Go de fichiers', 'Tableau, sprints, chat, documents', 'Web, téléphone et ordinateur'] },
+      { name: 'Équipe', price: '10 €', per: 'par mois, ou 100 € par an', tag: '30 jours offerts', cta: 'Essayer 30 jours', tone: 'team', list: ['Jusqu’à 25 membres', '20 Go de fichiers', 'Discord relié au chat', 'Appels et visio à plusieurs'] },
+      { name: 'Fondateur', price: '49 €', per: 'par an, prix bloqué', tag: '20 places', cta: 'Devenir fondateur', tone: 'founder', list: ['Tout ce qu’a Équipe', 'Pour les 20 premières équipes', 'Jusqu’au 30 avril 2027', 'Ton avis compte pour la suite'] },
     ],
   },
   roadmap: {
@@ -190,17 +186,17 @@ const fr = {
     kicker: 'Questions fréquentes',
     title: 'Tu te demandes peut-être…',
     items: [
-      { q: 'Kollab est-il gratuit ?', a: "Oui, pendant toute la bêta. Une éventuelle offre payante serait annoncée à l'avance, et la version gratuite resterait." },
+      { q: 'Kollab est-il gratuit ?', a: 'Oui, jusqu’à 5 membres. Au-delà, l’offre Équipe coûte 10 € par mois pour tout le groupe, avec 30 jours d’essai.' },
       { q: 'Faut-il installer quelque chose ?', a: "Non, Kollab marche dans le navigateur. Il existe aussi en app pour téléphone et ordinateur." },
       { q: 'Puis-je essayer sans créer de compte ?', a: 'Oui. La démo ouvre une équipe d’exemple avec une visite guidée. Rien n’est enregistré.' },
-      { q: 'Combien de personnes dans un groupe ?', a: 'Pas de limite pendant la bêta. Kollab est pensé pour 2 à 15 personnes.' },
+      { q: 'Combien de personnes dans un groupe ?', a: '5 en Gratuit, 25 avec l’offre Équipe. Kollab est pensé pour 2 à 15 personnes.' },
       { q: 'Où sont stockées mes données ?', a: 'À Paris, chez Supabase. Chaque groupe ne voit que ses données.' },
       { q: 'Faut-il un compte GitHub ?', a: "Non. Google, Discord ou un email suffisent. GitHub sert seulement pour les PR." },
       { q: 'Et sans réseau ?', a: 'Tu continues. Tout part au retour du réseau.' },
       { q: 'Comment inviter mon équipe ?', a: "Page Groupe : crée un lien d'invitation, choisis le rôle, partage-le." },
     ],
   },
-  final: { sub: 'Gratuit pendant la bêta.', title: 'Lance ton prochain sprint sur Kollab.', try: 'Essayer gratuitement', demo: 'Voir la démo', discord: 'Rejoindre le Discord' },
+  final: { sub: 'Gratuit jusqu’à 5 membres.', title: 'Lance ton prochain sprint sur Kollab.', try: 'Essayer gratuitement', demo: 'Voir la démo', discord: 'Rejoindre le Discord' },
   home: {
     tabsKicker: 'Le produit',
     tabsTitle: 'De la tâche à la fusion.',
@@ -213,7 +209,7 @@ const fr = {
     pause: 'Mettre en pause',
     play: 'Relancer',
     stats: [
-      { n: '0 €', l: 'pendant la bêta' },
+      { n: '10 €', l: 'par mois pour toute l’équipe' },
       { n: '2 à 15', l: 'personnes par équipe' },
       { n: '3', l: 'web, téléphone, ordinateur' },
     ],
@@ -227,7 +223,7 @@ const fr = {
   },
   pages: {
     features: { kicker: 'Fonctionnalités', title: "Tout ce qu'il faut pour livrer à plusieurs.", lead: 'Ce qui marche déjà, et ce qui arrive.' },
-    pricing: { kicker: 'Tarifs', title: "Simple : c'est gratuit.", lead: 'Toutes les fonctions, pendant toute la bêta.' },
+    pricing: { kicker: 'Tarifs', title: 'Gratuit pour commencer, 10 € pour grandir.', lead: 'Un prix par équipe. 30 jours d’essai sur l’offre Équipe.' },
     download: { kicker: 'Télécharger', title: 'Kollab, partout où tu travailles.', lead: 'Navigateur, téléphone, Windows, macOS et Linux.' },
     faq: { kicker: 'Questions fréquentes', title: "Les réponses aux questions qu'on nous pose." },
     audience: { kicker: 'Pour qui', title: 'Pensé pour les équipes qui codent ensemble.', lead: 'De 2 à 15 personnes. Trois exemples.' },
@@ -270,7 +266,7 @@ const fr = {
       'Sprints et poker planning',
       'Documents à plusieurs',
       'Appels audio et vidéo',
-      'Gratuit pour toute l’équipe',
+      'Gratuit pour les petites équipes',
     ],
     note: '« En partie » : via une extension, une offre payante ou de façon limitée. Offres gratuites, novembre 2026. Les marques citées appartiennent à leurs propriétaires.',
   },
@@ -310,7 +306,7 @@ const en: Copy = {
     titleA: 'From task ',
     titleHl: 'to merged PR.',
     titleB: ' Nothing to copy.',
-    lead: 'Every task gets its branch and its PR. Kollab tracks the checks and moves it to Done when it merges. Sprint and chat built in. Free, on web, phone and desktop.',
+    lead: 'Every task gets its branch and its PR. Kollab tracks the checks and moves it to Done when it merges. Sprint and chat built in. Free up to 5 members, on web, phone and desktop.',
     signup: 'Create my account',
     demo: 'Try it without signing up',
     video: 'Demo: a task dragged from column to column, then assigned to Léa',
@@ -421,17 +417,13 @@ const en: Copy = {
   },
   pricing: {
     kicker: 'Pricing',
-    title: 'Free during the beta.',
-    sub: 'Every feature, no credit card.',
-    price: '€0',
-    per: 'per person, per month',
-    cta: 'Create my group',
-    list: [
-      'No fixed limit on groups or members',
-      'Board, sprints, chat, calls and documents',
-      'Web, phone and desktop',
-      'New features as soon as they ship',
-      'Data hosted in the European Union',
+    title: 'One price per team, not per person.',
+    sub: 'One tool instead of five.',
+    foot: 'Prices include tax (VAT not applicable). Renews automatically, cancel in one click.',
+    plans: [
+      { name: 'Free', price: '€0', per: '', tag: '', cta: 'Create my team', tone: 'free', list: ['Up to 5 members', '1 GB of files', 'Board, sprints, chat, docs', 'Web, phone and desktop'] },
+      { name: 'Team', price: '€10', per: 'per month, or €100 a year', tag: '30 days free', cta: 'Try 30 days', tone: 'team', list: ['Up to 25 members', '20 GB of files', 'Discord linked to chat', 'Group calls and video'] },
+      { name: 'Founder', price: '€49', per: 'per year, price locked', tag: '20 spots', cta: 'Become a founder', tone: 'founder', list: ['Everything in Team', 'For the first 20 teams', 'Until April 30, 2027', 'Your feedback shapes Kollab'] },
     ],
   },
   roadmap: {
@@ -448,17 +440,17 @@ const en: Copy = {
     kicker: 'FAQ',
     title: 'You might be wondering…',
     items: [
-      { q: 'Is Kollab free?', a: 'Yes, for the whole beta. Any paid plan would be announced in advance, and the free version would stay.' },
+      { q: 'Is Kollab free?', a: 'Yes, up to 5 members. Beyond that, the Team plan is €10 a month for the whole team, with a 30-day trial.' },
       { q: 'Do I need to install anything?', a: 'No, Kollab works in the browser. There are also phone and desktop apps.' },
       { q: 'Can I try it without an account?', a: 'Yes. The demo opens a sample team with a guided tour. Nothing is saved.' },
-      { q: 'How many people per group?', a: 'No limit during the beta. Kollab is built for 2 to 15 people.' },
+      { q: 'How many people per group?', a: '5 on Free, 25 on Team. Kollab is built for 2 to 15 people.' },
       { q: 'Where is my data stored?', a: 'In Paris, with Supabase. Each group only sees its own data.' },
       { q: 'Do I need a GitHub account?', a: 'No. Google, Discord or an email works. GitHub is only for PRs.' },
       { q: 'What if I lose my connection?', a: 'Keep working. Everything syncs when you are back online.' },
       { q: 'How do I invite my team?', a: 'Group page: create an invite link, pick a role, share it.' },
     ],
   },
-  final: { sub: 'Free during the beta.', title: 'Run your next sprint on Kollab.', try: 'Try it free', demo: 'See the demo', discord: 'Join the Discord' },
+  final: { sub: 'Free up to 5 members.', title: 'Run your next sprint on Kollab.', try: 'Try it free', demo: 'See the demo', discord: 'Join the Discord' },
   home: {
     tabsKicker: 'The product',
     tabsTitle: 'From task to merge.',
@@ -471,7 +463,7 @@ const en: Copy = {
     pause: 'Pause',
     play: 'Play',
     stats: [
-      { n: '€0', l: 'during the beta' },
+      { n: '€10', l: 'a month for the whole team' },
       { n: '2 to 15', l: 'people per team' },
       { n: '3', l: 'web, phone, desktop' },
     ],
@@ -485,7 +477,7 @@ const en: Copy = {
   },
   pages: {
     features: { kicker: 'Features', title: 'Everything you need to ship together.', lead: "What works today, and what's next." },
-    pricing: { kicker: 'Pricing', title: "Simple: it's free.", lead: 'Every feature, for the whole beta.' },
+    pricing: { kicker: 'Pricing', title: 'Free to start, €10 to grow.', lead: 'One price per team. 30-day trial on the Team plan.' },
     download: { kicker: 'Download', title: 'Kollab, wherever you work.', lead: 'Browser, phone, Windows, macOS and Linux.' },
     faq: { kicker: 'FAQ', title: 'Answers to the questions we get.' },
     audience: { kicker: "Who it's for", title: 'Made for teams that code together.', lead: 'From 2 to 15 people. Three examples.' },
@@ -528,7 +520,7 @@ const en: Copy = {
       'Sprints and planning poker',
       'Collaborative documents',
       'Voice and video calls',
-      'Free for the whole team',
+      'Free for small teams',
     ],
     note: '“Partly”: via an add-on, a paid plan or limited. Free plans, November 2026. Trademarks belong to their owners.',
   },
@@ -565,6 +557,14 @@ export type { Cell }
 
 /** Traductions anglaises de l'historique des versions (src/changelog.json reste en français). */
 export const CHANGELOG_EN: Record<string, { title: string; items: string[] }> = {
+  '0.6.18': {
+    title: 'Plans are here',
+    items: [
+      'Three plans per team: Free up to 5 members, Team at €10 a month with a 30-day trial, Founder at €49 a year',
+      'Pay with Stripe in a small window, automatic renewal, cancel in one click',
+      'A team over its plan becomes read-only: nothing is deleted, everything comes back once paid',
+    ],
+  },
   '0.6.15': {
     title: 'Documents that look professional',
     items: [

@@ -677,20 +677,24 @@ function PricingSection() {
   const p = t.pricing
   return (
     <>
-      {/* Tarifs. */}
+      {/* Tarifs : trois offres par équipe. */}
       <section id="tarifs" className="k-section">
         <div className="k-wrap">
-          <div className="k-price reveal">
-            <div className="k-price-main">
-              <h2 className="k-h2">{p.title}</h2>
-              <p className="k-price-sub">{p.sub}</p>
-              <div className="k-price-tag"><b>{p.price}</b><span>{p.per}</span></div>
-              <a className="k-btn k-btn-ink k-btn-lg" href={APP_URL}>{p.cta}</a>
-            </div>
-            <ul className="k-price-list">
-              {p.list.map((it) => <li key={it}>{it}</li>)}
-            </ul>
+          <h2 className="k-h2 reveal">{p.title}</h2>
+          <p className="k-price-sub reveal">{p.sub}</p>
+          <div className="k-plans">
+            {p.plans.map((plan) => (
+              <div key={plan.name} className={`k-plan k-plan-${plan.tone} reveal`}>
+                <div className="k-plan-top"><h3>{plan.name}</h3>{plan.tag && <span>{plan.tag}</span>}</div>
+                <div className="k-price-tag"><b>{plan.price}</b>{plan.per && <span>{plan.per}</span>}</div>
+                <ul className="k-plan-list">
+                  {plan.list.map((it) => <li key={it}>{it}</li>)}
+                </ul>
+                <a className={`k-btn k-btn-lg ${plan.tone === 'team' ? 'k-btn-paper' : 'k-btn-ink'}`} href={APP_URL}>{plan.cta}</a>
+              </div>
+            ))}
           </div>
+          <p className="k-plans-foot reveal">{p.foot}</p>
         </div>
       </section>
     </>

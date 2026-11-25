@@ -714,6 +714,24 @@ export const demoBackend: Backend = {
     emit({ kind: 'refresh' })
   },
 
+  async billingInfo() {
+    const members = read().workspace?.members.length ?? 1
+    // La démo montre tout : offre Équipe. « kollab-demo-plan » = free ou locked pour voir les autres écrans.
+    let look: string | null = null
+    try { look = sessionStorage.getItem('kollab-demo-plan') } catch { /* rien */ }
+    if (look === 'free' || look === 'locked')
+      return { plan: 'free', status: 'active', period: null, periodEnd: null, graceUntil: null, trialEnd: null, trialUsed: false, hasCustomer: false, members: look === 'locked' ? Math.max(members, 8) : Math.min(members, 4), memberLimit: 5, locked: look === 'locked', founderLeft: 20 }
+    return { plan: 'team', status: 'active', period: 'month', periodEnd: null, graceUntil: null, trialEnd: null, trialUsed: false, hasCustomer: false, members, memberLimit: 25, locked: false, founderLeft: 20 }
+  },
+
+  async checkoutUrl() {
+    throw new Error('Dans la démo, rien ne se paie. Crée ton compte pour choisir une offre.')
+  },
+
+  async billingPortalUrl() {
+    throw new Error('Dans la démo, rien ne se paie.')
+  },
+
   async listTrash() {
     return read().trash ?? []
   },

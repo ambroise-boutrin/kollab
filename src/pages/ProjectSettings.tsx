@@ -16,6 +16,9 @@ import { autoPrEnabled, rememberGroup, setAutoPr, useStore, useWorkspace } from 
 import { ROLES } from '../lib/types'
 import { useAsync } from '../lib/useAsync'
 import { openInvite } from './Group'
+import { openPlans, useBilling } from '../components/Plans'
+
+const PLAN_LABEL = { free: 'Gratuit', team: 'Équipe', founder: 'Fondateur' } as const
 
 
 function ago(iso: string) {
@@ -102,6 +105,8 @@ export function ProjectSettings() {
   const navigate = useNavigate()
   const me = ws.members.find((m) => m.id === user?.id) ?? (backend.mode === 'demo' ? ws.members[0] : undefined)
   const isAdmin = me?.role === 'admin'
+  const billing = useBilling()
+  const discordOk = !billing || billing.plan !== 'free'
   const canWrite = me?.role !== 'guest'
   const repoLink = projectRepoLink(ws.links)
   const repoRef = repoLink ? parseRepo(repoLink.url) : null
@@ -298,12 +303,30 @@ export function ProjectSettings() {
             ),
           },
           {
+            id: 'offre',
+            label: 'Offre',
+            icon: 'sparkle',
+            render: () => (
+              <section className="card team-summary">
+                <div>
+                  <strong style={{ fontSize: 18 }}>Offre {billing ? PLAN_LABEL[billing.plan] : 'Gratuit'}</strong>
+                  <p className="muted" style={{ margin: '4px 0 0' }}>
+                    {billing ? `${billing.members} membre${billing.members > 1 ? 's' : ''} sur ${billing.memberLimit}` : 'Abonnements bientôt disponibles.'}
+                    {billing?.trialEnd ? ` · essai jusqu'au ${new Date(billing.trialEnd).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}` : ''}
+                    {billing?.periodEnd && !billing.trialEnd && billing.plan !== 'free' ? ` · renouvelée le ${new Date(billing.periodEnd).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}` : ''}
+                  </p>
+                </div>
+                {billing && <button className="btn" onClick={openPlans}>{billing.plan === 'free' ? 'Voir les offres' : 'Gérer l’offre'}</button>}
+              </section>
+            ),
+          },
+          {
             id: 'integrations',
             label: 'Intégrations',
             icon: 'link',
             render: () => (
               <div className="integration-grid">
-                <button className="integration" style={{ ['--brand' as string]: '#5865F2' }} onClick={() => isAdmin && setDiscord(true)} disabled={!isAdmin}>
+                <button className="integration" style={{ ['--brand' as string]: '#5865F2' }} onClick={() => isAdmin && (discordOk ? setDiscord(true) : openPlans())} disabled={!isAdmin}>
                   <span className="integration-logo">D</span>
                   <strong>Discord</strong>
                   <span>Tâches attribuées, terminées et PR liées, postées dans un salon.</span>
