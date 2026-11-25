@@ -4,6 +4,12 @@ import { Placeholder } from '@tiptap/extensions'
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { TaskItem, TaskList } from '@tiptap/extension-list'
+import { TableKit } from '@tiptap/extension-table'
+import Image from '@tiptap/extension-image'
+import Highlight from '@tiptap/extension-highlight'
+import TextAlign from '@tiptap/extension-text-align'
+import { TextStyle, Color } from '@tiptap/extension-text-style'
+import '@fontsource-variable/newsreader'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
@@ -12,13 +18,13 @@ import * as Y from 'yjs'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { Modal } from '../components/Modal'
-import { PromptDialog } from '../components/PromptDialog'
 import { useToast } from '../components/Toast'
 import type { Room, RoomEvent } from '../lib/backend'
 import { useStore, useWorkspace } from '../lib/store'
 import type { Member, Note, NoteKind } from '../lib/types'
 import { NOTE_KINDS, NOTE_KIND_ORDER } from '../lib/noteKinds'
-import { templateHtml, today } from '../lib/noteTemplates'
+import { templateHtml, placeholderFor } from '../lib/noteTemplates'
+import { NoteSlash, NoteToolbar, imageToDataUrl } from './NoteTools'
 import { STATUSES, type Task, type TaskStatus } from '../lib/types'
 
 const toB64 = (u: Uint8Array) => {
@@ -46,7 +52,20 @@ export default function NoteEditor({ note, template, onClose }: { note: Note; te
   const [pinned, setPinned] = useState(note.pinned)
   const [picking, setPicking] = useState(false)
   const navigate = useNavigate()
+  const titleRef = useRef<HTMLTextAreaElement>(null)
   const [loaded, setLoaded] = useState(false)
+  useEffect(() => {
+    const fit = () => {
+      const el = titleRef.current
+      if (!el) return
+      el.style.height = 'auto'
+      el.style.height = `${el.scrollHeight}px`
+    }
+    fit()
+    void document.fonts?.ready.then(fit)
+    window.addEventListener('resize', fit)
+    return () => window.removeEventListener('resize', fit)
+  }, [title, loaded])
   const [saved, setSaved] = useState<'ok' | 'pending' | 'error'>('ok')
   const [peers, setPeers] = useState<Peer[]>([])
 
@@ -64,7 +83,13 @@ export default function NoteEditor({ note, template, onClose }: { note: Note; te
         StarterKit.configure({ undoRedo: false, link: { openOnClick: false, autolink: true } }),
         TaskList,
         TaskItem.configure({ nested: true }),
-        Placeholder.configure({ placeholder: 'Écris ici… Les autres voient ton curseur en direct.' }),
+        TableKit.configure({ table: { resizable: false } }),
+        Image.configure({ allowBase64: true }),
+        Highlight,
+        TextStyle,
+        Color,
+        TextAlign.configure({ types: ['heading', 'paragraph'] }),
+        Placeholder.configure({ includeChildren: true, showOnlyCurrent: false, placeholder: ({ editor: e, node, pos }) => placeholderFor(e.state.doc, node, pos) }),
         Collaboration.configure({ document: doc }),
         CollaborationCaret.configure({
           provider,
@@ -83,7 +108,23 @@ export default function NoteEditor({ note, template, onClose }: { note: Note; te
           selectionRender: (u) => ({ nodeName: 'span', class: 'collab-selection', style: `background-color: ${u.color}33` }),
         }),
       ],
-      editorProps: { attributes: { class: 'note-prose', spellcheck: 'true' } },
+      editorProps: {
+        attributes: { class: 'note-prose', spellcheck: 'true' },
+        // Image collée ou déposée : réduite puis insérée là où l'on est.
+        handlePaste: (view, event) => {
+          const file = [...(event.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'))
+          if (!file) return false
+          void imageToDataUrl(file).then((src) => view.dispatch(view.state.tr.replaceSelectionWith(view.state.schema.nodes.image.create({ src })))).catch((e) => toast(e instanceof Error ? e.message : 'Image impossible à ajouter'))
+          return true
+        },
+        handleDrop: (view, event) => {
+          const file = [...(event.dataTransfer?.files ?? [])].find((f) => f.type.startsWith('image/'))
+          if (!file) return false
+          const at = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos ?? view.state.selection.from
+          void imageToDataUrl(file).then((src) => view.dispatch(view.state.tr.insert(at, view.state.schema.nodes.image.create({ src })))).catch((e) => toast(e instanceof Error ? e.message : 'Image impossible à ajouter'))
+          return true
+        },
+      },
     },
     [doc],
   )
@@ -256,21 +297,19 @@ export default function NoteEditor({ note, template, onClose }: { note: Note; te
 
   const others = peers.filter((p) => p.clientId !== doc.clientID)
   const sprint = ws.sprints.find((sp) => sp.status === 'active')
+  const creator = ws.members.find((m) => m.id === note.createdBy)
+  const docId = useMemo(() => {
+    const same = ws.notes.filter((n) => n.kind === kind).sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    const i = same.findIndex((n) => n.id === note.id)
+    return `${ID_PREFIX[kind]}-${String((i < 0 ? same.length : i) + 1).padStart(3, '0')}`
+  }, [ws.notes, kind, note.id])
   const author = ws.members.find((m) => m.id === note.updatedBy)
 
   return createPortal(
     <div className="note-back" role="dialog" aria-modal="true" aria-label={title}>
       <header className="note-top">
         <button className="icon-btn" aria-label="Fermer" onClick={() => void close()}><Icon name="close" size={20} /></button>
-        <input
-          className="note-title"
-          value={title}
-          aria-label="Titre du document"
-          readOnly={!canWrite}
-          onChange={(e) => setTitle(e.target.value)}
-          onBlur={(e) => void rename(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-        />
+        <span className="note-crumb"><span className="hide-phone">Documents / </span>{NOTE_KINDS[kind].plural}</span>
         <div className="note-people" aria-label={`${others.length + 1} dans le document`}>
           {others.map((p) => {
             const m = ws.members.find((x) => x.id === p.id)
@@ -286,7 +325,7 @@ export default function NoteEditor({ note, template, onClose }: { note: Note; te
       {exporting && editor && (
         <Modal title="Exporter le document" onClose={() => setExporting(false)}>
           <div className="export-choices">
-            <button type="button" className="export-choice pdf" onClick={() => { printPdf(title, editor, ws.group.name); setExporting(false) }}>
+            <button type="button" className="export-choice pdf" onClick={() => { printPdf(title, editor, { project: ws.group.name, kind: NOTE_KINDS[kind].label, id: docId, by: creator?.name ?? '' }); setExporting(false) }}>
               <span className="export-ext">PDF</span>
               <strong>Pour partager ou imprimer</strong>
               <span>Mise en page propre, prête à envoyer.</span>
@@ -300,7 +339,8 @@ export default function NoteEditor({ note, template, onClose }: { note: Note; te
         </Modal>
       )}
 
-      {editor && canWrite && <Toolbar editor={editor} />}
+      {editor && canWrite && <NoteToolbar editor={editor} />}
+      {editor && canWrite && <NoteSlash editor={editor} />}
 
       {picking && (
         <Modal title="Type de document" onClose={() => setPicking(false)}>
@@ -318,11 +358,32 @@ export default function NoteEditor({ note, template, onClose }: { note: Note; te
       <div className="note-scroll">
         <div className="note-layout">
           <div className="note-page" style={{ ['--nk' as string]: NOTE_KINDS[kind].color }}>
-            <div className="note-band">
-              <button type="button" className="note-kind" disabled={!canWrite} onClick={() => setPicking(true)} title={canWrite ? 'Changer le type' : undefined}>{NOTE_KINDS[kind].label}</button>
-              <span>{new Date(note.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) || today()}</span>
-              {sprint && <span>· {sprint.name}</span>}
-            </div>
+            <header className="np-head">
+              <div className="np-eyebrow">
+                <button type="button" className="np-kind" disabled={!canWrite} onClick={() => setPicking(true)} title={canWrite ? 'Changer le type' : undefined}>{NOTE_KINDS[kind].label}</button>
+                {sprint && <span>{sprint.name}</span>}
+                <i aria-hidden="true" />
+                <span className="np-id">{docId}</span>
+              </div>
+              <textarea
+                ref={titleRef}
+                className="np-title"
+                rows={1}
+                value={title}
+                aria-label="Titre du document"
+                placeholder="Titre"
+                readOnly={!canWrite}
+                onChange={(e) => setTitle(e.target.value.replace(/\n/g, ' '))}
+                onBlur={(e) => void rename(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); editor?.commands.focus('start') } }}
+              />
+              <dl className="np-byline">
+                <div><dt>Créé le</dt><dd>{longDate(note.createdAt)}</dd></div>
+                {creator && <div><dt>Rédigé par</dt><dd>{creator.name}</dd></div>}
+                <div><dt>Modifié</dt><dd>{author && author.id !== creator?.id ? `par ${author.name.split(' ')[0]}, ` : ''}{shortAgo(note.updatedAt)}</dd></div>
+                {others.length > 0 && <div><dt>En ce moment</dt><dd className="np-live">{others.map((p) => p.name.split(' ')[0]).join(', ')}</dd></div>}
+              </dl>
+            </header>
             <div className="note-body">
               {loaded && editor && canWrite && <Templates editor={editor} onPick={(k) => { void changeKind(k); if (!title.trim() || title === 'Sans titre') { const t = NOTE_KINDS[k].label; setTitle(t); void rename(t) } editor.commands.setContent(templateHtml(k, { members: ws.members, tasks: ws.tasks, sprints: ws.sprints, present: [...new Set([...(user ? [user.id] : []), ...online])] }) || '<p></p>') }} />}
               {!loaded ? <div className="note-loading"><span className="spinner dark" /></div> : <EditorContent editor={editor} />}
@@ -331,9 +392,7 @@ export default function NoteEditor({ note, template, onClose }: { note: Note; te
           </div>
           {editor && loaded && <NoteSide editor={editor} doc={doc} canWrite={canWrite} noteTitle={title} createTask={createTask} onOpenTask={(id) => { void close(); setTimeout(() => navigate(`/tableau?tache=${id}`), 0) }} />}
         </div>
-        <p className="note-foot muted">
-          {others.length ? `${others.map((p) => p.name.split(' ')[0]).join(', ')} ${others.length > 1 ? 'écrivent' : 'écrit'} avec toi` : author ? `Modifié par ${author.name}` : ''}
-        </p>
+
       </div>
     </div>,
     document.body,
@@ -342,67 +401,16 @@ export default function NoteEditor({ note, template, onClose }: { note: Note; te
 
 type Ed = NonNullable<ReturnType<typeof useEditor>>
 
-function Toolbar({ editor }: { editor: Ed }) {
-  const s = useEditorState({
-    editor,
-    selector: ({ editor: e }) => ({
-      h1: e.isActive('heading', { level: 1 }),
-      h2: e.isActive('heading', { level: 2 }),
-      bold: e.isActive('bold'),
-      italic: e.isActive('italic'),
-      strike: e.isActive('strike'),
-      code: e.isActive('code'),
-      bullet: e.isActive('bulletList'),
-      ordered: e.isActive('orderedList'),
-      quote: e.isActive('blockquote'),
-      block: e.isActive('codeBlock'),
-      under: e.isActive('underline'),
-      check: e.isActive('taskList'),
-      link: e.isActive('link'),
-    }),
-  })
-  const b = (label: string, on: boolean, run: () => void, content: React.ReactNode) => (
-    <button type="button" className={`tb${on ? ' on' : ''}`} aria-label={label} title={label} aria-pressed={on} onMouseDown={(e) => e.preventDefault()} onClick={run}>
-      {content}
-    </button>
-  )
-  const c = () => editor.chain().focus()
-  const [linking, setLinking] = useState(false)
-  return (
-    <div className="note-toolbar" role="toolbar" aria-label="Mise en forme">
-      {linking && (
-        <PromptDialog title="Ajouter un lien" confirm="Ajouter" onClose={() => setLinking(false)}
-          fields={[{ name: 'url', label: 'Adresse', type: 'url', inputMode: 'url', placeholder: 'https://…', required: true }]}
-          onSubmit={(v) => {
-            const raw = v.url.trim()
-            const href = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
-            if (!/^https?:\/\/[^\s.]+\.[^\s]+$/i.test(href)) return 'Adresse invalide'
-            if (editor.state.selection.empty) c().insertContent({ type: 'text', text: raw, marks: [{ type: 'link', attrs: { href } }] }).run()
-            else c().setLink({ href }).run()
-          }} />
-      )}
-      {b('Texte', !s.h1 && !s.h2, () => c().setParagraph().run(), <span>Texte</span>)}
-      {b('Titre', s.h1, () => c().toggleHeading({ level: 1 }).run(), <b>Titre</b>)}
-      {b('Sous-titre', s.h2, () => c().toggleHeading({ level: 2 }).run(), <b>Sous-titre</b>)}
-      <span className="tb-sep" />
-      {b('Gras', s.bold, () => c().toggleBold().run(), <b>Gras</b>)}
-      {b('Italique', s.italic, () => c().toggleItalic().run(), <i>Italique</i>)}
-      {b('Barré', s.strike, () => c().toggleStrike().run(), <s>S</s>)}
-      {b('Souligné', s.under, () => c().toggleUnderline().run(), <u>U</u>)}
-      {b('Lien', s.link, () => { if (s.link) c().unsetLink().run(); else setLinking(true) }, <><Icon name="link" size={15} /> Lien</>)}
-      <span className="tb-sep" />
-      {b('Liste', s.bullet, () => c().toggleBulletList().run(), <span>• Liste</span>)}
-      {b('Liste numérotée', s.ordered, () => c().toggleOrderedList().run(), <span>1. Liste</span>)}
-      {b('Cases à cocher', s.check, () => c().toggleTaskList().run(), <><Icon name="check" size={15} /> À faire</>)}
-      {b('Citation', s.quote, () => c().toggleBlockquote().run(), <span>“ Citation</span>)}
-      {b('Code', s.block || s.code, () => (editor.state.selection.empty ? c().toggleCodeBlock().run() : c().toggleCode().run()), <code>{'</>'} Code</code>)}
-      {b('Séparateur', false, () => c().setHorizontalRule().run(), <span>—</span>)}
-      <span className="tb-sep" />
-      {b('Annuler', false, () => c().undo().run(), <span>↶</span>)}
-      {b('Rétablir', false, () => c().redo().run(), <span>↷</span>)}
-    </div>
-  )
+const ID_PREFIX: Record<NoteKind, string> = { cr: 'CR', daily: 'DLY', spec: 'SPEC', retro: 'RET', cdc: 'CDC', idee: 'IDE', page: 'DOC' }
+const longDate = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+function shortAgo(iso: string) {
+  const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
+  if (min < 1) return "à l'instant"
+  if (min < 60) return `il y a ${min} min`
+  if (min < 48 * 60) return `il y a ${Math.round(min / 60)} h`
+  return `le ${new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`
 }
+
 
 const STATUS_COLOR: Record<TaskStatus, string> = { todo: '#5B6275', doing: '#2F6FD0', review: '#D98A1C', done: 'var(--ok)' }
 
@@ -563,6 +571,19 @@ function toMarkdown(node: { type?: string; text?: string; attrs?: Record<string,
     case 'codeBlock': return '```\n' + kids() + '\n```'
     case 'horizontalRule': return '---'
     case 'hardBreak': return '\n'
+    case 'image': {
+      const src = String(node.attrs?.src ?? '')
+      return src.startsWith('data:') ? '[image]' : `![${String(node.attrs?.alt ?? '')}](${src})`
+    }
+    case 'table': {
+      const rows = ((node.content ?? []) as typeof node[]).map((r) =>
+        ((r.content ?? []) as typeof node[]).map((c) => toMarkdown(c, depth).replace(/\n+/g, ' ').replace(/\|/g, '\\|')),
+      )
+      if (!rows.length) return ''
+      const line = (cells: string[]) => `| ${cells.join(' | ')} |`
+      return [line(rows[0]), line(rows[0].map(() => '---')), ...rows.slice(1).map(line)].join('\n')
+    }
+    case 'tableCell': case 'tableHeader': return kids(' ')
     default: return kids()
   }
 }
@@ -570,36 +591,61 @@ function toMarkdown(node: { type?: string; text?: string; attrs?: Record<string,
 const escapeHtml = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
 
 /** PDF : on imprime le document dans un cadre caché, le système propose « Enregistrer en PDF ». */
-function printPdf(title: string, editor: Ed, project: string) {
+/** PDF : le document est mis en page comme à l'écran (titres Newsreader, parties numérotées) puis imprimé ; le système propose « Enregistrer en PDF ». */
+function printPdf(title: string, editor: Ed, meta: { project: string; kind: string; id: string; by: string }) {
   const name = title.trim() || 'Document'
   const date = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
   const body = editor.getHTML()
+  // Les polices de l'app (Inter, Newsreader) sont reprises dans le cadre d'impression.
+  const fonts = [...document.querySelectorAll('style, link[rel="stylesheet"]')].map((n) => n.outerHTML).join('')
   const frame = document.createElement('iframe')
   frame.setAttribute('aria-hidden', 'true')
   frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0'
   document.body.appendChild(frame)
   const doc = frame.contentDocument!
   doc.open()
-  doc.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${escapeHtml(name)}</title><style>
-    @page { margin: 18mm 16mm; }
-    body { font: 11.5pt/1.6 'Inter Variable', system-ui, sans-serif; color: #14142B; }
-    .doc-head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 3px solid #5546E0; padding-bottom: 6px; margin-bottom: 18px; font-size: 9.5pt; color: #5D6275; }
-    .doc-head b { color: #5546E0; letter-spacing: .02em; }
-    h1 { font-size: 22pt; margin: 0 0 10px; line-height: 1.2; }
-    h2 { font-size: 14pt; margin: 18px 0 6px; color: #5546E0; }
-    h3 { font-size: 12pt; margin: 14px 0 4px; }
-    p { margin: 0 0 8px; }
-    ul, ol { margin: 0 0 8px; padding-left: 22px; }
-    ul[data-type="taskList"] { list-style: none; padding-left: 4px; }
+  doc.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${escapeHtml(name)}</title>${fonts}<style>
+    @page { margin: 20mm 18mm 18mm 18mm; }
+    html, body { background: #fff !important; height: auto !important; overflow: visible !important; }
+    body { margin: 0; font: 10.5pt/1.65 'Inter Variable', system-ui, sans-serif; color: #34343C; counter-reset: part; }
+    .serif, h1, h2, h3, .lede, blockquote { font-family: 'Newsreader Variable', Georgia, serif; }
+    .eyebrow { display: flex; gap: 10px; align-items: center; font-size: 7.5pt; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #6E6E78; }
+    .eyebrow b { color: #4338CA; } .eyebrow i { flex: 1; height: 1px; background: #E2E2E7; } .eyebrow .id { font-family: ui-monospace, Menlo, monospace; letter-spacing: 0; text-transform: none; }
+    h1 { font-size: 28pt; font-weight: 500; line-height: 1.1; color: #111114; margin: 14px 0 0; letter-spacing: -0.01em; }
+    .byline { display: flex; gap: 26px; margin: 16px 0 22px; padding: 8px 0; border-top: 1px solid #111114; border-bottom: 1px solid #E2E2E7; font-size: 8.5pt; color: #111114; }
+    .byline small { display: block; font-size: 6.5pt; letter-spacing: .1em; text-transform: uppercase; color: #6E6E78; font-weight: 600; }
+    main > p:first-child { font-family: 'Newsreader Variable', Georgia, serif; font-size: 13.5pt; line-height: 1.5; color: #111114; }
+    h2 { position: relative; font-size: 15pt; font-weight: 600; color: #111114; margin: 22px 0 8px 0; padding-top: 7px; border-top: 1px solid #E2E2E7; break-after: avoid; }
+    h2::before { counter-increment: part; content: counter(part, decimal-leading-zero) "  "; color: #A0A0AA; font-weight: 500; font-size: 10pt; }
+    h3 { font-size: 12pt; color: #111114; margin: 14px 0 4px; }
+    main > h1 { font-size: 20pt; }
+    p { margin: 0 0 7px; }
+    ul, ol { margin: 0 0 8px; padding-left: 20px; }
+    ol > li::marker { font-family: ui-monospace, Menlo, monospace; color: #4338CA; font-size: 9pt; }
+    ul[data-type="taskList"] { list-style: none; padding-left: 2px; }
     ul[data-type="taskList"] li { display: flex; gap: 8px; }
-    ul[data-type="taskList"] li > label input { accent-color: #5546E0; }
-    ul[data-type="taskList"] li[data-checked="true"] > div { text-decoration: line-through; color: #5D6275; }
-    blockquote { margin: 0 0 8px; padding: 2px 12px; border-left: 3px solid #E3E7F0; color: #5D6275; }
-    pre { background: #F5F6FA; padding: 10px 12px; border-radius: 8px; white-space: pre-wrap; font-size: 10pt; }
+    ul[data-type="taskList"] li > label input { accent-color: #111114; }
+    ul[data-type="taskList"] li[data-checked="true"] > div { text-decoration: line-through; color: #6E6E78; }
+    blockquote { margin: 8px 0; padding-left: 14px; border-left: 2px solid #4338CA; font-style: italic; font-size: 13pt; line-height: 1.45; color: #111114; }
+    table { width: 100%; border-collapse: collapse; margin: 6px 0 12px; font-size: 9.5pt; break-inside: auto; }
+    th, td { text-align: left; vertical-align: top; padding: 6px 10px 6px 0; border-bottom: 1px solid #E2E2E7; }
+    th { font-size: 7pt; letter-spacing: .1em; text-transform: uppercase; color: #6E6E78; border-bottom-color: #111114; font-weight: 600; }
+    th p, td p { margin: 0; }
+    tr { break-inside: avoid; }
+    img { max-width: 100%; border: 1px solid #E2E2E7; margin: 8px 0; break-inside: avoid; }
+    mark { padding: 0 1px; }
+    pre { background: #F6F6F8; padding: 10px 12px; border-radius: 4px; white-space: pre-wrap; font-size: 8.5pt; }
     code { font-family: ui-monospace, Menlo, monospace; }
-    a { color: #5546E0; }
-    hr { border: 0; border-top: 1px solid #E3E7F0; margin: 14px 0; }
-  </style></head><body><div class="doc-head"><b>KOLLAB · ${escapeHtml(project)}</b><span>${date}</span></div>${body.startsWith('<h1') ? '' : `<h1>${escapeHtml(name)}</h1>`}${body}</body></html>`)
+    a { color: #4338CA; }
+    hr { border: 0; border-top: 1px solid #E2E2E7; margin: 14px 0; }
+    .foot { margin-top: 28px; padding-top: 8px; border-top: 1px solid #E2E2E7; display: flex; justify-content: space-between; font-size: 7.5pt; color: #A0A0AA; }
+  </style></head><body>
+    <div class="eyebrow"><b>${escapeHtml(meta.kind)}</b><span>${escapeHtml(meta.project)}</span><i></i><span class="id">${escapeHtml(meta.id)}</span></div>
+    <h1>${escapeHtml(name)}</h1>
+    <div class="byline"><div><small>Exporté le</small>${date}</div>${meta.by ? `<div><small>Rédigé par</small>${escapeHtml(meta.by)}</div>` : ''}</div>
+    <main>${body}</main>
+    <div class="foot"><span>${escapeHtml(meta.project)} · Kollab</span><span>${escapeHtml(meta.id)}</span></div>
+  </body></html>`)
   doc.close()
   let done = false
   const go = () => {
@@ -609,8 +655,9 @@ function printPdf(title: string, editor: Ed, project: string) {
     frame.contentWindow?.print()
     setTimeout(() => frame.remove(), 60_000)
   }
-  frame.onload = go
-  setTimeout(go, 300)
+  // On laisse le temps aux polices de se charger.
+  frame.onload = () => void (doc.fonts?.ready ?? Promise.resolve()).then(() => setTimeout(go, 50))
+  setTimeout(go, 1500)
 }
 
 function download(title: string, editor: Ed) {
